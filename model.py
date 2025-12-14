@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from solver import solver_step
+
 PARAM_SET_1 = {
     'm1': 1.0,      # Mass of link 1 [kg]
     'm2': 1.0,      # Mass of link 2 [kg]
@@ -123,7 +125,7 @@ class DoublePendulumFlexible:
 
         return M, M_inv, C, G, F
 
-    def dynamics(self, x: np.ndarray, u: float = 0.0) -> np.ndarray:
+    def dynamics(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
         q1_dot = x[2]
         q2_dot = x[3]
         q_dot = np.array([
@@ -133,9 +135,10 @@ class DoublePendulumFlexible:
         
         M, M_inv, C, G, F = self.dynamic_model(x)
 
+
         T = np.array([
-                        [u] ,
-                        [0.0]
+                        u,
+                        np.array([0.0])
                     ])
         
         rhs = - F @ q_dot - C @ q_dot - G + T
@@ -146,8 +149,62 @@ class DoublePendulumFlexible:
         x_dot = np.concatenate([q_dot.flatten(), q_ddot.flatten()])
         
         return x_dot    
+    
+    def discrete_jacobian_rk4(self, x: np.ndarray, u: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+        epsilon = 1e-6 
 
-    def jacobian(self, x: np.ndarray, u:float=0.0) -> np.ndarray:
+        # Compute next state
+        x_next_base = solver_step(x, u, dt, method='rk4')
+
+        A_discr = np.zeros((self.ns, self.ni))
+        B_discr = np.zeros((self.ns, self.ni))
+
+        # --- Compute A_discr (Derivative w.r.t. x) ---
+        for j in range(self.ns):
+            x_perturbed = x.copy()
+            x_perturbed[j] += epsilon
+            
+            x_next_perturbed = solver_step(x_perturbed, u, dt, method='rk4')
+            
+            A_discr[:, j] = (x_next_perturbed - x_next_base) / epsilon
+
+        # --- Compute B_discr (Derivative w.r.t. u) ---
+        for j in range(self.ni): 
+            u_perturbed = u.copy()
+            u_perturbed[j] += epsilon
+            
+            x_next_perturbed = solver_step(x, u_perturbed, dt, method='rk4')
+            
+            B_discr[:, j] = (x_next_perturbed - x_next_base) / epsilon
+        
+        return A_discr, B_discr
+    
+    def discrete_jacobian(self, x: np.ndarray, u: np.ndarray, dt: float, method: str = 'fe') -> tuple[np.ndarray, np.ndarray]:
+        if method == 'fe':            
+            A, B = self.jacobian(x, u)
+            
+            A_discr = np.eye(self.ns) + A * dt
+            B_discr = B * dt
+            
+            return A_discr, B_discr
+        
+        elif method == 'rk4':            
+            return self._discrete_jacobian_rk4(x, u, dt)
+            
+        else:
+            raise ValueError(f"Metodo di discretizzazione '{method}' non supportato. Usa 'fe' o 'rk'.")
+
+    def discrete_dynamics(self, x: np.ndarray, u: np.ndarray, dt: float, method: str = 'fe') -> np.ndarray:
+        if method == 'fe':
+            x_dot = self.dynamics(x, u)
+            x_next = x + x_dot * dt
+            return x_next
+        elif method == 'rk4':
+            return solver_step(self, x, u, dt, method='rk4')
+        else:
+            raise ValueError(f"Metodo di discretizzazione '{method}' non supportato. Usa 'fe' o 'rk4'.")
+
+    def jacobian(self, x: np.ndarray, u:np.ndarray) -> np.ndarray:
 
         a11 = np.zeros((2, 2))
         a12 = np.eye(2)
@@ -173,8 +230,8 @@ class DoublePendulumFlexible:
         M, M_inv, C, G, F = self.dynamic_model(x)
 
         T = np.array([
-                        [u] ,
-                        [0.0]
+                        u ,
+                        np.array([0.0])
                     ])
 
         dc_dq_dot = 2*self.l1 * self.lc2 * self.m2 * s2 * np.array([

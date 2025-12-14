@@ -1,0 +1,300 @@
+import numpy as np
+
+def ltv_LQR(AAin, BBin, QQin, RRin, SSin, QQfin, TT, x0, qqin = None, rrin = None, qqfin = None):
+
+  """
+	LQR for LTV system with (time-varying) affine cost
+	
+  Args
+    - AAin (nn x nn (x TT)) matrix
+    - BBin (nn x mm (x TT)) matrix
+    - QQin (nn x nn (x TT)), RR (mm x mm (x TT)), SS (mm x nn (x TT)) stage cost
+    - QQfin (nn x nn) terminal cost
+    - qq (nn x (x TT)) affine terms
+    - rr (mm x (x TT)) affine terms
+    - qqf (nn x (x TT)) affine terms - final cost
+    - TT time horizon
+  Return
+    - KK (mm x nn x TT) optimal gain sequence
+    - PP (nn x nn x TT) riccati matrix
+  """
+	
+  try:
+    # check if matrix is (.. x .. x TT) - 3 dimensional array 
+    ns, lA = AAin.shape[1:]
+  except:
+    # if not 3 dimensional array, make it (.. x .. x 1)
+    AAin = AAin[:,:,None]
+    ns, lA = AAin.shape[1:]
+
+  try:  
+    ni, lB = BBin.shape[1:]
+  except:
+    BBin = BBin[:,:,None]
+    ni, lB = BBin.shape[1:]
+
+  try:
+      nQ, lQ = QQin.shape[1:]
+  except:
+      QQin = QQin[:,:,None]
+      nQ, lQ = QQin.shape[1:]
+
+  try:
+      nR, lR = RRin.shape[1:]
+  except:
+      RRin = RRin[:,:,None]
+      nR, lR = RRin.shape[1:]
+
+  try:
+      nSi, nSs, lS = SSin.shape
+  except:
+      SSin = SSin[:,:,None]
+      nSi, nSs, lS = SSin.shape
+
+  # Check dimensions consistency -- safety
+  if nQ != ns:
+    print("Matrix Q does not match number of states")
+    exit()
+  if nR != ni:
+    print("Matrix R does not match number of inputs")
+    exit()
+  if nSs != ns:
+    print("Matrix S does not match number of states")
+    exit()
+  if nSi != ni:
+    print("Matrix S does not match number of inputs")
+    exit()
+
+
+  if lA < TT:
+    AAin = AAin.repeat(TT, axis=2)
+  if lB < TT:
+    BBin = BBin.repeat(TT, axis=2)
+  if lQ < TT:
+    QQin = QQin.repeat(TT, axis=2)
+  if lR < TT:
+    RRin = RRin.repeat(TT, axis=2)
+  if lS < TT:
+    SSin = SSin.repeat(TT, axis=2)
+
+  # Check for affine terms
+
+  augmented = False
+
+  if qqin is not None or rrin is not None or qqfin is not None:
+    augmented = True
+    print("Augmented term!")
+
+  KK = np.zeros((ni, ns, TT))
+  sigma = np.zeros((ni, TT))
+  PP = np.zeros((ns, ns, TT))
+  pp = np.zeros((ns, TT))
+
+  QQ = QQin
+  RR = RRin
+  SS = SSin
+  QQf = QQfin
+  
+  qq = qqin
+  rr = rrin
+
+  qqf = qqfin
+
+  AA = AAin
+  BB = BBin
+
+  xx = np.zeros((ns, TT))
+  uu = np.zeros((ni, TT))
+
+  xx[:,0] = x0
+  
+  PP[:,:,-1] = QQf
+  pp[:,-1] = qqf
+  
+  # Solve Riccati equation
+  for tt in reversed(range(TT-1)):
+    QQt = QQ[:,:,tt]
+    qqt = qq[:,tt][:,None]
+    RRt = RR[:,:,tt]
+    rrt = rr[:,tt][:,None]
+    AAt = AA[:,:,tt]
+    BBt = BB[:,:,tt]
+    SSt = SS[:,:,tt]
+    PPtp = PP[:,:,tt+1]
+    pptp = pp[:, tt+1][:,None]
+
+    MMt_inv = np.linalg.inv(RRt + BBt.T @ PPtp @ BBt)
+    mmt = rrt + BBt.T @ pptp
+    
+    PPt = AAt.T @ PPtp @ AAt - (BBt.T@PPtp@AAt + SSt).T @ MMt_inv @ (BBt.T@PPtp@AAt + SSt) + QQt
+    ppt = AAt.T @ pptp - (BBt.T@PPtp@AAt + SSt).T @ MMt_inv @ mmt + qqt
+
+    PP[:,:,tt] = PPt
+    pp[:,tt] = ppt.squeeze()
+
+
+  # Evaluate KK
+  
+  for tt in range(TT-1):
+    QQt = QQ[:,:,tt]
+    qqt = qq[:,tt][:,None]
+    RRt = RR[:,:,tt]
+    rrt = rr[:,tt][:,None]
+    AAt = AA[:,:,tt]
+    BBt = BB[:,:,tt]
+    SSt = SS[:,:,tt]
+
+    PPtp = PP[:,:,tt+1]
+    pptp = pp[:,tt+1][:,None]
+
+    # Check positive definiteness
+
+    MMt_inv = np.linalg.inv(RRt + BBt.T @ PPtp @ BBt)
+    mmt = rrt + BBt.T @ pptp
+
+    # for other purposes we could add a regularization step here...
+
+    KK[:,:,tt] = -MMt_inv@(BBt.T@PPtp@AAt + SSt)
+    sigma_t = -MMt_inv@mmt
+
+    sigma[:,tt] = sigma_t.squeeze()
+
+  for tt in range(TT - 1):
+    # Trajectory
+
+    uu[:, tt] = KK[:,:,tt]@xx[:, tt] + sigma[:,tt]
+    xx_p = AA[:,:,tt]@xx[:,tt] + BB[:,:,tt]@uu[:, tt]
+
+    xx[:,tt+1] = xx_p
+
+    xxout = xx
+    uuout = uu
+
+  return KK, sigma, PP, xxout, uuout
+    
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+import control
+
+# Allow Ctrl-C to work despite plotting
+import signal
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+plt.rcParams["figure.figsize"] = (10,8)
+plt.rcParams.update({'font.size': 22})
+
+
+ns = 2
+ni = 1
+
+# Time discretization parameters
+dt = 0.001  # time step (seconds)
+T_horizon = 5.0  # time horizon (seconds)
+TT = int(T_horizon / dt)
+
+# System dynamics - double integrator (discrete-time with dt)
+# Continuous-time: ẍ = u  =>  d/dt[x; ẋ] = [0, 1; 0, 0][x; ẋ] + [0; 1]u
+# Discretized with Euler method (dt step):
+# x_{k+1} = x_k + ẋ_k * dt + 0.5 * u_k * dt^2
+# ẋ_{k+1} = ẋ_k + u_k * dt
+
+AA = np.array([[1, dt], [0, 1]])
+BB = np.array([[0.5 * dt**2], [dt]])
+
+##############################
+# Reference signal
+##############################
+
+xx_ref = np.zeros((ns, TT))
+
+# Step reference signal - for first state only
+T_mid = int((TT/2))
+
+for tt in range(TT):
+  if tt < T_mid:
+    xx_ref[0, tt] = 0
+  else:
+    xx_ref[0, tt] = 10
+
+
+##############################
+# Cost 
+##############################
+
+QQ = np.array([[10, 0], [0, 1]])
+
+QQ_f = control.dare(AA, BB, QQ, np.eye(ni))[0]
+
+r = 0.5
+RR = r*np.eye(ni)
+SS = np.zeros((ni,ns))
+
+# Affine terms (for tracking)
+
+qq = np.zeros((ns,TT))
+rr = np.zeros((ni,TT))
+
+for tt in range(TT):
+    qq_temp = -QQ@xx_ref[:,tt]
+    qq[:,tt] = qq_temp.squeeze()
+
+qqf =  -QQ_f@xx_ref[:,-1]
+
+##############################
+# Solver 
+##############################
+
+# initial condition
+x0 = np.array([0, 0])
+
+KK,sigma = ltv_LQR(AA,BB,QQ,RR,SS,QQ_f, TT, x0, qq, rr, qqf)[:2]
+
+xx = np.zeros((ns, TT))
+uu = np.zeros((ni, TT))
+
+for tt in range(TT-1): 
+  #
+  # Trajectory
+  #
+  uu[:, tt] = KK[:,:,tt]@xx[:, tt] + sigma[:,tt]
+  xx_p = AA@xx[:,tt] + BB@uu[:, tt]
+  #
+  xx[:,tt+1] = xx_p
+  #
+
+#######################################
+# Improved plots (more readable)
+#######################################
+
+tt_hor = np.arange(TT)
+
+fig, axs = plt.subplots(ns + ni, 1, sharex=True, figsize=(10, 8), constrained_layout=True)
+
+# Plot states with reference
+for i in range(ns):
+  ax = axs[i]
+  ax.plot(tt_hor, xx_ref[i, :], linestyle='--', color='C1', linewidth=2, label='reference')
+  ax.plot(tt_hor, xx[i, :], color='C0', linewidth=2, label=f'state x{i+1}')
+  ax.grid(True,  alpha=0.6)
+  ax.set_ylabel(f'x{i+1}', fontsize=14)
+  ax.legend(loc='upper left', fontsize=12)
+  ax.minorticks_on()
+  ax.tick_params(labelsize=12)
+
+# Plot control with step style
+ax_u = axs[ns]
+ax_u.step(tt_hor, uu[0, :], where='post', color='C2', linewidth=2, label='control u')
+ax_u.axhline(0, color='k', linewidth=0.8, alpha=0.6)
+ax_u.grid(True,  alpha=0.6)
+ax_u.set_ylabel('u', fontsize=14)
+ax_u.set_xlabel('time', fontsize=14)
+ax_u.legend(loc='upper left', fontsize=12)
+ax_u.minorticks_on()
+ax_u.tick_params(labelsize=12)
+
+# Final touches
+fig.suptitle('Finite-time LQR — Tracking', fontsize=16, y=0.995)
+plt.xlim(0, TT-1)
+plt.show()
