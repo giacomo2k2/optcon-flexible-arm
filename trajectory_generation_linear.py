@@ -79,8 +79,8 @@ def select_stepsize(model, stepsize_0, armijo_maxiters, c, beta, deltau, x_ref, 
 
     stepsize = stepsize_0
 
-    ns = 4
-    ni = 1
+    ns = model.ns
+    ni = model.ni
 
 
 
@@ -112,22 +112,22 @@ def select_stepsize(model, stepsize_0, armijo_maxiters, c, beta, deltau, x_ref, 
         stepsizes.append(stepsize)      # save the stepsize
         costs_armijo.append(J_temp)    # save the cost associated to the stepsize
 
+        #TODO: fix armijo codition, probabbly missing the cost gradient
         if J_temp > J + c * stepsize * descent_arm:
-                # update the stepsize
-                stepsize = beta*stepsize
+            # update the stepsize
+            stepsize = beta*stepsize
 
         else:
             print('Armijo stepsize = {:.3e}'.format(stepsize))
             break
         
         if i == armijo_maxiters -1:
-                print("WARNING: no stepsize was found with armijo rule!")
+            print("WARNING: no stepsize was found with armijo rule!")
 
     return stepsize
 
 
 
-# TODO: sistemare trasposti
 def stagecost(x, u, x_ref, u_ref, Qt=np.eye(4), Rt=np.eye(1)):
     # Assuming inputs are 1D arrays (ns,) and (ni,)
     dx = x - x_ref
@@ -164,14 +164,14 @@ def main():
     term_cond = 1e-6
     max_iters = 200
     
-    params = PARAM_SET_2
-    model = DoublePendulumFlexible(**params)
+    model = DoublePendulumFlexible(**PARAM_SET_2)
     
     ns = model.ns 
     ni = model.ni 
 
 
     Qt = np.diag([10.0, 10.0, 1.0, 1.0])
+    QT = 100.0*np.diag([10.0, 10.0, 1.0, 1.0])
     Rt = 0.01*np.eye(ni)
 
     ######################################
@@ -198,7 +198,6 @@ def main():
     u_setpoints = []
 
     for i in range(x_setpoints.shape[0]):
-        
         u_setpoints.append(model.equilibrium_input(x_eq[i,:]))
     
     
@@ -210,7 +209,7 @@ def main():
 
     steps = time.shape[0]
     
-    #plot_trajectory(time, x_ref, u_ref, method)
+    # plot_trajectory(time, x_ref, u_ref, method)
     
     x0 = x_ref[0,:]
 
@@ -254,14 +253,15 @@ def main():
     for t in range(steps-1):
         x_traj[0, t+1, :] = solver_step(model, x_traj[0, t, :], dt, u_traj[0, t, :], 'fe')
     
+    # Loop over iteration k
     for iter in range(max_iters-1):
         
-        # calculate cost
+        # Compute cost at current iteration k
         for t in range(steps-1):
             temp_cost = stagecost(x_traj[iter, t, :], u_traj[iter, t, :], x_ref[t, :], u_ref[t, :], Qt, Rt)[0]
             J[iter] += temp_cost
         
-        temp_cost = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], Qt)[0]
+        temp_cost = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], QT)[0]
         J[iter] += temp_cost
 
         
@@ -270,12 +270,13 @@ def main():
         # Descent direction calculation
         ##################################
 
-        lmbd_temp = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], Qt)[1]
+        # Final costate condition
+        lmbd_temp = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], QT)[1]
         lmbd[iter, steps-1, :] = lmbd_temp.squeeze()
 
         
-
-        for t in reversed(range(steps-1)):  # integration backward in time
+        # Backward integration of costate equation
+        for t in reversed(range(steps-1)):
 
             qt, rt = stagecost(x_traj[iter,t, :], u_traj[iter,t, :], x_ref[t, :], u_ref[t, :], Qt, Rt)[1:]
             

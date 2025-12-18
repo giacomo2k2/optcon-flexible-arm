@@ -52,7 +52,41 @@ PARAM_SET_3 = {
 
 
 class DoublePendulumFlexible:
-    def __init__(self, m1, m2, l1, l2, lc1, lc2, I1, I2, g, f1, f2, k):
+    """
+    Class representing a flexible double pendulum system.
+    """
+    def __init__(self, m1:float, m2:float, l1:float, l2:float, lc1:float, lc2:float,
+                  I1:float, I2:float, g:float, f1:float, f2:float, k:float) -> None:
+        """
+        Create a Double Pendulum system.
+
+        Parameters
+        ----------
+        m1 : float
+            Mass of link 1 [kg]
+        m2 : float
+            Mass of link 2 [kg]
+        l1 : float
+            Length of link 1 [m]
+        l2 : float
+            Length of link 2 [m]
+        lc1 : float
+            Center of mass of link 1 [m]
+        lc2 : float
+            Center of mass of link 2 [m]
+        I1 : float
+            Inertia of link 1 [kg*m^2]
+        I2 : float
+            Inertia of link 2 [kg*m^2]
+        g : float
+            Gravity acceleration [m/s^2]
+        f1 : float
+            Friction coefficient link 1 [N*m*s/rad]
+        f2 : float
+            Friction coefficient link 2 [N*m*s/rad]
+        k : float
+            Flexibility coefficient [N*m/rad]
+        """
         self.m1 = m1
         self.m2 = m2
         self.l1 = l1
@@ -70,13 +104,43 @@ class DoublePendulumFlexible:
         self.ni = 1 # Input dimension
 
     def random_init(self) -> np.ndarray:
+        """
+        Generate a random initial state for the double pendulum.
+
+        Returns
+        -------
+            q_init : np.ndarray
+                     Random initial state [q1, q2, q1_dot, q2_dot]
+        """
         q1 = np.random.uniform(-np.pi, np.pi)
         q2 = np.random.uniform(-np.pi, np.pi)
         q1_dot = np.random.uniform(-1.0, 1.0)
         q2_dot = np.random.uniform(-1.0, 1.0)
         return np.array([q1, q2, q1_dot, q2_dot])
 
-    def dynamic_model(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def dynamic_model(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Compute the dynamic model of the Double Pendulum.
+        
+        Parameters
+        ----------
+        x : np.ndarray
+            State vector [q1, q2, q1_dot, q2_dot].
+
+        Returns
+        -------
+
+        M : np.ndarray
+            Mass matrix.
+        M_inv : np.ndarray
+            Inverse of the mass matrix.
+        C : np.ndarray
+            Coriolis and centrifugal matrix.
+        G : np.ndarray
+            Gravity vector.
+        F : np.ndarray
+            Friction matrix.
+        """
         # State variables
         q1 = x[0]
         q2 = x[1]
@@ -92,7 +156,7 @@ class DoublePendulumFlexible:
         c12 = np.cos(q1+q2)
         s12 = np.sin(q1+q2)
 
-        # Mass matrix
+        # Inertia matrix
         M = np.array([
                             [self.I1 + self.I2 + self.lc1**2 * self.m1 + self.m2 * (self.l1**2 + 2 * self.l1 * self.lc2 * c2 + self.lc2**2), self.I2 + self.lc2 * self.m2 * (self.l1 * c2 + self.lc2)],
                             [self.I2 + self.lc2 * self.m2 * (self.l1 * c2 + self.lc2), self.I2 + self.m2 * self.lc2 ** 2]
@@ -121,28 +185,50 @@ class DoublePendulumFlexible:
                             [0.0, self.f2]
                         ])
         
+        # Intertia Matrix inverse
         M_inv = np.linalg.inv(M)
 
         return M, M_inv, C, G, F
 
     def dynamics(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
+        """
+        Compute the continuous-time dynamics of the Double Pendulum.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            State vector [q1, q2, q1_dot, q2_dot].
+        u : np.ndarray
+            Input vector.
+
+        Returns
+        -------
+        x_dot : np.ndarray
+            Time derivative of the state vector.
+        """
+        # Angular velocities, scalars
         q1_dot = x[2]
         q2_dot = x[3]
+
+        # Angular velocity vector
         q_dot = np.array([
                             [q1_dot],
                             [q2_dot]
                          ])
         
+        # Extract dynamic model matrices
         M, M_inv, C, G, F = self.dynamic_model(x)
 
-
+        # Input Torque vector
         T = np.array([
                         u,
                         np.array([0.0])
                     ])
         
+        # Right-hand side of the dynamics equation
         rhs = - F @ q_dot - C @ q_dot - G + T
         
+        # Angular accelerations
         q_ddot = M_inv @ rhs
 
         # State at next time step
@@ -150,13 +236,33 @@ class DoublePendulumFlexible:
         
         return x_dot    
     
-    def discrete_jacobian_rk4(self, x: np.ndarray, u: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+    def _discrete_jacobian_rk4(self, x: np.ndarray, u: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the discrete-time Jacobian matrices A and B using RK4 integration.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Current state vector.
+        u : np.ndarray
+            Current input vector.
+        dt : float
+            Time step for discretization.
+        
+        Returns
+        -------
+        A_discr : np.ndarray
+            Discrete-time state Jacobian matrix.
+        B_discr : np.ndarray
+            Discrete-time input Jacobian matrix.
+        """
         epsilon = 1e-6 
 
         # Compute next state
         x_next_base = solver_step(x, u, dt, method='rk4')
 
-        A_discr = np.zeros((self.ns, self.ni))
+        # Initialize A_discr and B_discr
+        A_discr = np.zeros((self.ns, self.ns))
         B_discr = np.zeros((self.ns, self.ni))
 
         # --- Compute A_discr (Derivative w.r.t. x) ---
@@ -180,6 +286,27 @@ class DoublePendulumFlexible:
         return A_discr, B_discr
     
     def discrete_jacobian(self, x: np.ndarray, u: np.ndarray, dt: float, method: str = 'fe') -> tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the discrete-time Jacobian matrices A and B.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Current state vector.
+        u : np.ndarray
+            Current input vector.
+        dt : float
+            Time step for discretization.
+        method : str, optional
+            Discretization method ('fe' for Forward Euler, 'rk4' for Runge-Kutta 4), by default 'fe'.
+        
+        Returns
+        -------
+        A_discr : np.ndarray
+            Discrete-time state Jacobian matrix.
+        B_discr : np.ndarray
+            Discrete-time input Jacobian matrix.
+        """
         if method == 'fe':            
             A, B = self.jacobian(x, u)
             
@@ -192,9 +319,28 @@ class DoublePendulumFlexible:
             return self._discrete_jacobian_rk4(x, u, dt)
             
         else:
-            raise ValueError(f"Metodo di discretizzazione '{method}' non supportato. Usa 'fe' o 'rk'.")
+            raise ValueError(f"Discretization method '{method}' not supported. Use 'fe' or 'rk4'.")
 
     def discrete_dynamics(self, x: np.ndarray, u: np.ndarray, dt: float, method: str = 'fe') -> np.ndarray:
+        """
+        Compute the discrete-time dynamics of the Double Pendulum.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Current state vector.
+        u : np.ndarray
+            Current input vector.
+        dt : float
+            Time step for discretization.
+        method : str, optional
+            Discretization method ('fe', 'rk4'), by default 'fe'.
+
+        Returns
+        -------
+        x_next : np.ndarray
+            State vector at the next time step.
+        """
         if method == 'fe':
             x_dot = self.dynamics(x, u)
             x_next = x + x_dot * dt
@@ -202,10 +348,26 @@ class DoublePendulumFlexible:
         elif method == 'rk4':
             return solver_step(self, x, u, dt, method='rk4')
         else:
-            raise ValueError(f"Metodo di discretizzazione '{method}' non supportato. Usa 'fe' o 'rk4'.")
+            raise ValueError(f"Discretization method '{method}' not supported. Use 'fe' or 'rk4'.")
 
-    def jacobian(self, x: np.ndarray, u:np.ndarray) -> np.ndarray:
+    def jacobian(self, x: np.ndarray, u:np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the continuous-time Jacobian matrices A, B analytically.
 
+        Parameters
+        ----------
+        x : np.ndarray
+            Current state vector.
+        u : np.ndarray
+            Current input vector.
+        
+        Returns
+        -------
+        A : np.ndarray
+            Continuous-time state Jacobian matrix.
+        B : np.ndarray
+            Continuous-time input Jacobian matrix.
+        """
         a11 = np.zeros((2, 2))
         a12 = np.eye(2)
 
@@ -295,16 +457,39 @@ class DoublePendulumFlexible:
 
         return A, B
     
-    
     def equilibrium_input(self, x_eq: np.ndarray) -> float:
+        """
+        Compute the equilibrium input torque for a given equilibrium state.
+
+        Parameters
+        ----------
+        x_eq : np.ndarray
+            Equilibrium state vector.
+        
+        Returns
+        -------
+        u_eq : float
+            Equilibrium input torque.
+        """
         G = self.dynamic_model(x_eq)[3]
 
+        # The equilibrium input only needs to balance gravity
         u_eq = G[0]
 
         return u_eq
 
 
-    def animation(self, x: np.ndarray   , ax: plt.Axes) -> None:
+    def animation(self, x: np.ndarray, ax: plt.Axes) -> None:
+        """
+        Create an animation frame for the double pendulum at state x.
+        
+        Parameters
+        ----------
+        x : np.ndarray
+            State vector [q1, q2, q1_dot, q2_dot].
+        ax : plt.Axes
+            Matplotlib Axes to draw on.
+        """
         # Extract joints position
         q1 = x[0]
         q2 = x[1]

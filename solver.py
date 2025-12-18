@@ -1,8 +1,30 @@
 import numpy as np
 
-def solver(model, x0:np.ndarray, dt:float, steps:int, u:float=0.0, method: str = 'fe') -> np.ndarray:
-    
+def solver(model: object, x0:np.ndarray, dt:float, steps:int, u:float=0.0, method: str = 'fe') -> np.ndarray:
+    """
+    Solves the system dynamics for a given number of steps.
 
+    Parameters
+    ----------
+    model : object
+        Dynamic model with a 'dynamics' method.
+    x0 : np.ndarray
+        Initial state vector.
+    dt : float
+        Time step for the simulation.
+    steps : int
+        Number of time steps to simulate.
+    u : float, optional
+        Control input (default is 0.0).
+    method : str, optional
+        Integration method: ('fe', 'rk4'), default is 'fe'.
+
+    Returns
+    -------
+    x_traj : np.ndarray
+        States trajectory over the simulation time.
+    """
+    # Initialize trajectory array
     x_traj = np.zeros((steps, len(x0)))
 
     # Initial states
@@ -14,8 +36,28 @@ def solver(model, x0:np.ndarray, dt:float, steps:int, u:float=0.0, method: str =
 
     return x_traj
 
-def solver_step(model, x:np.ndarray, dt: float, u: float=0.0, method: str = 'fe') -> np.ndarray:
-    # Solve one time step using the specified method
+def solver_step(model: object, x:np.ndarray, dt: float, u: float=0.0, method: str = 'fe') -> np.ndarray:
+    """
+    Solves one time step of the system dynamics.
+
+    Parameters
+    ----------
+    model : object
+        Dynamic model with a 'dynamics' method.
+    x : np.ndarray
+        State vector.
+    dt : float
+        Time step for the simulation.
+    u : float, optional
+        Control input (default is 0.0).
+    method : str, optional
+        Integration method: ('fe', 'rk4'), default is 'fe'.
+
+    Returns
+    -------
+    x_new : np.ndarray
+        New state vector after one time step.
+    """
     if method == 'rk4':
         k1 = model.dynamics(x, u)
         k2= model.dynamics(x + dt * k1 / 2, u)
@@ -23,7 +65,6 @@ def solver_step(model, x:np.ndarray, dt: float, u: float=0.0, method: str = 'fe'
         k4= model.dynamics(x + dt * k3, u)
 
         new_states = x + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
-
     elif method == 'fe':
         new_states = x + dt * model.dynamics(x, u)
     else:

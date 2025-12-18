@@ -8,7 +8,16 @@ plt.rcParams['font.family'] = 'serif'
 
 # TODO: consider flexible arm
 
-def animate(model, x_traj: np.ndarray, dt: float, target_fps = 30):
+def animate(model: object, x_traj: np.ndarray, dt: float, target_fps: int = 30) -> None:
+    """
+    Helper function to animate the model along a given trajectory in real-time.
+    
+    Args:
+        model (object): The model to animate.
+        x_traj (np.ndarray): States trajectory to follow.
+        dt (float): Time step.
+        target_fps (int, optional): Target frames per second for rendering. Defaults to 30.
+    """
     fig, ax = plt.subplots()
     plt.ion()
     plt.show()

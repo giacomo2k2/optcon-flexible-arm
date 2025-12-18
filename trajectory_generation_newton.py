@@ -11,6 +11,10 @@ from animation import animate
 
 import control
 
+# Q1: corrispondenza fisica del dv1, dv2
+# Q2: can we use the hand computed jacobians?
+# Q3: regularization strategies for LQR
+
 # Allow Ctrl-C to work despite plotting
 import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -72,21 +76,26 @@ def trajectory_generator(
     return t, traj
 
 
-def select_stepsize(model, stepsize_0, armijo_maxiters, c, beta, 
-                    x_ref, u_ref, x0, dt, 
-                    x_traj, u_traj, J_old, descent_slope, 
-                    Qt, Rt, K, sigma, q, r, qT):
+def select_stepsize(model, stepsize_0, armijo_maxiters, c, beta,
+                    x_ref, u_ref, x0, dt,
+                    xk, uk, dV1, dV2, Q, R, QT, K_vec, sigma_vec):
+    
     
     alpha = stepsize_0
-    steps = x_traj.shape[0]
-    ns = x_traj.shape[1]
-    ni = u_traj.shape[1]
+    steps = xk.shape[0]
+    ns = xk.shape[1]
+    ni = uk.shape[1]
     
-    # Check if descent slope is valid (should be negative for descent)
-    if descent_slope >= 0:
-        print(f"Warning: Descent slope is positive ({descent_slope:.3e}). Check gradients.")
-        return 0.0, x_traj, u_traj, J_old
+    J_old = 0.0
+
+    for t in range(steps-1):
+        temp_cost = stagecost(xk[t, :], uk[t, :], x_ref[t, :], u_ref[t, :], Q, R)[0]
+        J_old += temp_cost
     
+    temp_cost = termcost(xk[-1, :], x_ref[-1, :], QT)[0]
+    J_old += temp_cost
+
+ 
     # Armijo backtracking line search
     for i in range(armijo_maxiters):
         x_cand = np.zeros((steps, ns))
@@ -94,229 +103,132 @@ def select_stepsize(model, stepsize_0, armijo_maxiters, c, beta,
         x_cand[0, :] = x0
         J_cand = 0
         
-        feasible = True
+        
         
         for t in range(steps-1):
-            # --- CRITICAL FIX: Closed-Loop Update ---
-            # We calculate deviation from the *nominal* trajectory (x_traj)
-            # to the *current candidate* trajectory (x_cand)
-            dx = x_cand[t, :] - x_traj[t, :]
-            
-            # Apply feedforward (scaled by alpha) + feedback (stabilization)
-            u_cand[t, :] = u_traj[t, :] + alpha * sigma[t, :] + K[t, :, :] @ dx
+            dx = x_cand[t, :] - xk[t, :]
+            u_cand[t, :] = uk[t, :] + alpha * sigma_vec[t, :] + K_vec[t, :, :] @ dx
             
             # Forward Integrate
             x_cand[t+1, :] = solver_step(model, x_cand[t, :], dt, u_cand[t, :], 'fe')
             
-            # Accumulate Cost
-            dx = x_cand[t] - x_ref[t]
-            du = u_cand[t] - u_ref[t]
-            J_cand += 0.5 * dx @ Qt @ dx + 0.5 * du @ Rt @ du + q[t, :] @ dx + r[t, :] @ du
+        for t in range(steps-1):
+            J_cand += stagecost(x_cand[t, :], u_cand[t, :], x_ref[t, :], u_ref[t, :], Q, R)[0]
             
-            # Safety check: if cost explodes, stop this alpha early
-            if J_cand > 5 * J_old: 
-                feasible = False
-                break
+        J_cand += termcost(x_cand[-1, :], x_ref[-1, :], QT)[0]
         
-        if feasible:
-            dxT = x_cand[-1, :] - x_ref[-1, :]
-            J_cand += 0.5 * dxT @ Qt @ dxT + qT @ dxT
-            
-            # --- ARMIJO CONDITION ---
-            # Check if actual improvement is at least a fraction (c) of expected improvement
-            expected_decrease = c * alpha * descent_slope
-            
-            if J_cand <= J_old + expected_decrease:
-                print(f'Armijo stepsize = {alpha:.3e} | Cost: {J_old:.4e} -> {J_cand:.4e}')
-                return alpha, x_cand, u_cand, J_cand
         
+        dJ_cand = alpha * dV1 + 0.5*(alpha **2) * dV2
+        
+        if J_cand <= J_old + c * dJ_cand:
+            print(f'Armijo stepsize = {alpha:.3e} | Cost: {J_old:.4e} -> {J_cand:.4e}')
+            return alpha, x_cand, u_cand, J_cand
+    
         # If we are here, the step failed; reduce alpha and retry
         alpha *= beta
         
     print("WARNING: Armijo failed to find a step. Returning small step.")
-    return 0.0, x_traj, u_traj, J_old
+    return 0.0, xk, uk, J_old
 
 
 
-def ltv_LQR(Ain, Bin, Qin, Rin, Sin, Qfin, T, x0, qin = None, rin = None, qfin = None):
+def ltv_LQR(Ain, Bin, xk, uk, x_ref, u_ref, Qt, Rt, QT, reg=1e-6):
 
-	
-    try:
-        # check if matrix is (.. x .. x TT) - 3 dimensional array 
-        lA, ns, _ = Ain.shape
-    except:
-        # if not 3 dimensional array, make it (.. x .. x 1)
-        Ain = Ain[None, :,:]
-        lA, ns, _ = Ain.shape
+    steps, ns = xk.shape
+    ni = uk.shape[1]
 
-    try:  
-        lB, _, ni= Bin.shape
-    except:
-        Bin = Bin[None,:,:]
-        lB, _, ni = Bin.shape
-
-    try:
-        lQ, nQ, _ = Qin.shape
-    except:
-        Qin = Qin[None,:,:]
-        lQ, nQ, _ = Qin.shape
-
-    try:
-        lR, nR, _ = Rin.shape
-    except:
-        Rin = Rin[None,:,:]
-        lR, nR, _ = Rin.shape
-
-    try:
-        lS, nSi, nSs,  = Sin.shape
-    except:
-        Sin = Sin[None,:,:]
-        lS, nSi, nSs  = Sin.shape
-
-    # Check dimensions consistency -- safety
-    if nQ != ns:
-        print("Matrix Q does not match number of states")
-        exit()
-    if nR != ni:
-        print("Matrix R does not match number of inputs")
-        exit()
-    if nSs != ns:
-        print("Matrix S does not match number of states")
-        exit()
-    if nSi != ni:
-        print("Matrix S does not match number of inputs")
-        exit()
-
-
-    if lA < T:
-        Ain = Ain.repeat(T, axis=0)
-    if lB < T:
-        Bin = Bin.repeat(T, axis=0)
-    if lQ < T:
-        Qin = Qin.repeat(T, axis=0)
-    if lR < T:
-        Rin = Rin.repeat(T, axis=0)
-    if lS < T:
-        Sin = Sin.repeat(T, axis=0)
-
-    # Check for affine terms
-
-    augmented = False
-
-    if Qin is not None or Rin is not None or Qfin is not None:
-        augmented = True
-        print("Augmented term!")
-
-    K = np.zeros((T, ni, ns))
-    sigma = np.zeros((T, ni))
-    P = np.zeros((T, ns, ns))
-    p = np.zeros((T, ns))
-
-    Q = Qin
-    R = Rin
-    S = Sin
-    QT = Qfin
+    sigma_vec = np.zeros((steps-1, ni))
+    K_vec = np.zeros((steps-1, ni, ns))
     
-    q = qin
-    r = rin
+    p_vec = np.zeros((steps, ns))
+    P_vec = np.zeros((steps, ns, ns))
 
-    qT = qfin
+    p_vec[-1, :], P_vec[-1, :, :] = termcost(xk[-1, :], x_ref[-1, :], QT)[1:]
 
-    A = Ain
-    B = Bin
+    dV1 = 0.0
+    dV2 = 0.0
 
-    x = np.zeros((T, ns))
-    u = np.zeros((T, ni))
+    Iu = np.eye(ni)
 
-    
-    x[0,:] = x0
-    
-    P[-1,:,:] = QT
-    p[-1,:] = qT
-
-    delta_V = 0.0
     
     # Solve Riccati equation
-    for t in reversed(range(T-1)):
-        Qt = Q[t, :, :]
-        qt = q[t, :][:,None]
-        Rt = R[t, :, :]
-        rt = r[t, :][:,None]
-        At = A[t, :, :]
-        Bt = B[t, :, :]
-        St = S[t,:,:]
-        Ptp = P[t+1,:,:]
-        ptp = p[t+1, :][:,None]
+    for t in reversed(range(steps-1)):
+        xt = xk[t, :][:,None]
+        ut = uk[t, :][:,None]
+        xrt = x_ref[t, :][:,None]
+        urt = u_ref[t, :][:,None]
+        At = Ain[t, :, :]
+        Bt = Bin[t, :, :]
+ 
+        q, r, Q, R = stagecost(xt, ut, xrt, urt, Qt, Rt)[1:5]
+        S = np.zeros((ni, ns))
 
-        Mt_inv = np.linalg.inv(Rt + Bt.T @ Ptp @ Bt)
-        mt = rt + Bt.T @ ptp
+        Ptp = P_vec[t+1]
+        ptp = p_vec[t+1]
+
         
-        Pt = At.T @ Ptp @ At - (Bt.T @ Ptp @ At + St).T @ Mt_inv @ (Bt.T @ Ptp @ At + St) + Qt
-        pt = At.T @ ptp - (Bt.T @ Ptp @ At + St).T @ Mt_inv @ mt + qt
+        # P derivatives calculated "on the fly"
+        P_x = q.squeeze() + At.T @ ptp
+        P_u = r.squeeze() + Bt.T @ ptp
+        P_xx = Q + At.T @ Ptp @ At
+        P_ux = S + Bt.T @ Ptp @ At
+        P_uu = R + Bt.T @ Ptp @ Bt 
 
-        P[t,:,:] = Pt
-        p[t,:] = pt.squeeze()   
+        
 
+        P_uu_reg = P_uu + reg * Iu
+        
+        K = -np.linalg.solve(P_uu_reg, P_ux)
+        sigma = -np.linalg.solve(P_uu_reg, P_u) # if ct!=0 there is a "+ B.t @ Pt+1 @ ct"
 
-    # Evaluate KK
+        K_vec[t] = K
+        sigma_vec[t] = sigma
+
+        dV1_t = float(P_u @ sigma)
+        dV2_t = 0.5*float(sigma.T @ P_uu @ sigma)
+
+        dV1 += dV1_t
+        dV2 += dV2_t
+
+        
     
-    for t in range(T-1):
-        Qt = Q[t,:,:]
-        qt = q[t,:][:,None]
-        Rt = R[t,:,:]
-        rt = r[t,:][:,None]
-        At = A[t,:,:]
-        Bt = B[t,:,:]
-        St = S[t,:,:]
+        pt = P_x - K.T @ P_uu @ sigma  #TODO che significa la aggiunta di K.T @ Q_u + Q_ux.T @ k
+        Pt = P_xx - K.T @ P_uu @ K
 
-        Ptp = P[t+1,:,:]
-        ptp = p[t+1,:][:,None]
+        # pt = P_x + K.T @ P_uu @ sigma + K.T @ P_u + P_ux.T @ sigma
+        # Pt = P_xx + K.T @ P_uu @ K + K.T @ P_ux + P_ux.T @ K
+        
 
-        # Check positive definiteness
+        P_vec[t, :, :] = Pt
+        p_vec[t, :] = pt.squeeze()
 
-        Mt_inv = np.linalg.inv(Rt + Bt.T @ Ptp @ Bt)
-        mt = rt + Bt.T @ ptp
+        # symmetrize
+        P_vec[t, :, :] = 0.5 * (P_vec[t, :, :] + P_vec[t, :, :].T)
 
-        # for other purposes we could add a regularization step here...
 
-        K[t,:,:] = -Mt_inv@(Bt.T@Ptp@At + St)
-        sigma_t = -Mt_inv@mt
-
-        sigma[t,:] = sigma_t.squeeze()
-
-        delta_V += (sigma[t, :].T @ mt).item()
-
-    for t in range(T - 1):
-        # Trajectory
-
-        u[t, :] = K[t,:,:]@x[t, :] + sigma[t,:]
-        x_p = A[t,:,:]@x[t, :] + B[t,:,:]@u[t, :]
-
-        x[t+1, :] = x_p
-
-        xout = x
-        uout = u
-
-    return K, sigma, P, delta_V
+    return sigma_vec, K_vec, p_vec, P_vec, dV1, dV2
         
 
 
-
-# TODO: sistemare trasposti
-def stagecost(x, u, x_ref, u_ref, Qt=np.eye(4), Rt=np.eye(1), q=None, r=None):
+def stagecost(x, u, x_ref, u_ref, Qt=np.eye(4), Rt=np.eye(1)):
     # Assuming inputs are 1D arrays (ns,) and (ni,)
     
-    l = 0.5 * x @ Qt @ x + 0.5 * u @ Rt @ u + (q @ x if q is not None else 0)+ (r @ u if r is not None else 0)
-    lx = Qt @ x + (q.T if q is not None else 0)
-    lu = Rt @ u + (r.T if r is not None else 0)
-    
-    return l, lx, lu
+    dx = x - x_ref
+    du = u - u_ref
 
-def termcost(xT, xT_ref, QT = np.eye(4), Tf : float = 0.0, qT = None):
-  lT = 0.5* xT @ QT @ xT + (qT @ xT if qT is not None else 0)
-  lx = QT @ xT + (qT.T if qT is not None else 0)
+    l = 0.5 * dx.T @ Qt @ dx + 0.5 * du.T @ Rt @ du
+    lx = Qt @ dx
+    lu = Rt @ du
+    
+    return l, lx, lu, Qt, Rt
+
+def termcost(xT, xT_ref, QT = np.eye(4)):
+    dxT = xT - xT_ref
+
+    lT = 0.5 * dxT.T @ QT @ dxT
+    lx = QT @ dxT
   
-  return lT.squeeze(), lx
+    return lT, lx, QT
 
 
 
@@ -326,10 +238,10 @@ def main():
     # Parameters
     #######################################
 
-    Armijo = False
+    Armijo = True
     stepsize_0 = 1.0
     armijo_maxiters = 20
-    c = 0.5
+    c = 1e-4
     beta = 0.7
     fixed_stepsize = 1e-2
     visu_descent_plot = False
@@ -350,13 +262,12 @@ def main():
     ######################################
 
     T0 = 0.0
-    Tend = 4.0
+    Tend = 10.0
     dt = 0.01
-
 
     x_eq = np.array([
         [0.0, 0.0, 0.0, 0.0],
-        [np.pi/2, -np.pi/2, 0.0, 0.0],
+        [np.pi, 0.0, 0.0, 0.0],
         [0.0, np.pi, 0.0, 0.0],
         [np.pi, np.pi, 0.0, 0.0]
     ])
@@ -369,100 +280,68 @@ def main():
     u_setpoints = []
 
     for i in range(x_setpoints.shape[0]):
-        
         u_setpoints.append(model.equilibrium_input(x_eq[i,:]))
-    
-    
     u_setpoints = np.stack(u_setpoints)
 
-    method = 'stepwise'  # 'polynomial' 'stepwise' 'cubic_spline'
+    method = 'cubic_spline'  # 'polynomial' 'stepwise' 'cubic_spline'
     time, x_ref = trajectory_generator(T0, Tend, dt=dt, setpoints=x_setpoints, method=method)
     time, u_ref = trajectory_generator(T0, Tend, dt=dt, setpoints=u_setpoints, method=method)
 
+    # plot_trajectory(time, x_ref, u_ref, method)
+
     steps = time.shape[0]
+
     
-    #plot_trajectory(time, x_ref, u_ref, method)
+    x0 = x_ref[0,:].copy()
+    Q = np.diag([10.0, 10.0, 1, 1])
+    A0, B0 = model.discrete_jacobian(x0, u_ref[0,:], dt)
+    QT = control.dare(A0, B0, Q, np.eye(ni))[0]
+    R = 0.01*np.eye(ni)
+   
     
-    x0 = x_ref[0,:]
-
-    Q = np.diag([10.0, 10.0, 1.0, 1.0])
-
-    A, B = model.discrete_jacobian(x0, u_ref[0,:], dt)
-    QT = control.dare(A, B, Q, np.eye(ni))[0]
-    r_coeff = 0.5
-
-    R = r_coeff*np.eye(ni)
-    S = np.zeros((ni,ns))
-
-    q = np.zeros((steps, ns))
-    r = np.zeros((steps, ni))
-
-
-    for t in range(steps):
-        q[t, :] = (-Q @ x_ref[t, :]).squeeze()
-        r[t, :] = (-R @ u_ref[t, :]).squeeze()
-
-    qT = -QT @ x_ref[-1,:]
-
-
-    ######################################
-    # Initial guess
-    ######################################
-
-    x_init = np.zeros((steps, ns))
-    u_init = np.zeros((steps, ni))
-
-    ######################################
-    # Arrays to store data
-    ######################################
-
+    # ============ Initial trajectory guess ==============
     x_traj = np.zeros((max_iters, steps, ns))   # state seq.
     u_traj = np.zeros((max_iters, steps, ni))   # input seq.
 
+    x_traj[0, 0] = x0
+
+    for t in range(steps - 1):
+        u_traj[0, t, :] = u_ref[t]
+        x_traj[0, t+1, :] = solver_step(model, x_traj[0, t], dt, u_traj[0, t], 'fe')
+
+    u_traj[0, -1] = u_traj[0, -2]  # last input equal to previous for plotting purposes
+
+  
 
     J = np.zeros(max_iters)      # collect cost
     descent = np.zeros(max_iters) # collect descent direction
     
-    
 
-    ######################################
-    # Main
-    ######################################
+    A_vec = np.zeros((steps -1, ns, ns))
+    B_vec =  np.zeros((steps -1, ns, ni))
 
-    
-    iter = 0
-    
-    x_traj[0, :, :] = x_init
-    u_traj[0, :, :] = u_init
-    x_traj[0, 0, :] = x0
-    
-    Q_in = Q
-    R_in = R
-    S_in = S
-    q_in = q
-    r_in = r
-    qT_in = qT
 
-    A_vec = np.zeros((steps, ns, ns))
-    B_vec =  np.zeros((steps, ns, ni))
-
-    for t in range(steps-1):
-        x_traj[0, t+1, :] = solver_step(model, x_traj[0, t, :], dt, u_traj[0, t, :], 'fe')
     
     for iter in range(max_iters-1):
+
+        
 
         # step 2: Compute new state_input trajectory
         # calculate cost
         for t in range(steps-1):
-            temp_cost = stagecost(x_traj[iter, t, :], u_traj[iter, t, :], x_ref[t, :], u_ref[t, :], Q_in, R_in, q_in[t, :], r_in[t, :])[0]
+            temp_cost = stagecost(x_traj[iter, t, :], u_traj[iter, t, :], x_ref[t, :], u_ref[t, :], Q, R)[0]
             J[iter] += temp_cost
         
-        temp_cost = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], Q_in, qT_in)[0]
+        temp_cost = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], QT)[0]
         J[iter] += temp_cost
 
+        if J[iter] <= term_cond:
+            print(f"Converged at iteration {iter} with cost {J[iter]:.3e}")
+            max_iters = iter + 1
+            break
+
      
-        for t in range(steps):
-            
+        for t in range(steps - 1):
             A, B = model.discrete_jacobian(x_traj[iter, t, :], u_traj[iter, t, :], dt)
             A_vec[t, :, :] = A
             B_vec[t, :, :] = B
@@ -473,54 +352,59 @@ def main():
         ###################################
 
 
-        K, sigma, _, dV = ltv_LQR(A_vec, B_vec, Q_in, R_in, S_in, QT, steps, x0, q_in, r_in, qT_in)
+        sigma_vec, K_vec, _,  _, dV1, dV2 = ltv_LQR(Ain=A_vec, Bin=B_vec, 
+                                                     xk=x_traj[iter, :, :], uk=u_traj[iter, :, :], 
+                                                     x_ref=x_ref, u_ref=u_ref, 
+                                                     Qt=Q, Rt=R, QT=QT, reg=1e-6)
 
-        
+        descent[iter] = dV1 + dV2
+
+        if descent[iter] >= 0:
+            print("WARNING: predicted improvement is non-negative; "
+                  "stopping.")
+            max_iters = iter + 1
+            break
+
         ##################################
         # Stepsize selection - ARMIJO
         ##################################
         
         if Armijo:
-            stepsize, _, _, _ = select_stepsize(
+            stepsize, x_new, u_new, J_new = select_stepsize(
                 model, stepsize_0, armijo_maxiters, c, beta,
                 x_ref, u_ref, x0, dt,
-                x_traj[iter, :, :], u_traj[iter, :, :], J[iter], dV,
-                Q_in, R_in, K, sigma, q_in, r_in, qT_in
-            )
+                x_traj[iter, :, :], u_traj[iter, :, :], dV1, dV2,
+                Q, R, QT, K_vec, sigma_vec
+                )
         else:
             stepsize = fixed_stepsize
 
+            x_new = np.zeros((steps, ns))
+            u_new = np.zeros((steps, ni))
 
-        # update trajectory
+            x_new[0, :] = x0
 
-        x_temp = np.zeros((steps, ns))
-        u_temp = np.zeros((steps, ni))
+            for t in range(steps-1): # TODO : question here about last addition to utemp
+                dx = x_new[t, :] - x_traj[iter, t, :]
+                u_new[t,:] = u_traj[iter,t,:] + stepsize * sigma_vec[t, :]  + K_vec[t, :] @ dx
+                x_new[t+1, :] = solver_step(model, x_new[t, :], dt, u_new[t, :], 'fe')
 
-        x_temp[0, :] = x0
+        # update trajectory       
+        x_traj[iter+1,:,:] = x_new
+        u_traj[iter+1,:,:] = u_new
 
-        for t in range(steps-1): # TODO : question here about last addition to utemp
-            
-            u_temp[t,:] = u_traj[iter,t,:] + stepsize * sigma[t, :]  + K[t, :] @ (x_temp[t, :] - x_traj[iter, t, :])
-            x_temp[t+1, :] = solver_step(model, x_temp[t, :], dt, u_temp[t, :], 'fe')
 
-        x_traj[iter+1,:,:] = x_temp
-        u_traj[iter+1,:,:] = u_temp
-
+        if stepsize == 0.0:
+            print("no improvement found, stopping.")
+            max_iters = iter + 1
+            break
         
+        print(f"Iter {iter}: Cost = {J[iter]:.4e}, Stepsize = {stepsize:.3e}, Predicted descent = {descent[iter]:.4e}")
 
-        ############################
-        # Termination condition
-        ############################
-
-        print('Iter = {}\t Cost = {:.3e}'.format(iter, J[iter]))
-
-        if J[iter] <= term_cond:
-
-            max_iters = iter
-
-
-    x_star = x_traj[max_iters-1, :, :]
-    u_star = u_traj[max_iters-1, :, :]
+    # could implemnt early stopping based on cost improvement here
+    
+    x_star = x_traj[-1, :, :]
+    u_star = u_traj[-1, :, :]
     u_star[-1, :] = u_star[-2, :] # for plotting purposes
 
     ############################
