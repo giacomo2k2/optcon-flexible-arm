@@ -5,7 +5,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 
 from solver import solver_step
-from plots import plot_trajectory
+from plots import plot_reference_traj
 
 from animation import animate
 
@@ -28,6 +28,7 @@ def trajectory_generator(
 ):
     
     t = np.arange(T0, Tend, dt)
+    print(setpoints.shape)
     traj = np.zeros((len(t), setpoints.shape[1]))
     
 
@@ -74,47 +75,45 @@ def trajectory_generator(
 def select_stepsize(model, stepsize_0, armijo_maxiters, c, beta, deltau, x_ref, u_ref,  x0, dt, u, J, descent_arm, Qt, Rt, steps, plot = False):
 
 
-    stepsizes = []  # list of stepsizes
-    costs_armijo = []
+    stepsizes = []      # List of stepsizes
+    costs_armijo = []   # List of costs associated to the stepsizes
 
-    stepsize = stepsize_0
+    stepsize = stepsize_0 # initial stepsize
 
-    ns = model.ns
-    ni = model.ni
+    ns = model.ns # number of states
+    ni = model.ni # number of inputs
 
 
-
+    ##############################
+    # Main Armijo loop
+    ##############################
     for i in range(armijo_maxiters):
 
-        # temp solution update
-
+        # Temp solution
         x_temp = np.zeros((steps, ns))
         u_temp = np.zeros((steps, ni))
-
         x_temp[0, :] = x0
 
+        # Forward simulation with perturbed input
         for t in range(steps-1):
-            u_temp[t,:] = u[t, :] + stepsize * deltau[t, :]
+            u_temp[t,:] = u[t, :] + stepsize * deltau[t, :] # TODO: check if this is correct
             x_temp[t+1, :] = solver_step(model, x_temp[t, :], dt, u_temp[t, :], 'fe')
 
-        # compute total cost
-        J_temp = 0
-
+        # Compute cost
+        J_temp = 0.0
         for t in range(steps-1):
             temp_cost = stagecost(x_temp[t, :], u_temp[t, :], x_ref[t,:], u_ref[t, :], Qt, Rt)[0]
             J_temp += temp_cost
-
         temp_cost = termcost(x_temp[-1,:], x_ref[-1,:], Qt)[0]
         J_temp += temp_cost
 
-        
+        # Save data for plotting
+        stepsizes.append(stepsize)     # Save the stepsize
+        costs_armijo.append(J_temp)    # Save the cost associated to the stepsize
 
-        stepsizes.append(stepsize)      # save the stepsize
-        costs_armijo.append(J_temp)    # save the cost associated to the stepsize
-
-        #TODO: fix armijo codition, probabbly missing the cost gradient
+        # Armijo condition
         if J_temp > J + c * stepsize * descent_arm:
-            # update the stepsize
+            # Update the stepsize
             stepsize = beta*stepsize
 
         else:
@@ -179,29 +178,24 @@ def main():
     ######################################
 
     T0 = 0.0
-    Tend = 6.0
+    Tend = 15.0
     dt = 0.01
 
+    x_eq1, u_eq1 = model.find_equilibrium(fix_type='q2', value=np.pi/2)
+    model.plot_equilibrium_point(x_eq1, u_eq1, title="1")
+    x_eq2, u_eq2 = model.find_equilibrium(fix_type='q2', value=-3*np.pi/4)
+    model.plot_equilibrium_point(x_eq2, u_eq2, title="2")
 
-    x_eq = np.array([
-        [0.0, 0.0, 0.0, 0.0],
-        [np.pi, 0.0, 0.0, 0.0],
-        [0.0, np.pi, 0.0, 0.0],
-        [np.pi, np.pi, 0.0, 0.0]
-    ])
-
+    # Select some equilibria as setpoints
     x_setpoints = np.array([
-                            [0.0, 0.0, 0.0, 0.0],
-                            x_eq[1,:]
+                            x_eq1,
+                            x_eq2
                         ])
-
-    u_setpoints = []
-
-    for i in range(x_setpoints.shape[0]):
-        u_setpoints.append(model.equilibrium_input(x_eq[i,:]))
     
-    
-    u_setpoints = np.stack(u_setpoints)
+    u_setpoints = np.array([
+                            u_eq1,
+                            u_eq2
+                        ]).reshape(-1,1)
 
     method = 'stepwise'  # 'polynomial' 'stepwise' 'cubic_spline'
     time, x_ref = trajectory_generator(T0, Tend, dt=dt, setpoints=x_setpoints, method=method)
@@ -209,7 +203,7 @@ def main():
 
     steps = time.shape[0]
     
-    # plot_trajectory(time, x_ref, u_ref, method)
+    plot_reference_traj(time, x_ref, u_ref, method)
     
     x0 = x_ref[0,:]
 
@@ -249,7 +243,7 @@ def main():
     x_traj[0, :, :] = x_init
     u_traj[0, :, :] = u_init
     x_traj[0, 0, :] = x0
-    
+
     for t in range(steps-1):
         x_traj[0, t+1, :] = solver_step(model, x_traj[0, t, :], dt, u_traj[0, t, :], 'fe')
     
@@ -260,7 +254,6 @@ def main():
         for t in range(steps-1):
             temp_cost = stagecost(x_traj[iter, t, :], u_traj[iter, t, :], x_ref[t, :], u_ref[t, :], Qt, Rt)[0]
             J[iter] += temp_cost
-        
         temp_cost = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], QT)[0]
         J[iter] += temp_cost
 
@@ -292,6 +285,7 @@ def main():
             dJ[iter,t,:] = dJ_temp.squeeze()
             deltau[iter,t,:] = deltau_temp.squeeze()
 
+            # TODO: verifica cosa rappresentano loro
             descent[iter] += deltau[iter,t,:] @ deltau[iter,t,:].T
             descent_arm[iter] += dJ[iter,t,:] @ deltau[iter,t,:].T
 

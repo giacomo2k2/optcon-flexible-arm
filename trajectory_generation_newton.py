@@ -5,7 +5,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 
 from solver import solver_step
-from plots import plot_trajectory
+from plots import plot_reference_traj
 
 from animation import animate
 
@@ -134,6 +134,7 @@ def select_stepsize(model, stepsize_0, armijo_maxiters, c, beta,
 
 def ltv_LQR(Ain, Bin, xk, uk, x_ref, u_ref, Qt, Rt, QT, reg=1e-6):
 
+    # Steps and number of states/inputs
     steps, ns = xk.shape
     ni = uk.shape[1]
 
@@ -145,18 +146,20 @@ def ltv_LQR(Ain, Bin, xk, uk, x_ref, u_ref, Qt, Rt, QT, reg=1e-6):
 
     p_vec[-1, :], P_vec[-1, :, :] = termcost(xk[-1, :], x_ref[-1, :], QT)[1:]
 
+    # TODO: check this dV1, dV2 calculation
     dV1 = 0.0
     dV2 = 0.0
 
+    # (basically a scalar)
     Iu = np.eye(ni)
 
     
     # Solve Riccati equation
     for t in reversed(range(steps-1)):
-        xt = xk[t, :][:,None]
-        ut = uk[t, :][:,None]
-        xrt = x_ref[t, :][:,None]
-        urt = u_ref[t, :][:,None]
+        xt = xk[t, :][:, None]
+        ut = uk[t, :][:, None]
+        xrt = x_ref[t, :][:, None]
+        urt = u_ref[t, :][:, None]
         At = Ain[t, :, :]
         Bt = Bin[t, :, :]
  
@@ -241,7 +244,7 @@ def main():
     Armijo = True
     stepsize_0 = 1.0
     armijo_maxiters = 20
-    c = 1e-4
+    c = 1e-5 # TODO: considerare c = 0.5
     beta = 0.7
     fixed_stepsize = 1e-2
     visu_descent_plot = False
@@ -254,46 +257,41 @@ def main():
     ns = model.ns 
     ni = model.ni 
 
-
-
-
     ######################################
     # Reference curve
     ######################################
 
     T0 = 0.0
-    Tend = 10.0
+    Tend = 16.0
     dt = 0.01
 
-    x_eq = np.array([
-        [0.0, 0.0, 0.0, 0.0],
-        [np.pi, 0.0, 0.0, 0.0],
-        [0.0, np.pi, 0.0, 0.0],
-        [np.pi, np.pi, 0.0, 0.0]
-    ])
+    x_eq1, u_eq1 = model.find_equilibrium(fix_type='q2', value=np.pi/2)
+    model.plot_equilibrium_point(x_eq1, u_eq1, title="1")
+    x_eq2, u_eq2 = model.find_equilibrium(fix_type='q2', value=-3*np.pi/4)
+    model.plot_equilibrium_point(x_eq2, u_eq2, title="2")
 
+    # Select some equilibria as setpoints
     x_setpoints = np.array([
-                            [0.0, 0.0, 0.0, 0.0],
-                            x_eq[1,:]
+                            x_eq1,
+                            x_eq2
                         ])
+    
+    u_setpoints = np.array([
+                            u_eq1,
+                            u_eq2
+                        ]).reshape(-1,1)
 
-    u_setpoints = []
-
-    for i in range(x_setpoints.shape[0]):
-        u_setpoints.append(model.equilibrium_input(x_eq[i,:]))
-    u_setpoints = np.stack(u_setpoints)
-
-    method = 'cubic_spline'  # 'polynomial' 'stepwise' 'cubic_spline'
+    method = 'stepwise'  # 'polynomial' 'stepwise' 'cubic_spline'
     time, x_ref = trajectory_generator(T0, Tend, dt=dt, setpoints=x_setpoints, method=method)
     time, u_ref = trajectory_generator(T0, Tend, dt=dt, setpoints=u_setpoints, method=method)
 
-    # plot_trajectory(time, x_ref, u_ref, method)
+    plot_reference_traj(time, x_ref, u_ref, method)
 
     steps = time.shape[0]
 
     
     x0 = x_ref[0,:].copy()
-    Q = np.diag([10.0, 10.0, 1, 1])
+    Q = np.diag([10.0, 10.0, 0.1, 0.1])
     A0, B0 = model.discrete_jacobian(x0, u_ref[0,:], dt)
     QT = control.dare(A0, B0, Q, np.eye(ni))[0]
     R = 0.01*np.eye(ni)
@@ -301,13 +299,12 @@ def main():
     
     # ============ Initial trajectory guess ==============
     x_traj = np.zeros((max_iters, steps, ns))   # state seq.
-    u_traj = np.zeros((max_iters, steps, ni))   # input seq.
-
+    u_traj = np.zeros((max_iters, steps, ni))  # input seq.
     x_traj[0, 0] = x0
 
     for t in range(steps - 1):
         u_traj[0, t, :] = u_ref[t]
-        x_traj[0, t+1, :] = solver_step(model, x_traj[0, t], dt, u_traj[0, t], 'fe')
+        x_traj[0, t+1, :] = solver_step(model, x_traj[0, t], dt, u_traj[0, t, 0], 'fe')
 
     u_traj[0, -1] = u_traj[0, -2]  # last input equal to previous for plotting purposes
 
@@ -320,38 +317,33 @@ def main():
     A_vec = np.zeros((steps -1, ns, ns))
     B_vec =  np.zeros((steps -1, ns, ni))
 
-
-    
+    ##############################
+    # Main LQR loop
+    ##############################
     for iter in range(max_iters-1):
-
         
-
-        # step 2: Compute new state_input trajectory
-        # calculate cost
+        # Compute cost
         for t in range(steps-1):
             temp_cost = stagecost(x_traj[iter, t, :], u_traj[iter, t, :], x_ref[t, :], u_ref[t, :], Q, R)[0]
             J[iter] += temp_cost
-        
         temp_cost = termcost(x_traj[iter, steps-1, :], x_ref[steps-1, :], QT)[0]
         J[iter] += temp_cost
 
+        # Convergence check
         if J[iter] <= term_cond:
             print(f"Converged at iteration {iter} with cost {J[iter]:.3e}")
             max_iters = iter + 1
             break
 
-     
+        # Compute linearized dynamics along trajectory
         for t in range(steps - 1):
             A, B = model.discrete_jacobian(x_traj[iter, t, :], u_traj[iter, t, :], dt)
             A_vec[t, :, :] = A
             B_vec[t, :, :] = B
-            
-
+        
         ###################################
         # LTV-LQR to compute feedback law
         ###################################
-
-
         sigma_vec, K_vec, _,  _, dV1, dV2 = ltv_LQR(Ain=A_vec, Bin=B_vec, 
                                                      xk=x_traj[iter, :, :], uk=u_traj[iter, :, :], 
                                                      x_ref=x_ref, u_ref=u_ref, 
@@ -414,7 +406,7 @@ def main():
     # cost and descent
 
     plt.figure('descent direction')
-    plt.plot(np.arange(max_iters), descent[:max_iters])
+    plt.plot(np.arange(max_iters), -descent[:max_iters])
     plt.yscale('log')
     plt.grid()
     plt.show(block=False)

@@ -6,9 +6,6 @@ import numpy as np
 import sympy as sp
 
 # Q1: is only the second arm flexible?
-# Q2: first row in G is not correct, we correct it in model.py
-# Q3: we manually computed the equilibrium
-
 
 def main():
     # Define model parameters
@@ -20,18 +17,20 @@ def main():
 
     # Initial state
     x0 = np.array([np.pi/4, np.pi/4, 0.0, 0.0])  # [q1, q2, q1_dot, q2_dot]
-    x0 = model.random_init()
+    # x0 = model.random_init()
 
     # Simulation parameters
     dt = 0.01
     Tend = 10.0
+    steps = np.arange(0, Tend, dt).shape[0]
 
     # Solve the system dynamics
-    x_traj = solver(model, x0, dt, Tend, method='rk')
+    x_traj = solver(model, x0, dt, steps, method='rk4')
 
     # Animate the results
-    # animate(model, x_traj, dt, target_fps=30)
+    animate(model, x_traj, dt, target_fps=30)
 
+    # TODO: computa lo jacobiano simbolicamente all'inizio e poi sostituisci
     # Compare symbolic and numeric Jacobians at given state and input pair
     A_sym, B_sym = model_sym.symbolic_jacobian(x0, u_val=0.0)
     A_num, B_num = model.jacobian(x0, u=0.0)
