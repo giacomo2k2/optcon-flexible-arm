@@ -1,21 +1,34 @@
+#########################################################################################
+# OPTCON-RL 2025/2026 - Course Project #2
+# Optimal Control of a Flexible Robotic Link
+#
+# File:         animation.py
+# Description:  Animation helper functions.
+#
+# Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
+# Affiliation:  Alma Mater Studiorum – Università di Bologna
+# Date:         December 2025
+#########################################################################################
+
+#######################################
+# Imports
+#######################################
 import matplotlib.pyplot as plt
 import time
 import numpy as np
 
-# Matplotlib settings
 plt.rcParams['font.family'] = 'serif'
 
-
-# TODO: consider flexible arm
-
-def animate(model: object, x_traj: np.ndarray, dt: float, target_fps: int = 30) -> None:
+#######################################
+# Functions
+#######################################
+def animate(model: object, x_traj: np.ndarray, target_fps: int = 30) -> None:
     """
     Helper function to animate the model along a given trajectory in real-time.
     
     Args:
         model (object): The model to animate.
         x_traj (np.ndarray): States trajectory to follow [state_dim, time_steps].
-        dt (float): Time step.
         target_fps (int, optional): Target frames per second for rendering. Defaults to 30.
     """
     fig, ax = plt.subplots()
@@ -31,7 +44,7 @@ def animate(model: object, x_traj: np.ndarray, dt: float, target_fps: int = 30) 
     # Loop through trajectory states
     for k, x in enumerate(x_traj.T):
         # The exact time this specific state represents
-        current_sim_time = k * dt
+        current_sim_time = k * model.dt
         
         # --- SYNCHRONIZATION ---
         # Check actual wall-clock time elapsed

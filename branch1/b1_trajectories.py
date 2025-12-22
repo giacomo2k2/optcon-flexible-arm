@@ -1,5 +1,24 @@
+#########################################################################################
+# OPTCON-RL 2025/2026 - Course Project #2
+# Optimal Control of a Flexible Robotic Link
+#
+# File:         trajectories.py
+# Description:  Trajectory generation functions.
+#
+# Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
+# Affiliation:  Alma Mater Studiorum – Università di Bologna
+# Date:         December 2025
+#########################################################################################
+
+#######################################
+# Imports
+#######################################
 import numpy as np
 from scipy.interpolate import CubicSpline
+
+#######################################
+# Functions
+#######################################
 
 def trajectory_generator(
     T0: int = 0,
@@ -68,23 +87,26 @@ def trajectory_generator(
     a0, a1 = acc_setpoints[0, :], acc_setpoints[-1, :] * (DT**2)
     j0, j1 = jerk_setpoints[0, :], jerk_setpoints[-1, :] * (DT**3)
     
-    # Methods logic
+    # Stepwise Interpolation
     if method == 'stepwise':
         t_mid = (ti_abs + tf_abs) / 2
         traj[:, (t <= t_mid)] = p0[:, None]
         traj[:, (t > t_mid)] = p1[:, None]
 
+    # Polynomial Interpolation
     elif method in ['poly3', 'poly5', 'poly7']:
         traj[:, initial_mask] = p0[:, None]
         traj[:, post_mask] = p1[:, None]
         
         for dim in range(num_states):
+            # 3rd order polynomial
             if method == 'poly3':
                 A = np.array([
                     [1, 0, 0, 0], [1, 1, 1, 1], # Pos
                     [0, 1, 0, 0], [0, 1, 2, 3] # Vel
                     ])
                 b = np.array([p0[dim], p1[dim], v0[dim], v1[dim]])
+            # 5th order polynomial
             elif method == 'poly5':
                 A = np.array([
                     [1, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1], # Pos
@@ -92,6 +114,7 @@ def trajectory_generator(
                     [0, 0, 2, 0, 0, 0], [0, 0, 2, 6, 12, 20] # Acc
                     ])
                 b = np.array([p0[dim], p1[dim], v0[dim], v1[dim], a0[dim], a1[dim]])
+            # 7th order polynomial
             elif method == 'poly7':
                 A = np.array([
                     [1, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1], # Pos
@@ -103,6 +126,7 @@ def trajectory_generator(
             coeffs = np.linalg.solve(A, b)
             traj[dim, transition_mask] = np.polyval(coeffs[::-1], tau)
 
+    # Cubic Spline Interpolation
     elif method == 'cubic_spline':
         traj[:, initial_mask] = p0[:, None]
         traj[:, post_mask] = p1[:, None]

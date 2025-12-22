@@ -1,11 +1,30 @@
+#########################################################################################
+# OPTCON-RL 2025/2026 - Course Project #2
+# Optimal Control of a Flexible Robotic Link
+#
+# File:         model.py
+# Description:  Model class for the flexible double pendulum system.
+#
+# Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
+# Affiliation:  Alma Mater Studiorum – Università di Bologna
+# Date:         December 2025
+#########################################################################################
+
+#######################################
+# Imports
+#######################################
+
+# Python libraries
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 
-from b1_solver import solver_step
-
 plt.rcParams['font.family'] = 'serif'
 
+# Solver
+import b1_solver as solver
+
+# Parameters settings
 PARAM_SET_1 = {
     'm1': 1.0,      # Mass of link 1 [kg]
     'm2': 1.0,      # Mass of link 2 [kg]
@@ -51,6 +70,9 @@ PARAM_SET_3 = {
     'k': 0.7        
 }
 
+#######################################
+# Model Class
+#######################################
 class DoublePendulumFlexible:
     """
     Class representing a flexible double pendulum system.
@@ -251,8 +273,9 @@ class DoublePendulumFlexible:
         x_next : np.ndarray
             State vector at the next time step.
         """
-        return solver_step(self, x, u)
+        return solver.solver_step(self, x, u)
     
+    # TODO: remove this in next versions. Symbolic jacobian is used
     def discrete_jacobian(self, x: np.ndarray, u: np.ndarray, method: str = 'fe') -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the discrete-time Jacobian matrices A and B.
@@ -489,6 +512,7 @@ class DoublePendulumFlexible:
         q1 = x[0]
         q2 = x[1]
         
+        # TODO: consider flexible arm for animation
         # Compute cartesians position (Forward Kinematics)
         p1 = np.array([self.l1 * np.sin(q1), -self.l1 * np.cos(q1)])
         p2 = np.array([self.l1 * np.sin(q1) + self.l2 * np.sin(q1 + q2), -self.l1 * np.cos(q1) - self.l2 * np.cos(q1 + q2)])

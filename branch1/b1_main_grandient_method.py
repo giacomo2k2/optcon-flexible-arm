@@ -1,6 +1,19 @@
+#########################################################################################
+# OPTCON-RL 2025/2026 - Course Project #2
+# Optimal Control of a Flexible Robotic Link
+#
+# File:         main_gradient_method.py
+# Description:  Trajectory generation for a non-linear flexible link via Gradient method.
+#
+# Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
+# Affiliation:  Alma Mater Studiorum – Università di Bologna
+# Date:         December 2025
+#########################################################################################
+
 #######################################
 # Imports
 #######################################
+
 # Python libriaries
 import numpy as np
 import scipy as sp
@@ -16,7 +29,6 @@ from b1_model_symbolic import DoublePendulumFlexibleSymbolic
 
 # Costs
 import b1_costs as cst
-from b1_costs import QQt, RRt
 
 # Armijo
 import b1_armijo as armijo
@@ -37,6 +49,7 @@ import control as ctrl
 #######################################
 # Model
 #######################################
+
 model = DoublePendulumFlexible(**PARAM_SET_2)
 model_sym = DoublePendulumFlexibleSymbolic(**PARAM_SET_2)
 
@@ -47,24 +60,25 @@ ni = model.ni  # number of inputs
 # Algorithm parameters
 #######################################
 
-# GENERAL PARAMETERS
+# General parameters
 max_iters = 300
-fixed_stepsize = 1e-3
-term_cond = 1e-4
+fixed_stepsize = 1*1e-2
+term_cond = 1e-5
 
-# ARMIJO PARAMETERS
+# Armijo parameters
 Armijo = True
-stepsize_0 = 1
+stepsize_0 = 1.0
 c = 0.5
 beta = 0.7
-armijo_maxiters = 20
+armijo_maxiters = 5
+approx_1st_order = True
 
-# VISUALIZATION PARAMETERS
-iteration_traj_plot = False     # plot trajectory at each iteration
-armijo_plot = False             # plot armijo descent direction
-visu_animation = False          # animate final optimal trajectory
-equilibrium_plot = False        # plot equilibrium manifold and points
-initial_reference_plot = False    # plot reference trajectory at beginning
+# Visualization parameters
+initial_reference_plot = True    # plot reference trajectory at beginning
+equilibrium_plot = True        # plot equilibrium manifold and points
+armijo_plot = True             # plot armijo descent direction
+iteration_traj_plot = True     # plot trajectory at each iteration
+visu_animation = True          # animate final optimal trajectory
 
 #######################################
 # Trajectory parameters
@@ -72,24 +86,61 @@ initial_reference_plot = False    # plot reference trajectory at beginning
 
 T0 = 0.0        # Initial absolute time
 ti = 0.3        # Start time for trajectory segment (relative)
-tf = 0.7        # End time for trajectory segment (relative)
-Tend = 5.0     # End absolute time
+tf = 0.5        # End time for trajectory segment (relative)
+Tend = 4.0      # End absolute time
 dt = model.dt   # Time step
+t = np.arange(T0, Tend, dt) # Time vector
+TT = len(t)                 # Number of time steps
 
-t = np.arange(T0, Tend, dt)
-TT = len(t)
-
+# Trajectory generation technique
 method = 'poly7'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
+
+# Equilibrium go-to configurations
+equilibrium_traj = {
+    'elbow_up': (
+        model.find_equilibrium(fix_type='q1', value=0),
+        model.find_equilibrium(fix_type='q2', value=np.pi/2)
+    ),
+
+    'swing_up': (
+        model.find_equilibrium(fix_type='q1', value=0),
+        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5)
+    ),
+
+    'left_to_right_elbow_up': (
+        tuple(-val for val in model.find_equilibrium(fix_type='q2', value=np.pi/2)),
+        model.find_equilibrium(fix_type='q2', value=np.pi/2)
+    ),
+
+    'top_to_elbow_up': (
+        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5),
+        model.find_equilibrium(fix_type='q2', value=np.pi/2)
+    ),
+
+    'top_to_elbow_down': (
+        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5),
+        tuple(-val for val in model.find_equilibrium(fix_type='q1', value=np.pi/2))
+    )
+}
 
 #######################################
 # Equilibrium points
 #######################################
-data_dict = model.compute_equilibrium_manifold()
-x_eq1, u_eq1 = model.find_equilibrium(fix_type='q2', value=np.pi/2)
-x_eq2, u_eq2 = model.find_equilibrium(fix_type='q2', value=-3*np.pi/4)
 
+# data_dict = model.compute_equilibrium_manifold()
+# TODO: apparently problems with the stage state costs, want to be low
+# Select equilibrium trajectory (potentially ti=0.3, tf=0.5)
+# - elbow_up (it may finish at tf = 0.4)
+# - swing_up
+# - left_to_right_elbow_up
+# - top_to_elbow_up (need tf = 0.5)
+# - top_to_elbow_down
+selected_equilibrium = 'elbow_up'
+(x_eq1, u_eq1), (x_eq2, u_eq2) = equilibrium_traj[selected_equilibrium]
+
+# Plot equilibrium points
 if equilibrium_plot:
-    plots.plot_equilibrium_manifold(data_dict)
+    # plots.plot_equilibrium_manifold(data_dict)
     model.plot_equilibrium_point(x_eq1, u_eq1, title="1")
     model.plot_equilibrium_point(x_eq2, u_eq2, title="2")
 
@@ -106,117 +157,115 @@ u_setpoints = np.array([
 ######################################
 # Reference curve
 ######################################
+
 time, xx_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoints=x_setpoints, method=method)
 time, uu_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoints=u_setpoints, method=method)
 
 if initial_reference_plot:
-    plots.plot_reference_traj(time, xx_ref, uu_ref, method)
+    plots.reference_traj(time, xx_ref, uu_ref, method)
 
 #############################################
 # Compute QQT as solution of the DARE
 ##############################################
+
+# Get cost matrices
+QQt, RRt = cst.get_cost_matrices(selected_equilibrium)
+QQt = np.diag([10.0, 10.0, 1.0, 1.0]) * 1e-3
+RRt = 0.01 * np.eye(1)
+
 # Symbolic jacobian
-AA_sym, BB_sym = model_sym.symbolic_jacobian() # TODO - Q1 - Qua tiriamo fuori gli jacobiani (A, B). Che devo pluggarli dentro la DARE, non devo fare il trasposto vero?
+AA_sym, BB_sym = model_sym.symbolic_jacobian() 
 
+# Compute QQT as solution of dare
 AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1])
-
-# TODO: maybe unceck this
-# AA_ref = AA_ref.T
-# BB_ref = BB_ref.T
-
 QQT = ctrl.dare(AA_ref, BB_ref, QQt, RRt)[0]
-#QQT = QQt
 
 ######################################
 # Initial Trajectories Guesses
 ######################################
 
-xx_init = np.zeros((ns, TT))
-uu_init = np.zeros((ni, TT)) 
+xx_init = np.zeros((ns, TT))  # initial state trajectory guess
+uu_init = np.zeros((ni, TT))  # initial input trajectory guess
 
-x0 = xx_init[:, 0]  # initial state
+x0 = xx_ref[:, 0]  # initial state
 
 if initial_reference_plot:
-    plots.plot_trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference")
+    plots.trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference")
 
 ######################################
 # Arrays to store data
 ######################################
 
-xx = np.zeros((ns, TT, max_iters))       # State seq.
-uu = np.zeros((ni, TT, max_iters))       # Input seq.
+xx = np.zeros((ns, TT, max_iters))              # State seq.
+uu = np.zeros((ni, TT, max_iters))              # Input seq.
 
-lmbd = np.zeros((ns, TT, max_iters))     # Lambdas - costate seq.
+lmbd = np.zeros((ns, TT, max_iters))            # Lambdas - costate seq.
 
-deltau = np.zeros((ni,TT, max_iters))    # Du - descent direction
-dJ = np.zeros((ni,TT, max_iters))        # DJ - gradient of J wrt u
+deltau = np.zeros((ni,TT, max_iters))           # Du - descent direction
+dJ = np.zeros((ni,TT, max_iters))               # DJ - gradient of J wrt u
 
 JJ = np.zeros(max_iters)                        # Collect cost
-descent = np.zeros(max_iters)                   # Collect descent direction
-descent_arm = np.zeros(max_iters)               # Collect descent direction
+descent = np.zeros(max_iters)                   # Collect descent direction norm
+descent_arm = np.zeros(max_iters)               # Collect descent condition value
 
 ######################################
-# Main
+# Trajectory Generation
 ######################################
 
 print("======================= Gradient Method =======================")
 
+# Iteration counter
 kk = 0
 
+# Initialize trajectories
 xx[:,:,0] = xx_init
 uu[:,:,0] = uu_init
 
-##################################
+############################
 # Iteration loop
-##################################
+############################
 for kk in range(max_iters-1):
-    JJ[kk] = 0
-    
-    # COMPUTE COST
+    ############################
+    # 0. Compute cost
+    ############################
     for tt in range(TT-1):
-        stage_cost = cst.stagecost(xx[:,tt,kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt])[0]
+        stage_cost = cst.stagecost(xx[:,tt,kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[0]
         JJ[kk] += stage_cost
     term_cost = cst.termcost(xx[:,-1,kk], xx_ref[:,-1], QQT)[0]
     JJ[kk] += term_cost
 
-    print(f"Cost at iteration {kk}: {JJ[kk]:.6e}")
-
-    ##################################
-    # Descent direction calculation
-    ##################################
+    ############################
+    # 1. Compute descent direction
+    ############################
     lmbd_temp = cst.termcost(xx[:,TT-1,kk], xx_ref[:,TT-1], QQT)[1]
     lmbd[:,TT-1,kk] = lmbd_temp.copy()
     for tt in reversed(range(TT-1)):
-        qt, rt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt])[1:]
+        qt, rt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:3]
         At, Bt = solver.jacobian_solver(AA_sym, BB_sym, xx[:, tt, kk], uu[:, tt, kk])
 
-        # TODO: maybe unceck this
-        # At = At.T
-        # Bt = Bt.T
-
-        lmbd_temp = At.T@lmbd[:,tt+1,kk][:,None] + qt   # costate equation
-        dJ_temp = Bt.T@lmbd[:,tt+1,kk][:,None] + rt     # gradient of J wrt u
-        deltau_temp = - dJ_temp                         # descent direction 
+        lmbd_temp = At.T@lmbd[:,tt+1,kk][:,None] + qt   # Costate equation
+        dJ_temp = Bt.T@lmbd[:,tt+1,kk][:,None] + rt     # Gradient of J wrt u
+        deltau_temp = - dJ_temp                         # Descent direction 
 
         lmbd[:,tt,kk] = lmbd_temp.squeeze()
         dJ[:,tt,kk] = dJ_temp.squeeze()
         deltau[:,tt,kk] = deltau_temp.squeeze()
 
-        descent[kk] += deltau[:,tt,kk].T@deltau[:,tt,kk]
-        descent_arm[kk] += dJ[:,tt,kk].T@deltau[:,tt,kk]
+        descent[kk] += deltau[:,tt,kk].T@deltau[:,tt,kk] # Norm squared of descent direction
+        descent_arm[kk] += dJ[:,tt,kk].T@deltau[:,tt,kk] # Descent condition value
 
-    ##################################
-    # Stepsize selection - ARMIJO
-    ##################################
+    ############################
+    # 2. Stepsize selection - ARMIJO
+    ############################
     if Armijo:
         stepsize = armijo.select_stepsize(stepsize_0, armijo_maxiters, c, beta,
                             deltau[:,:,kk], xx_ref, uu_ref, x0, 
-                            uu[:,:,kk], JJ[kk], descent_arm[kk], QQT, armijo_plot)
+                            uu[:,:,kk], JJ[kk], descent_arm[kk], QQt, RRt, QQT, armijo_plot)
     else:
         stepsize = fixed_stepsize
 
     ############################
-    # Update the current solution
+    # 3. Forward open-loop integration
     ############################
     xx_temp = np.zeros((ns,TT))
     uu_temp = np.zeros((ni,TT))
@@ -233,47 +282,38 @@ for kk in range(max_iters-1):
     uu[:,:,kk+1] = uu_temp.copy()
 
     ############################
-    # Plot at each iteration
+    # 4. Visualization
     ############################
     if iteration_traj_plot and kk % 50 == 0:
-        plots.plot_trajectory_comparison(time, xx_ref, uu_ref, xx[:,:,kk+1], uu[:,:,kk+1], title=f"Iteration {kk}")
+        plots.trajectory_comparison(time, xx_ref, uu_ref, xx[:,:,kk+1], uu[:,:,kk+1], title=f"Iteration {kk}")
+
+    # Statistic print
+    print(f"Iter: {kk} \tCost: {JJ[kk]:.6e} \tStepsize: {stepsize:.3e} \tDescent norm: {descent[kk]:.6e} \tDescent condition value: {descent_arm[kk]:.6e}")
 
     ############################
-    # Termination condition
+    # 5. Termination condition
     ############################
     if descent[kk] <= term_cond:
+        print(f"\nConvergence reached at iteration {kk}!")
         max_iters = kk
         break
 
 ##################################
 # Results
 ##################################
-
 xx_star = xx[:,:,max_iters-1]
 uu_star = uu[:,:,max_iters-1]
 uu_star[:,-1] = uu_star[:,-2] # for plotting purposes
 
-# DESCENT DIRECTION PLOT
-plt.figure('descent direction', figsize=(10, 6))
-plt.plot(np.arange(max_iters), descent[:max_iters], linewidth=2, color='#1f77b4')
-plt.xlabel('Iteration $k$', fontsize=14)
-plt.ylabel(r'$\| \Delta u \| ^2$', fontsize=14)
-plt.title('Descent', fontsize=16)
-plt.yscale('log')
-plt.grid(alpha=0.4)
-plt.tight_layout()
-plt.show(block=False)
+# Descent Direction
+plots.descent_direction(descent, max_iters)
 
-# COST PLOT
-plt.figure('cost', figsize=(10, 6))
-plt.plot(np.arange(max_iters-1), JJ[:max_iters-1], linewidth=2, color='#ff7f0e')
-plt.xlabel('Iteration $k$', fontsize=14)
-plt.ylabel(r'$J(\mathbf{u}^k)$', fontsize=14)
-plt.title('Cost Function', fontsize=16)
-plt.yscale('log')
-plt.grid(alpha=0.4)
-plt.tight_layout()
-plt.show(block=False)
+# Cost
+plots.cost(JJ, max_iters)
 
-# REFERENCE VS OPTIMAL TRAJECTORY PLOT
-plots.plot_trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
+# Optimal vs Reference Trajectories
+plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
+
+# Animation of the optimal trajectory
+if visu_animation:
+    anim.animate(model, xx_star, target_fps=30)

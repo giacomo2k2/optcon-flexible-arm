@@ -1,9 +1,58 @@
-import numpy as np
-import matplotlib.pyplot as plt
+#########################################################################################
+# OPTCON-RL 2025/2026 - Course Project #2
+# Optimal Control of a Flexible Robotic Link
+#
+# File:         model_symbolic.py
+# Description:  Symbolic model of the flexible double pendulum.
+#
+# Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
+# Affiliation:  Alma Mater Studiorum – Università di Bologna
+# Date:         December 2025
+#########################################################################################
+
+#######################################
+# Imports
+#######################################
 import sympy as sp
 
+
+#######################################
+# Symbolic Model Class
+#######################################
 class DoublePendulumFlexibleSymbolic:
-    def __init__(self, m1, m2, l1, l2, lc1, lc2, I1, I2, g, f1, f2, k):
+    """Symbolic model of the flexible double pendulum."""
+    def __init__(self, m1:float, m2:float, l1:float, l2:float, lc1:float, lc2:float,
+                  I1:float, I2:float, g:float, f1:float, f2:float, k:float) -> None:
+        """
+        Create a Double Pendulum system.
+
+        Parameters
+        ----------
+        m1 : float
+            Mass of link 1 [kg]
+        m2 : float
+            Mass of link 2 [kg]
+        l1 : float
+            Length of link 1 [m]
+        l2 : float
+            Length of link 2 [m]
+        lc1 : float
+            Center of mass of link 1 [m]
+        lc2 : float
+            Center of mass of link 2 [m]
+        I1 : float
+            Inertia of link 1 [kg*m^2]
+        I2 : float
+            Inertia of link 2 [kg*m^2]
+        g : float
+            Gravity acceleration [m/s^2]
+        f1 : float
+            Friction coefficient link 1 [N*m*s/rad]
+        f2 : float
+            Friction coefficient link 2 [N*m*s/rad]
+        k : float
+            Flexibility coefficient [N*m/rad]
+        """
         self.m1 = m1
         self.m2 = m2
         self.l1 = l1
@@ -17,8 +66,10 @@ class DoublePendulumFlexibleSymbolic:
         self.f2 = f2
         self.k = k
 
-        self.ns = 4
-        self.ni = 1
+        self.ns = 4 # State dimension
+        self.ni = 1 # Input dimension
+        self.dt = 0.01 # Default time step
+        self.discr_method = 'fe'  # 'fe' or 'rk4'
 
     def dynamic_model(self, x):
         # Unpack state
@@ -32,7 +83,7 @@ class DoublePendulumFlexibleSymbolic:
         c12 = sp.cos(q1+q2)
         s12 = sp.sin(q1+q2)
 
-
+        # Inertia matrix
         M = sp.Matrix([
             [self.I1 + self.I2 + self.lc1**2 * self.m1 + self.m2 * (self.l1**2 + 2 * self.l1 * self.lc2 * c2 + self.lc2**2), self.I2 + self.lc2 * self.m2 * (self.l1 * c2 + self.lc2)],
             [self.I2 + self.lc2 * self.m2 * (self.l1 * c2 + self.lc2), self.I2 + self.m2 * self.lc2 ** 2]
@@ -45,11 +96,6 @@ class DoublePendulumFlexibleSymbolic:
         ])
 
         # Gravity vector
-        G_paper = sp.Matrix([
-            [self.g * self.lc1 * self.m1 * s1 + self.g * self.m2 * self.l1 * s1 + self.lc2 * s12],
-            [self.g * self.m2 * self.lc2 * s12 + 3 * self.k * s2 * c2**2] 
-        ])
-
         G  = sp.Matrix([
             [self.g * self.lc1 * self.m1 * s1 + self.g * self.m2 * self.l1 * s1 + self.m2 * self.g * self.lc2 * s12],
             [self.g * self.m2 * self.lc2 * s12 + 3 * self.k * s2 * c2**2]
@@ -117,3 +163,44 @@ class DoublePendulumFlexibleSymbolic:
         B_sym = f_expr.jacobian(input_var)
         
         return A_sym, B_sym
+    
+    def symbolic_hessians_lambda_product(self):
+        """
+        Computes the symbolic Hessian matrices of the Hamiltonian with respect to state and input.
+
+        Returns
+        -------
+        H_xx : sp.Matrix
+            Symbolic Hessian of the Hamiltonian with respect to state.
+        H_uu : sp.Matrix
+            Symbolic Hessian of the Hamiltonian with respect to input.
+        H_xu : sp.Matrix
+            Symbolic mixed Hessian of the Hamiltonian with respect to state and input.
+        """
+        # Symbolic variables
+        q1, q2, q1_dot, q2_dot = sp.symbols('q1 q2 q1_dot q2_dot')
+        u = sp.symbols('u')
+        l1, l2, l3, l4 = sp.symbols('l1 l2 l3 l4') 
+        
+        # State, lambda and input vectors
+        state = sp.Matrix([q1, q2, q1_dot, q2_dot])
+        lmbd = sp.Matrix([l1, l2, l3, l4])
+        input_var = sp.Matrix([u])
+        
+        # Continous dynamics
+        f_expr = self.dynamics(state, u)
+        
+        # Scalar product
+        H_dyn = f_expr.dot(lmbd)
+        
+        # Grad xx
+        H_xx = sp.hessian(H_dyn, state)
+        
+        # Grad uu
+        H_uu = sp.hessian(H_dyn, input_var)
+        
+        # Grad xu
+        grad_x = sp.Matrix([sp.diff(H_dyn, s) for s in state])
+        H_xu = grad_x.jacobian(input_var)
+        
+        return H_xx, H_uu, H_xu

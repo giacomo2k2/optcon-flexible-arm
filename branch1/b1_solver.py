@@ -1,6 +1,32 @@
+#########################################################################################
+# OPTCON-RL 2025/2026 - Course Project #2
+# Optimal Control of a Flexible Robotic Link
+#
+# File:         solver.py
+# Description:  Solver functions for system dynamics.
+#
+# Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
+# Affiliation:  Alma Mater Studiorum – Università di Bologna
+# Date:         December 2025
+#########################################################################################
+
+#######################################
+# Imports
+#######################################
+
 import numpy as np
 import sympy as sp
+
+#######################################
+# Chaces
+#######################################
+
 _JACOBIAN_CACHE = {}
+_HESS_PROD_CACHE = {}
+
+#######################################
+# Functions
+#######################################
 
 def solver(model: object, x0:np.ndarray, steps:int, u: float = 0.0) -> np.ndarray:
     """
@@ -120,187 +146,105 @@ def jacobian_solver(A_sym, B_sym, x_val, u_val, dt: float = 0.01):
     
     return Ad, Bd
 
-def ltv_LQR(AAin, BBin, QQin, RRin, SSin, QQfin, TT, x0, qqin = None, rrin = None, qqfin = None):
+def hessian_numerical_solver(Hxx_sym, Huu_sym, Hxu_sym, x_val, u_val, l_next_val, dt = 0.01):
     """
-    LQR for LTV system with (time-varying) affine cost.
+    Valuta numericamente i termini grad^2 f * lambda.
+    
+    Ritorna:
+    - Hxx: (ns x ns) matrice numerica
+    - Huu: (ni x ni) matrice numerica
+    - Hxu: (ns x ni) matrice numerica
+    """
+    global _HESS_PROD_CACHE
+    
+    # Identificatore per la cache
+    cache_key = (id(Hxx_sym), id(Huu_sym), id(Hxu_sym))
+    
+    if cache_key not in _HESS_PROD_CACHE:
+        # Definiamo i simboli per la lambdify
+        q1, q2, q1_dot, q2_dot = sp.symbols('q1 q2 q1_dot q2_dot')
+        u = sp.symbols('u')
+        l1, l2, l3, l4 = sp.symbols('l1 l2 l3 l4')
+        
+        args = (q1, q2, q1_dot, q2_dot, u, l1, l2, l3, l4)
+        
+        # Trasformiamo in funzioni numeriche NumPy
+        f_Hxx = sp.lambdify(args, Hxx_sym, 'numpy')
+        f_Huu = sp.lambdify(args, Huu_sym, 'numpy')
+        f_Hxu = sp.lambdify(args, Hxu_sym, 'numpy')
+        
+        _HESS_PROD_CACHE[cache_key] = (f_Hxx, f_Huu, f_Hxu)
+    
+    # Estraiamo le funzioni dalla cache
+    f_Hxx, f_Huu, f_Hxu = _HESS_PROD_CACHE[cache_key]
+    
+    # Prepariamo i valori numerici (appiattiamo l_next se necessario)
+    u_scalar = u_val[0] if hasattr(u_val, "__len__") else u_val
+    l_vals = l_next_val.flatten()
+    
+    call_args = (*x_val, u_scalar, *l_vals)
+    
+    # Valutazione e discretizzazione
+    # Poiché la slide parla di f_t (dinamica discreta), se f è continua:
+    # f_discreta = x + dt * f_continua -> grad^2 f_discreta = dt * grad^2 f_continua
+    Hxx_num = f_Hxx(*call_args) * dt
+    Huu_num = f_Huu(*call_args) * dt
+    Hxu_num = f_Hxu(*call_args) * dt
+    
+    return Hxx_num, Huu_num, Hxu_num
 
+def ltv_LQR_step(At, Bt, QQt, RRt, SSt, PPtp, pptp, qt, rt):
+    """
+    Single time-step LQR backward pass computation.
+    
+    Computes the Riccati recursion for a single time step, given the next time-step values.
+    
     Parameters
     ----------
-    AAin : np.ndarray, (nn x nn x TT)
-        State dynamics matrices over time.
-    BBin : np.ndarray, (nn x mm x TT)
-        Input dynamics matrices over time.
-    QQin : np.ndarray, (nn x nn x TT)
-        State cost matrices over time.
-    RRin : np.ndarray, (mm x mm x TT)
-        Input cost matrices over time.
-    SSin : np.ndarray, (mm x nn x TT)
-        Cross term cost matrices over time.
-    QQfin : np.ndarray, (nn x nn)
-        Terminal state cost matrix.
-    x0 : np.ndarray, (nn,)
-        Initial state.
-    qqin : np.ndarray, (nn x TT), optional
-        State affine cost terms over time (default is None).
-    rrin : np.ndarray, (mm x TT), optional
-        Input affine cost terms over time (default is None).
-    qqfin : np.ndarray, (nn,), optional
-        Terminal state affine cost term (default is None).
-
+    At : np.ndarray, (ns x ns)
+        State dynamics matrix at time t.
+    Bt : np.ndarray, (ns x ni)
+        Input dynamics matrix at time t.
+    QQt : np.ndarray, (ns x ns)
+        State cost matrix at time t.
+    RRt : np.ndarray, (ni x ni)
+        Input cost matrix at time t.
+    SSt : np.ndarray, (ni x ns)
+        Cross term cost matrix at time t.
+    PPtp : np.ndarray, (ns x ns)
+        Riccati matrix at time t+1.
+    pptp : np.ndarray, (ns,)
+        Affine term of value function at time t+1.
+    qt : np.ndarray, (ns, 1)
+        State affine cost term at time t.
+    rt : np.ndarray, (ni, 1)
+        Input affine cost term at time t.
+    
     Returns
     -------
-    KK : np.ndarray, (mm x nn x TT-1)
-        State feedback gain matrices over time.
-    sigma : np.ndarray, (mm x TT-1)
-        Affine control terms over time.
-    PP : np.ndarray, (nn x nn x TT)
-        Riccati matrices over time.
-    xxout : np.ndarray, (nn x TT)
-        State trajectory.
-    uuout : np.ndarray, (mm x TT)
-        Input trajectory.
+    Kt : np.ndarray, (ni x ns)
+        State feedback gain matrix at time t.
+    st : np.ndarray, (ni,)
+        Affine control term at time t.
+    PPt : np.ndarray, (ns x ns)
+        Riccati matrix at time t.
+    ppt : np.ndarray, (ns,)
+        Affine term of value function at time t.
     """
+    # Ensure pptp is column vector
+    if pptp.ndim == 1:
+        pptp = pptp[:, None]
+    
+    # Compute intermediate terms
+    MMt_inv = np.linalg.inv(RRt + Bt.T @ PPtp @ Bt)
+    mmt = rt + Bt.T @ pptp
 
-    # check if matrix is (.. x .. x TT) - 3 dimensional array - if not, make it
-    try:  
-        ns, lA = AAin.shape[1:]
-    except:
-        AAin = AAin[:,:,None]
-        ns, lA = AAin.shape[1:]
-    try:  
-        ni, lB = BBin.shape[1:]
-    except:
-        BBin = BBin[:,:,None]
-        ni, lB = BBin.shape[1:]
-    try:
-        nQ, lQ = QQin.shape[1:]
-    except:
-        QQin = QQin[:,:,None]
-        nQ, lQ = QQin.shape[1:]
-    try:
-        nR, lR = RRin.shape[1:]
-    except:
-        RRin = RRin[:,:,None]
-        nR, lR = RRin.shape[1:]
-    try:
-        nSi, nSs, lS = SSin.shape
-    except:
-        SSin = SSin[:,:,None]
-        nSi, nSs, lS = SSin.shape
-
-    # Check dimensions consistency -- safety
-    if nQ != ns:
-        print("Matrix Q does not match number of states")
-        exit()
-    if nR != ni:
-        print("Matrix R does not match number of inputs")
-        exit()
-    if nSs != ns:
-        print("Matrix S does not match number of states")
-        exit()
-    if nSi != ni:
-        print("Matrix S does not match number of inputs")
-        exit()
-
-    # Repeat matrices if needed
-    if lA < TT:
-        AAin = AAin.repeat(TT, axis=2)
-    if lB < TT:
-        BBin = BBin.repeat(TT, axis=2)
-    if lQ < TT:
-        QQin = QQin.repeat(TT, axis=2)
-    if lR < TT:
-        RRin = RRin.repeat(TT, axis=2)
-    if lS < TT:
-        SSin = SSin.repeat(TT, axis=2)
-
-    # Check for affine terms
-    augmented = False
-    if qqin is not None or rrin is not None or qqfin is not None:
-        augmented = True
-        print("Augmented term!")
-
-    # Initialize matrices
-    KK = np.zeros((ni, ns, TT))
-    sigma = np.zeros((ni, TT))
-    PP = np.zeros((ns, ns, TT))
-    pp = np.zeros((ns, TT))
-
-    QQ = QQin
-    RR = RRin
-    SS = SSin
-    QQf = QQfin
-
-    qq = qqin
-    rr = rrin
-
-    qqf = qqfin
-
-    AA = AAin
-    BB = BBin
-
-    xx = np.zeros((ns, TT))
-    uu = np.zeros((ni, TT))
-
-    xx[:,0] = x0
-
-    PP[:,:,-1] = QQf
-    pp[:,-1] = qqf
-
-    # Solve Riccati equation
-    for tt in reversed(range(TT-1)):
-        QQt = QQ[:,:,tt]
-        qqt = qq[:,tt][:,None]
-        RRt = RR[:,:,tt]
-        rrt = rr[:,tt][:,None]
-        AAt = AA[:,:,tt]
-        BBt = BB[:,:,tt]
-        SSt = SS[:,:,tt]
-        PPtp = PP[:,:,tt+1]
-        pptp = pp[:, tt+1][:,None]
-
-        MMt_inv = np.linalg.inv(RRt + BBt.T @ PPtp @ BBt)
-        mmt = rrt + BBt.T @ pptp
-
-        PPt = AAt.T @ PPtp @ AAt - (BBt.T@PPtp@AAt + SSt).T @ MMt_inv @ (BBt.T@PPtp@AAt + SSt) + QQt
-        ppt = AAt.T @ pptp - (BBt.T@PPtp@AAt + SSt).T @ MMt_inv @ mmt + qqt
-
-        PP[:,:,tt] = PPt
-        pp[:,tt] = ppt.squeeze()
-
-
-    # Evaluate KK and sigma
-    for tt in range(TT-1):
-        QQt = QQ[:,:,tt]
-        qqt = qq[:,tt][:,None]
-        RRt = RR[:,:,tt]
-        rrt = rr[:,tt][:,None]
-        AAt = AA[:,:,tt]
-        BBt = BB[:,:,tt]
-        SSt = SS[:,:,tt]
-
-        PPtp = PP[:,:,tt+1]
-        pptp = pp[:,tt+1][:,None]
-
-        # Check positive definiteness
-        MMt_inv = np.linalg.inv(RRt + BBt.T @ PPtp @ BBt)
-        mmt = rrt + BBt.T @ pptp
-
-        # for other purposes we could add a regularization step here...
-
-        KK[:,:,tt] = -MMt_inv@(BBt.T@PPtp@AAt + SSt)
-        sigma_t = -MMt_inv@mmt
-
-        sigma[:,tt] = sigma_t.squeeze()
-
-    # Trajectory
-    for tt in range(TT - 1):
-        uu[:, tt] = KK[:,:,tt]@xx[:, tt] + sigma[:,tt]
-        xx_p = AA[:,:,tt]@xx[:,tt] + BB[:,:,tt]@uu[:, tt]
-
-        xx[:,tt+1] = xx_p
-
-        xxout = xx
-        uuout = uu
-
-    return KK, sigma, PP, xxout, uuout
+    # Compute feedback gain and affine term
+    Kt = -MMt_inv @ (Bt.T @ PPtp @ At + SSt)
+    st = -MMt_inv @ mmt
+    
+    # Riccati recursion for P and p
+    PPt = At.T @ PPtp @ At - (Bt.T @ PPtp @ At + SSt).T @ MMt_inv @ (Bt.T @ PPtp @ At + SSt) + QQt
+    ppt = At.T @ pptp - (Bt.T @ PPtp @ At + SSt).T @ MMt_inv @ mmt + qt
+        
+    return Kt, st.squeeze(), PPt, ppt.squeeze()

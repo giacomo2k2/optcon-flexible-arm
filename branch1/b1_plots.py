@@ -1,3 +1,20 @@
+#########################################################################################
+# OPTCON-RL 2025/2026 - Course Project #2
+# Optimal Control of a Flexible Robotic Link
+#
+# File:         plots.py
+# Description:  Plotting functions.
+#
+# Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
+# Affiliation:  Alma Mater Studiorum – Università di Bologna
+# Date:         December 2025
+#########################################################################################
+
+#######################################
+# Imports
+#######################################
+
+# Python libraries
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -5,7 +22,11 @@ import numpy as np
 # Matplotlib settings
 plt.rcParams['font.family'] = 'serif'
 
-def plot_reference_traj(time: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, title: str) -> None:
+#######################################
+# Functions
+#######################################
+
+def reference_traj(time: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, title: str) -> None:
     """
     Plots the reference trajectory for a Double Pendulum system.
 
@@ -65,7 +86,7 @@ def plot_reference_traj(time: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, 
     plt.tight_layout(rect=[0, 0.03, 1, 0.97])
     plt.show()
 
-def plot_trajectory_comparison(
+def trajectory_comparison(
     time: np.ndarray, 
     x_ref: np.ndarray, 
     u_ref: np.ndarray, 
@@ -75,6 +96,21 @@ def plot_trajectory_comparison(
 ) -> None:
     """
     Plots the comparison between reference and guess trajectories.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Array of time points.
+    x_ref : np.ndarray
+        Reference state trajectory .
+    u_ref : np.ndarray
+        Reference control inputs.
+    x_guess : np.ndarray
+        Guess state trajectory.
+    u_guess : np.ndarray
+        Guess control inputs.
+    title : str
+        Title for the plots.
     """
     
     config = {
@@ -145,7 +181,7 @@ def plot_trajectory_comparison(
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
-def plot_equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
+def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
         """
         Plot the equilibrium manifold in 2D projections and 3D.
 
@@ -217,3 +253,84 @@ def plot_equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d
                 print(f"Fixed Variable: {key.replace('Fix ', '')}")
                 for i, pair in enumerate(manifold_data[key][:]):
                     print(f"Sample {i+1}: q1 = {pair[0]:.3f},\t q2 = {pair[1]:.3f},\t u = {pair[2]:.3f}")
+
+def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list) -> None:
+    """
+    Plots the Armijo descent direction and the costs associated with different stepsizes.
+
+    Parameters
+    ----------
+    steps : np.ndarray
+        Array of stepsizes.
+    costs : np.ndarray
+        Array of costs corresponding to the stepsizes.
+    JJ : float
+        Current cost.
+    descent_arm : float
+        Descent direction value.
+    c : float
+        Armijo threshold.
+    stepsizes : list
+        List of stepsizes tested.
+    costs_armijo : list
+        List of costs associated with the tested stepsizes.
+    """
+    plt.figure(1)
+    plt.clf()
+
+    plt.plot(steps, costs, color='g', label='$J(\\mathbf{u}^k - \\gamma \\cdot d^k)$')
+    plt.plot(steps, JJ + descent_arm*steps, color='r', label='$J(\\mathbf{u}^k) - \\gamma \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
+    # plt.plot(steps, JJ - descent*steps, color='r', label='$J(\\mathbf{u}^k) - stepsize*\\nabla J(\\mathbf{u}^k)^{\\top} d^k$')
+    plt.plot(steps, JJ + c*descent_arm*steps, color='g', linestyle='dashed', label='$J(\\mathbf{u}^k) - \\gamma \\cdot c \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
+
+    plt.scatter(stepsizes, costs_armijo, marker='*') # plot the tested stepsize
+
+    plt.grid()
+    plt.xlabel('stepsize')
+    plt.legend()
+    plt.draw()
+
+    plt.show()
+
+def descent_direction(descent: np.ndarray, iters: int) -> None:
+    """
+    Plots the descent direction norm over iterations.
+
+    Parameters
+    ----------
+    descent : np.ndarray
+        Array containing the descent direction norms.
+    iters : int
+        Number of iterations to plot.
+    """
+    plt.figure('descent direction', figsize=(10, 6))
+    plt.plot(np.arange(iters), descent[:iters], linewidth=2, color='#1f77b4')
+    plt.xlabel('Iteration $k$', fontsize=14)
+    plt.ylabel(r'$\| \Delta u \| ^2$', fontsize=14)
+    plt.title('Descent', fontsize=16)
+    plt.yscale('log')
+    plt.grid(alpha=0.4)
+    plt.tight_layout()
+    plt.show(block=False)
+
+def cost(JJ: np.ndarray, iters: int) -> None:
+    """
+    Plots the cost function over iterations.
+
+    Parameters
+    ----------
+    JJ : np.ndarray
+        Array containing the cost values.
+    max_iters : int
+        Maximum number of iterations to plot.
+    """
+    plt.figure('cost', figsize=(10, 6))
+    plt.plot(np.arange(iters-1), JJ[:iters-1], linewidth=2, color='#ff7f0e')
+    plt.xlabel('Iteration $k$', fontsize=14)
+    plt.ylabel(r'$J(\mathbf{u}^k)$', fontsize=14)
+    plt.title('Cost Function', fontsize=16)
+    plt.yscale('log')
+    plt.grid(alpha=0.4)
+    plt.tight_layout()
+    plt.show(block=False)
+

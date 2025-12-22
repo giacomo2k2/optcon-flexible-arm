@@ -1,0 +1,9 @@
+#############################################
+# Compute QQT as solution of the DARE
+##############################################
+# Symbolic jacobian
+AA_sym, BB_sym = model_sym.symbolic_jacobian() 
+
+AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1])
+
+QQT = ctrl.dare(AA_ref, BB_ref, QQt, RRt)[0]
