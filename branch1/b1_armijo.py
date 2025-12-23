@@ -119,10 +119,11 @@ def select_stepsize(stepsize_0: float, armijo_maxiters: int, c: float, beta: flo
         if JJ_temp > JJ + c*stepsize*descent_arm:
             stepsize = beta*stepsize
         else:
-            print('Armijo stepsize = {:.3e}'.format(stepsize))
+            if plot:
+                print('Armijo stepsize = {:.3e}'.format(stepsize))
             break
 
-        if ii == armijo_maxiters -1:
+        if ii == armijo_maxiters -1 and plot:
             print("WARNING: no stepsize was found with armijo rule!")
 
 
@@ -240,10 +241,11 @@ def select_stepsize_newton(stepsize_0: float, armijo_maxiters: int, c: float, be
         if JJ_temp > JJ + c*stepsize*descent_arm:
             stepsize = beta*stepsize
         else:
-            print('Armijo stepsize = {:.3e}'.format(stepsize))
+            if plot:
+                print('Armijo stepsize = {:.3e}'.format(stepsize))
             break
 
-        if ii == armijo_maxiters -1:
+        if ii == armijo_maxiters -1 and plot:
             print("WARNING: no stepsize was found with armijo rule!")
 
     ############################

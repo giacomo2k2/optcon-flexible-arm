@@ -78,7 +78,9 @@ initial_reference_plot = False    # plot reference trajectory at beginning
 equilibrium_plot = False        # plot equilibrium manifold and points
 armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
-visu_animation = True          # animate final optimal trajectory
+visu_animation = False          # animate final optimal trajectory
+debug_print = False             # print debug information
+final_plots = False             # plot final optimal trajectory
 
 #######################################
 # Trajectory parameters
@@ -135,8 +137,9 @@ equilibrium_traj = {
 # - left_to_right_elbow_up
 # - top_to_elbow_up (need tf = 0.5)
 # - top_to_elbow_down
-selected_equilibrium = 'elbow_up'
-(x_eq1, u_eq1), (x_eq2, u_eq2) = equilibrium_traj[selected_equilibrium]
+selected_equilibrium = 'left_to_right_elbow_up'
+eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
+(x_eq1, u_eq1), (x_eq2, u_eq2) = eq_pair1, eq_pair2
 
 if equilibrium_plot:
     #plots.plot_equilibrium_manifold(data_dict)
@@ -161,7 +164,7 @@ time, xx_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoint
 time, uu_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoints=u_setpoints, method=method)
 
 if initial_reference_plot:
-    plots.reference_traj(time, xx_ref, uu_ref, method)
+    plots.show_traj(time, xx_ref, uu_ref, eq_pair1, eq_pair2, "Reference " + method)
 
 #############################################
 # Compute QQT as solution of the DARE
@@ -191,7 +194,7 @@ uu_init = np.zeros((ni, TT))  # initial input trajectory guess
 x0 = xx_ref[:, 0]  # initial state
 
 if initial_reference_plot:
-    plots.plot_trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference")
+    plots.trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference")
 
 ######################################
 # Arrays to store data
@@ -218,7 +221,7 @@ ss = np.zeros((ni, TT, max_iters))              # s vectors for affine LQR
 # Trajectory Generation
 ######################################
 
-print("======================= Newton Method =======================")
+print("=================== Trajectory generation - Newton method ===================")
 
 # Iteration counter
 kk = 0
@@ -271,7 +274,7 @@ for kk in range(max_iters-1):
         lmbd[:,tt,kk] = lmbd_temp.squeeze()
 
         # Single step LQR
-        KK[:,:,tt,kk], ss[:,tt,kk], PP[:,:,tt,kk], pp[:,tt,kk] = solver.ltv_LQR_step(
+        KK[:,:,tt,kk], ss[:,tt,kk], PP[:,:,tt,kk], pp[:,tt,kk] = solver.ltv_affine_LQR_step(
             At, Bt, Qtk, Rtk, Stk, PP[:,:,tt+1,kk], pp[:,tt+1,kk], qt, rt
         )
 
@@ -298,7 +301,8 @@ for kk in range(max_iters-1):
                                          QQt, RRt, QQT, plot=armijo_plot)
     else:
         stepsize = fixed_stepsize
-        print(f"Fixed stepsize: {stepsize:.3e}")
+        if debug_print:
+            print(f"Fixed stepsize: {stepsize:.3e}")
 
     ############################
     # 3. Forward closed-loop integration
@@ -325,8 +329,11 @@ for kk in range(max_iters-1):
         plots.trajectory_comparison(time, xx_ref, uu_ref, xx[:,:,kk+1], uu[:,:,kk+1], 
                                         title=f"Iteration {kk}")
     
-    # Statistic print
-    print(f"Iter: {kk} \tCost: {JJ[kk]:.6e} \tStepsize: {stepsize:.3e} \tDescent norm: {descent[kk]:.6e} \tDescent condition value: {descent_arm[kk]:.6e}")
+    if debug_print:
+        print(f"Iter: {kk} \tCost: {JJ[kk]:.6e} \tStepsize: {stepsize:.3e} \tDescent norm: {descent[kk]:.6e} \tDescent condition value: {descent_arm[kk]:.6e}")
+    else:
+        dots = "." * (kk % 4)
+        print(f"\rComputing trajectory{dots:3}", end="", flush=True)
 
     ############################
     # 5. Termination condition
@@ -343,16 +350,25 @@ xx_star = xx[:,:,max_iters-1]
 uu_star = uu[:,:,max_iters-1]
 uu_star[:,-1] = uu_star[:,-2] # for plotting purposes
 
-# Descent Direction
-plots.descent_direction(descent, max_iters)
+if final_plots:
+    # Descent Direction
+    plots.descent_direction(descent, max_iters)
 
-# Cost
-plots.cost(JJ, max_iters)
+    # Cost
+    plots.cost(JJ, max_iters)
 
-# Optimal vs Reference Trajectories
-plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
+    # Optimal vs Reference Trajectories
+    plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
+    
 
 # Animation of the optimal trajectory
 if visu_animation:
-    anim.animate(model, xx_star, target_fps=30)
+    anim.animate_comparison(model, xx_star, xx_ref, eq_pair1, eq_pair2, target_fps=30)
+
+
+def get_optimal_trajectory():
+    return time, xx_star, uu_star
+
+def get_equilibrium_pairs():
+    return eq_pair1, eq_pair2
 

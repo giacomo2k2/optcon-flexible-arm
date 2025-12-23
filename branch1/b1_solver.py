@@ -16,6 +16,7 @@
 
 import numpy as np
 import sympy as sp
+import casadi as ca
 
 #######################################
 # Chaces
@@ -96,7 +97,7 @@ def solver_step(model: object, x:np.ndarray, u: float = 0.0) -> np.ndarray:
         raise ValueError("Choose a valid method: 'fe' or 'rk4'.")
     return new_states
 
-def jacobian_solver(A_sym, B_sym, x_val, u_val, dt: float = 0.01):
+def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val, dt: float = 0.01):
     """
     Compute the discrete-time Jacobian matrices A, B.
 
@@ -146,14 +147,35 @@ def jacobian_solver(A_sym, B_sym, x_val, u_val, dt: float = 0.01):
     
     return Ad, Bd
 
-def hessian_numerical_solver(Hxx_sym, Huu_sym, Hxu_sym, x_val, u_val, l_next_val, dt = 0.01):
+def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp.Matrix, x_val: np.ndarray, u_val, l_next_val: np.ndarray, dt: float = 0.01):
     """
-    Valuta numericamente i termini grad^2 f * lambda.
+    Compute the discrete-time Hessian matrices Hxx, Huu, Hxu.
+
+    Parameters
+    ----------
+    Hxx_sym : sympy.Matrix
+        Symbolic continuous-time Hessian matrix w.r.t. states.
+    Huu_sym : sympy.Matrix
+        Symbolic continuous-time Hessian matrix w.r.t. inputs.
+    Hxu_sym : sympy.Matrix
+        Symbolic continuous-time Hessian matrix w.r.t. states and inputs.
+    x_val : np.ndarray
+        State vector at which to evaluate the Hessians.
+    u_val : float or np.ndarray
+        Input value at which to evaluate the Hessians.
+    l_next_val : np.ndarray
+        Costate vector at the next time step.
+    dt : float, optional
+        Discretization time step (default is 0.01).
     
-    Ritorna:
-    - Hxx: (ns x ns) matrice numerica
-    - Huu: (ni x ni) matrice numerica
-    - Hxu: (ns x ni) matrice numerica
+    Returns
+    -------
+    Hxx_num : np.ndarray
+        Discrete-time Hessian matrix w.r.t. states.
+    Huu_num : np.ndarray
+        Discrete-time Hessian matrix w.r.t. inputs.
+    Hxu_num : np.ndarray
+        Discrete-time Hessian matrix w.r.t. states and inputs.
     """
     global _HESS_PROD_CACHE
     
@@ -193,9 +215,10 @@ def hessian_numerical_solver(Hxx_sym, Huu_sym, Hxu_sym, x_val, u_val, l_next_val
     
     return Hxx_num, Huu_num, Hxu_num
 
-def ltv_LQR_step(At, Bt, QQt, RRt, SSt, PPtp, pptp, qt, rt):
+def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray,
+                        SSt: np.ndarray, PPtp: np.ndarray, pptp: np.ndarray, qt: np.ndarray, rt: np.ndarray):
     """
-    Single time-step LQR backward pass computation.
+    Single time-step affine LQR backward pass computation.
     
     Computes the Riccati recursion for a single time step, given the next time-step values.
     
@@ -248,3 +271,187 @@ def ltv_LQR_step(At, Bt, QQt, RRt, SSt, PPtp, pptp, qt, rt):
     ppt = At.T @ pptp - (Bt.T @ PPtp @ At + SSt).T @ MMt_inv @ mmt + qt
         
     return Kt, st.squeeze(), PPt, ppt.squeeze()
+
+def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, PPtp: np.ndarray):
+    """
+    Computes the Riccati recursion for a single time step, given the next time-step value.
+
+    Parameters
+    ----------
+    At : np.ndarray, (ns x ns)
+        State dynamics matrix at time t.
+    Bt : np.ndarray, (ns x ni)
+        Input dynamics matrix at time t.
+    QQt : np.ndarray, (ns x ns)
+        State cost matrix at time t.
+    RRt : np.ndarray, (ni x ni)
+        Input cost matrix at time t.
+    PPtp : np.ndarray, (ns x ns)
+        Riccati matrix at time t+1.
+
+    Returns
+    -------
+    Kt : np.ndarray, (ni x ns)
+        State feedback gain matrix at time t.
+    PPt : np.ndarray, (ns x ns)
+        Riccati matrix at time t.
+    """
+    MMt_inv = np.linalg.inv(RRt + Bt.T @ PPtp @ Bt)
+    Kt = -MMt_inv @ (Bt.T @ PPtp @ At)
+    PPt = At.T @ PPtp @ At - (At.T @ PPtp @ Bt) @ MMt_inv @ (Bt.T @ PPtp @ At) + QQt
+    return Kt, PPt
+
+def unconstrained_ltv_lqr(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
+                          x0: np.ndarray, TT: int, ipopt_opts=None):
+    """
+    CasAdi solver for unconstrained LTV LQR problem.
+
+    Parameters
+    ----------
+    At : np.ndarray, (ns x ns x TT)
+        Sequence of state dynamics matrices.
+    Bt : np.ndarray, (ns x ni x TT)
+        Sequence of input dynamics matrices.
+    QQt : np.ndarray, (ns x ns)
+        State cost matrix.
+    RRt : np.ndarray, (ni x ni)
+        Input cost matrix.
+    QQT : np.ndarray, (ns x ns)
+        Terminal state cost matrix.
+    x0 : np.ndarray, (ns,)
+        Initial state vector.
+    xx_star : np.ndarray, (ns x TT)
+        Optimal state trajectory to track.
+    uu_star : np.ndarray, (ni x TT)
+        Optimal input trajectory to track.
+    TT : int
+        Time horizon length.
+    ipopt_opts : dict, optional
+        Options for the IPOPT solver.
+
+    Returns
+    -------
+    X : np.ndarray, (ns x TT)
+        Optimal state trajectory.
+    U : np.ndarray, (ni x TT)
+        Optimal input trajectory.
+    """
+    # Unpack dimensions
+    ns = At.shape[0]
+    ni = Bt.shape[1]
+
+    # Initialize CasAdi optimization
+    opti = ca.Opti()
+
+    # Decision variables
+    dX = opti.variable(ns, TT)
+    dU = opti.variable(ni, TT)
+
+    # Objective function
+    cost = 0
+    for tt in range(TT - 1):
+        # Stage cost
+        cost += ca.mtimes([dX[:, tt].T, QQt, dX[:, tt]]) + ca.mtimes([dU[:, tt].T, RRt, dU[:, tt]])
+
+        # Dynamic constraint
+        opti.subject_to(dX[:, tt + 1] == ca.DM(At[:,:,tt]) @ dX[:, tt] + ca.DM(Bt[:,:,tt]) @ dU[:, tt])
+
+    # Terminal cost
+    cost += ca.mtimes([dX[:, TT - 1].T, QQT, dX[:, TT - 1]])
+    
+    # Initial condition
+    opti.subject_to(dX[:, 0] == ca.DM(x0))
+
+    # Cost to minimize
+    opti.minimize(cost)
+
+    # Solver options
+    if ipopt_opts is None:
+        ipopt_opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.max_iter": 1000}
+    opti.solver("ipopt", ipopt_opts)
+
+    # Solve the optimization problem
+    sol = opti.solve()
+    
+    return np.asarray(sol.value(dX)), np.asarray(sol.value(dU)).reshape(ni, TT)
+
+def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
+            xxt: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, umax: float = 1000, umin: float = -1000,
+            x1_max: float = 20, x1_min: float = -20, x2_max: float = 20, x2_min: float = -20,
+            x3_max: float = 20, x3_min: float = -20, x4_max: float = 20, x4_min: float = -20,
+            T_pred: int = 50, ipopt_opts=None):
+    """
+    ...
+    """
+    # Unpack dimensions
+    ns = Bt.shape[0] 
+    ni = Bt.shape[1]
+
+    # Initialize CasAdi optimization
+    opti = ca.Opti()
+
+    # Decision variables for the upcoming time window
+    dX = opti.variable(ns, T_pred)
+    dU = opti.variable(ni, T_pred)
+
+    # Objective function
+    cost = 0
+    for t_p in range(T_pred - 1):
+        # Stage cost
+        cost += ca.mtimes([dX[:, t_p].T, QQt, dX[:, t_p]]) + ca.mtimes([dU[:, t_p].T, RRt, dU[:, t_p]])
+
+        # Dynamic constraint
+        opti.subject_to(dX[:, t_p + 1] == ca.DM(At[:,:,t_p]) @ dX[:, t_p] + ca.DM(Bt[:,:,t_p]) @ dU[:, t_p])
+
+        # Input constraints
+        u_real = ca.DM(u_ref[:, t_p]) + dU[:, t_p]
+        # opti.subject_to(opti.bounded(umin, u_real, umax))
+        opti.subject_to(u_real <= umax)
+        opti.subject_to(u_real >= umin)
+        
+        # States constraints
+        x1_real = ca.DM(x_ref[0, t_p]) + dX[0, t_p]
+        x2_real = ca.DM(x_ref[1, t_p]) + dX[1, t_p]
+        x3_real = ca.DM(x_ref[2, t_p]) + dX[2, t_p]
+        x4_real = ca.DM(x_ref[3, t_p]) + dX[3, t_p]
+        # opti.subject_to(opti.bounded(x1_min, x1_real, x1_max))
+        # opti.subject_to(opti.bounded(x2_min, x2_real, x2_max))
+        # opti.subject_to(opti.bounded(x3_min, x3_real, x3_max))
+        # opti.subject_to(opti.bounded(x4_min, x4_real, x4_max))
+        opti.subject_to(x1_real <= x1_max)
+        opti.subject_to(x1_real >= x1_min)
+        opti.subject_to(x2_real <= x2_max)
+        opti.subject_to(x2_real >= x2_min)
+        opti.subject_to(x3_real <= x3_max)
+        opti.subject_to(x3_real >= x3_min)
+        opti.subject_to(x4_real <= x4_max)
+        opti.subject_to(x4_real >= x4_min)
+
+    # Terminal cost
+    cost += ca.mtimes([dX[:, T_pred - 1].T, QQT, dX[:, T_pred - 1]])
+    
+    # Initial condition
+    opti.subject_to(dX[:, 0] == ca.DM(xxt - x_ref[:, 0]))
+
+    # Cost to minimize
+    opti.minimize(cost)
+
+    # Solver options
+    if ipopt_opts is None:
+        ipopt_opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.max_iter": 1000}
+    opti.solver("ipopt", ipopt_opts)
+
+    try:
+        # Solve the optimization problem
+        sol = opti.solve()
+    except RuntimeError:
+        # Try with zero initial guess then fail gracefully
+        opti.set_initial(dX, np.zeros((ns, T_pred)))
+        opti.set_initial(dU, np.zeros((ni, T_pred)))
+        try:
+            sol = opti.solve()
+        except Exception as e:
+            print("solver_ltv_mpc: solver failed:", e)
+            return None, None, None
+
+    return np.asarray(sol.value(dU[:, 0])), np.asarray(sol.value(dX)), np.asarray(sol.value(dU))

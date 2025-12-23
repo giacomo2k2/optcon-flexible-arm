@@ -24,6 +24,12 @@ plt.rcParams['font.family'] = 'serif'
 # Solver
 import b1_solver as solver
 
+# Color palette
+from b1_plots import colors
+
+# Plots
+import b1_plots as plots
+
 # Parameters settings
 PARAM_SET_1 = {
     'm1': 1.0,      # Mass of link 1 [kg]
@@ -496,8 +502,43 @@ class DoublePendulumFlexible:
             res[key] = np.array(res[key])
                 
         return res
+    
+    def _get_forward_kinematics(self, x:np.ndarray, com:bool = False) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the forward kinematics of the double pendulum.
 
-    def animation(self, x: np.ndarray, ax: plt.Axes) -> None:
+        Parameters
+        ----------
+        x : np.ndarray
+            State vector [q1, q2, q1_dot, q2_dot].
+        com : bool, optional
+            If True, compute positions of centers of mass; otherwise, joint positions (default is False).
+
+        Returns
+        -------
+        p1 : np.ndarray
+            Position of the first joint [x1, y1].
+        p2 : np.ndarray
+            Position of the end-effector [x2, y2].
+        pc1 : np.ndarray, optional
+            Position of the center of mass of link 1 [xc1, yc1] (returned if com=True).
+        pc2 : np.ndarray, optional
+            Position of the center of mass of link 2 [xc2, yc2] (returned if com=True).
+        """
+        q1 = x[0]
+        q2 = x[1]
+
+        p1 = np.array([self.l1 * np.sin(q1), -self.l1 * np.cos(q1)])
+        p2 = p1 + np.array([self.l2 * np.sin(q1 + q2), -self.l2 * np.cos(q1 + q2)])
+
+        if com:
+            pc1 = np.array([self.lc1 * np.sin(q1), -self.lc1 * np.cos(q1)])
+            pc2 = np.array([self.l1 * np.sin(q1) + self.lc2 * np.sin(q1 + q2), -self.l1 * np.cos(q1) - self.lc2 * np.cos(q1 + q2)])
+            return p1, p2, pc1, pc2
+        else:
+            return p1, p2
+
+    def draw_frame(self, x: np.ndarray, ax: plt.Axes) -> None:
         """
         Create an animation frame for the double pendulum at state x.
         
@@ -508,17 +549,9 @@ class DoublePendulumFlexible:
         ax : plt.Axes
             Matplotlib Axes to draw on.
         """
-        # Extract joints position
-        q1 = x[0]
-        q2 = x[1]
-        
-        # TODO: consider flexible arm for animation
-        # Compute cartesians position (Forward Kinematics)
-        p1 = np.array([self.l1 * np.sin(q1), -self.l1 * np.cos(q1)])
-        p2 = np.array([self.l1 * np.sin(q1) + self.l2 * np.sin(q1 + q2), -self.l1 * np.cos(q1) - self.l2 * np.cos(q1 + q2)])
 
-        pc1 = np.array([self.lc1 * np.sin(q1), -self.lc1 * np.cos(q1)])
-        pc2 = np.array([self.l1 * np.sin(q1) + self.lc2 * np.sin(q1 + q2), -self.l1 * np.cos(q1) - self.lc2 * np.cos(q1 + q2)])
+        # TODO: consider flexible arm for animation
+        p1, p2, pc1, pc2 = self._get_forward_kinematics(x, com=True)
 
         # Limit for total pendolum length
         lim_size = (self.l1 + self.l2) * 1.5
@@ -534,12 +567,51 @@ class DoublePendulumFlexible:
 
         # === Draw Links and Joints ===
         # Link 1
-        ax.plot([0.0, p1[0]], [0.0, p1[1]], 'grey', linewidth=2.5, label='Link 1')
-        ax.scatter([0.0], [0.0], color='black', s=20, zorder=5) # Base pivot
-        ax.scatter([pc1[0]], [pc1[1]], color='red', s=40, zorder=5)   # CM1
+        ax.plot([0.0, p1[0]], [0.0, p1[1]], color=colors['grey'], linewidth=2.5, label='Link 1') # Link 1
+        ax.scatter([0.0], [0.0], color=colors['black'], s=20, zorder=5) # Joint 1
+        ax.scatter([pc1[0]], [pc1[1]], color=colors['red'], s=40, zorder=5)   # CM1
 
         # Link 2
-        ax.scatter(p1[0], p1[1], color='black', s=20, zorder=5)
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], 'grey', linewidth=2.5, label='Link 2')
-        ax.scatter(pc2[0], pc2[1], color='red', s=40, zorder=5)
+        ax.scatter(p1[0], p1[1], color=colors['black'], s=20, zorder=5) # Joint 2
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=colors['grey'], linewidth=2.5, label='Link 2') # Link 2
+        ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5) # CM2
 
+    def draw_comparison_frame(self, ax: plt.Axes, x_curr: np.ndarray, x_ref: np.ndarray, x_eq1: np.ndarray, x_eq2: np.ndarray) -> None:
+        """
+        Draw a comparison frame between current state, reference state, and equilibrium.
+
+        Parameters
+        ----------
+        ax : plt.Axes
+            Matplotlib Axes to draw on.
+        x_curr : np.ndarray
+            Current state vector [q1, q2, q1_dot, q2_dot].
+        x_ref : np.ndarray
+            Reference state vector [q1, q2, q1_dot, q2_dot].
+        x_eq1 : np.ndarray
+            Equilibrium state vector for current state [q1, q2, 0, 0].
+        x_eq2 : np.ndarray
+            Equilibrium state vector for reference state [q1, q2, 0, 0].
+        """
+        # Get coordinates
+        p1_eq1, p2_eq1, pc1_eq1, pc2_eq1 = self._get_forward_kinematics(x_eq1, com=True)
+        p1_eq2, p2_eq2, pc1_eq2, pc2_eq2 = self._get_forward_kinematics(x_eq2, com=True) 
+        p1_ref, p2_ref, pc1_ref, pc2_ref = self._get_forward_kinematics(x_ref, com=True)
+        p1_curr, p2_curr, pc1_curr, pc2_curr = self._get_forward_kinematics(x_curr, com=True)
+
+        # Limit for total plot size
+        lim_size = (self.l1 + self.l2) * 1.5
+
+        plots.set_animation_figure(ax, lim_size)
+
+        # === Draw Equilibrium 1 ===
+        plots.draw_pendulum_configuration(ax, p1_eq1, p2_eq1, pc1_eq1, pc2_eq1, 'Equilibrium 1')
+
+        # === Draw Equilibrium 2 ===
+        plots.draw_pendulum_configuration(ax, p1_eq2, p2_eq2, pc1_eq2, pc2_eq2, 'Equilibrium 2')
+
+        # === Draw Reference State ===
+        plots.draw_pendulum_configuration(ax, p1_ref, p2_ref, pc1_ref, pc2_ref, 'Reference')
+
+        # === Draw Current State ===
+        plots.draw_pendulum_configuration(ax, p1_curr, p2_curr, pc1_curr, pc2_curr, 'Current')

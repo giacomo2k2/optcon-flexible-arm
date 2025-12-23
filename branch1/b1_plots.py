@@ -22,11 +22,26 @@ import numpy as np
 # Matplotlib settings
 plt.rcParams['font.family'] = 'serif'
 
+# Color palette
+colors = {
+    "blue":    '#1f77b4',
+    "orange":  '#ff7f0e',
+    "green":   '#2ca02c',
+    "red":     '#d62728',
+    "purple":  '#9467bd',
+    "brown":   '#8c564b',
+    "pink":    '#e377c2',
+    "grey":    '#7f7f7f',
+    "olive":   '#bcbd22',
+    "cyan":    '#17becf',
+    "black":   '#000000',
+}
+
 #######################################
 # Functions
 #######################################
 
-def reference_traj(time: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, title: str) -> None:
+def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1: tuple, eq_pair2: tuple, title: str) -> None:
     """
     Plots the reference trajectory for a Double Pendulum system.
 
@@ -34,30 +49,44 @@ def reference_traj(time: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, title
     ----------
     time : np.ndarray
         Array of time points.
-    x_ref : np.ndarray
-        Reference state trajectory (shape: [N, 4]).
-    u_ref : np.ndarray
-        Reference control inputs (shape: [N, 1]).
+    x_traj : np.ndarray
+        State trajectory (shape: [N, 4]).
+    u_traj : np.ndarray
+        Control inputs (shape: [N, 1]).
+    eq_pair1 : tuple
+        First equilibrium pair.
+    eq_pair2 : tuple
+        Second equilibrium pair.
     title : str
         Title for the plots.
     """
+
+    # Labels based on title content
+    if "ref" in title.lower():
+        lbl_q1, lbl_q2 = r'$q_1^\text{ref}(t)$', r'$q_2^\text{ref}(t)$'
+        lbl_dq1, lbl_dq2 = r'$\dot{q}_1^\text{ref}(t)$', r'$\dot{q}_2^\text{ref}(t)$'
+        lbl_u = r'$u^\text{ref}(t)$'
+    else:
+        lbl_q1, lbl_q2 = r'$q_1^*(t)$', r'$q_2^*(t)$'
+        lbl_dq1, lbl_dq2 = r'$\dot{q}_1^*(t)$', r'$\dot{q}_2^*(t)$'
+        lbl_u = r'$u^*(t)$'
     
     # Metadata
     config = {
-        "q1":      (x_ref[0, :], r'$q_{1(t),\text{ref}}$',           r'$\mathrm{[rad]}$'),
-        "q1_dot":  (x_ref[2, :], r'$\dot{q}_{1(t),\text{ref}}$',     r'$\mathrm{[rad/s]}$'),
-        "q2":      (x_ref[1, :], r'$q_{2(t),\text{ref}}$',           r'$\mathrm{[rad]}$'),
-        "q2_dot":  (x_ref[3, :], r'$\dot{q}_{2(t),\text{ref}}$',     r'$\mathrm{[rad/s]}$'),
-        "input":   (u_ref[0, :], r'$u_{(t),\text{ref}}$',             r'$\mathrm{[Nm]}$'),
+        "q1":      (x_traj[0, :], lbl_q1,  r'$\mathrm{[rad]}$',   0),
+        "q2":      (x_traj[1, :], lbl_q2,  r'$\mathrm{[rad]}$',   1),
+        "q1_dot":  (x_traj[2, :], lbl_dq1, r'$\mathrm{[rad/s]}$', 2),
+        "q2_dot":  (x_traj[3, :], lbl_dq2, r'$\mathrm{[rad/s]}$', 3),
+        "input":   (u_traj[0, :], lbl_u,   r'$\mathrm{[Nm]}$',    None),
     }
 
     # Figure setup
     fig = plt.figure(figsize=(8, 6))
-    fig.suptitle(f"Reference trajectory: {title}", fontsize=14, fontweight='bold')
+    fig.suptitle(f"{title}", fontsize=14, fontweight='bold', ha='center', x=0.5)
     gs = gridspec.GridSpec(3, 2, figure=fig, height_ratios=[1, 1, 1])
 
     # 3. Definition of axes based on desired position
-    # ROW 1: q1 and q2
+    # ROW 1: q1 and q2q
     ax_q1     = fig.add_subplot(gs[0, 0])
     ax_q2     = fig.add_subplot(gs[0, 1])
     # ROW 2: q1_dot and q2_dot
@@ -73,11 +102,19 @@ def reference_traj(time: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, title
         "input": ax_u
     }
 
-    # Plot loop
+    # Plot trajectory
     for key, ax in axes_map.items():
-        data, label, unit = config[key]
-        
-        ax.plot(time, data, linewidth=2, label=label, linestyle='--')
+        data, label, unit, idx = config[key]
+
+        for i, eq_pair in enumerate([eq_pair1, eq_pair2]):
+            x_eq, u_eq = eq_pair
+            val = u_eq if key == "input" else x_eq[idx]
+
+            ax.axhline(y=val, color=colors["orange"], linestyle='--', alpha=0.7, 
+                        label=f'Eq {i+1}: {val:.2f}', linewidth=1.5)
+                
+        ax.set_title(label, fontsize=12, fontweight='bold')
+        ax.plot(time, data, linewidth=2, label=label, linestyle='-', color=colors["blue"])
         ax.set_ylabel(unit)
         ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle='--', alpha=0.5)
@@ -142,11 +179,11 @@ def trajectory_comparison(
     }
 
     fig = plt.figure(figsize=(12, 10))
-    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=16, fontweight='bold')
+    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=16, fontweight='bold', ha='center', x=0.5)
     
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.25)
 
-    # Mapping degli assi
+    # Map
     axes_map = {
         "q1":      fig.add_subplot(gs[0, 0]),
         "q2":      fig.add_subplot(gs[0, 1]),
@@ -155,27 +192,24 @@ def trajectory_comparison(
         "input":   fig.add_subplot(gs[2, :])
     }
 
-    # Loop di plotting
+    # Plot
     for key, ax in axes_map.items():
-        # Unpacking completo dal dizionario
         data_ref, data_guess, label_ref, label_guess, unit = config[key]
         
-        # Plot Reference (Tratteggio)
+        # Plot Reference 
         ax.plot(time, data_ref, 
-                color='red', linestyle='--', linewidth=1.5, 
+                color=colors['orange'], linestyle='--', linewidth=1.5, 
                 label=label_ref)
         
-        # Plot Guess (Continuo)
+        # Plot Guess 
         ax.plot(time, data_guess, 
-                color='royalblue', linestyle='-', linewidth=2, 
+                color=colors['blue'], linestyle='-', linewidth=2, 
                 label=label_guess)
         
-        # Formattazione assi
+        ax.set_title(f"{label_ref} vs {label_guess}", fontsize=14)
         ax.set_ylabel(unit)
         ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle=':', alpha=0.6)
-        
-        # La legenda usa ora le label estratte direttamente dal dizionario
         ax.legend(loc='best', fontsize='small', frameon=True)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -278,10 +312,10 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     plt.figure(1)
     plt.clf()
 
-    plt.plot(steps, costs, color='g', label='$J(\\mathbf{u}^k - \\gamma \\cdot d^k)$')
-    plt.plot(steps, JJ + descent_arm*steps, color='r', label='$J(\\mathbf{u}^k) - \\gamma \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
-    # plt.plot(steps, JJ - descent*steps, color='r', label='$J(\\mathbf{u}^k) - stepsize*\\nabla J(\\mathbf{u}^k)^{\\top} d^k$')
-    plt.plot(steps, JJ + c*descent_arm*steps, color='g', linestyle='dashed', label='$J(\\mathbf{u}^k) - \\gamma \\cdot c \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
+    plt.plot(steps, costs, color=colors['green'], label='$J(\\mathbf{u}^k - \\gamma \\cdot d^k)$')
+    plt.plot(steps, JJ + descent_arm*steps, color=colors['red'], label='$J(\\mathbf{u}^k) - \\gamma \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
+    # plt.plot(steps, JJ - descent*steps, color=colors['red'], label='$J(\\mathbf{u}^k) - stepsize*\\nabla J(\\mathbf{u}^k)^{\\top} d^k$')
+    plt.plot(steps, JJ + c*descent_arm*steps, color=colors['green'], linestyle='dashed', label='$J(\\mathbf{u}^k) - \\gamma \\cdot c \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
 
     plt.scatter(stepsizes, costs_armijo, marker='*') # plot the tested stepsize
 
@@ -304,7 +338,7 @@ def descent_direction(descent: np.ndarray, iters: int) -> None:
         Number of iterations to plot.
     """
     plt.figure('descent direction', figsize=(10, 6))
-    plt.plot(np.arange(iters), descent[:iters], linewidth=2, color='#1f77b4')
+    plt.plot(np.arange(iters), descent[:iters], linewidth=2, color=colors['blue'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'$\| \Delta u \| ^2$', fontsize=14)
     plt.title('Descent', fontsize=16)
@@ -325,7 +359,7 @@ def cost(JJ: np.ndarray, iters: int) -> None:
         Maximum number of iterations to plot.
     """
     plt.figure('cost', figsize=(10, 6))
-    plt.plot(np.arange(iters-1), JJ[:iters-1], linewidth=2, color='#ff7f0e')
+    plt.plot(np.arange(iters-1), JJ[:iters-1], linewidth=2, color=colors['orange'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'$J(\mathbf{u}^k)$', fontsize=14)
     plt.title('Cost Function', fontsize=16)
@@ -334,3 +368,56 @@ def cost(JJ: np.ndarray, iters: int) -> None:
     plt.tight_layout()
     plt.show(block=False)
 
+def set_animation_figure(ax: plt.Axes, lim_size: float) -> None:
+    """
+    Sets the figure limits and aspect ratio for animation.
+    Parameters
+    ----------
+    ax : plt.Axes
+        The axes to set the limits on.
+    lim_size : float
+        The limit size for both x and y axes.
+    """
+    # Plot settings
+    ax.set_xlim([-lim_size, lim_size])
+    ax.set_ylim([-lim_size, lim_size])
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3)
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
+    ax.set_title(f'Double Pendulum Trajectory Comparison') 
+
+def draw_pendulum_configuration(ax: plt.Axes, p1: np.ndarray, p2: np.ndarray, pc1: np.ndarray, pc2: np.ndarray, label: str = None) -> None:
+    """
+    Draws the double pendulum configuration on the given axes.
+
+    Parameters
+    ----------
+    ax : plt.Axes
+        The axes to draw the pendulum on.
+    p1 : np.ndarray
+        Position of the first joint.
+    p2 : np.ndarray
+        Position of the second joint.
+    pc1 : np.ndarray
+        Position of the center of mass of the first link.
+    pc2 : np.ndarray
+        Position of the center of mass of the second link.
+    label : str
+        Label for the pendulum configuration.
+    """
+    if 'equilibrium' in label.lower():
+        link_color = colors['grey']
+        alpha = 0.2
+    elif 'ref' in label.lower():
+        link_color = colors['orange']
+        alpha = 0.7
+    elif 'current' in label.lower() or 'optimal' in label.lower():
+        link_color = colors['blue']
+        alpha = 1.0
+    ax.plot([0, p1[0]], [0, p1[1]], color=link_color, lw=3, alpha=alpha, label=label) # Link 1
+    ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=link_color, lw=3, alpha=alpha) # Link 2
+    ax.scatter([0.0], [0.0], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 1
+    ax.scatter(p1[0], p1[1], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 2
+    ax.scatter(pc1[0], pc1[1], color=colors['red'], s=40, zorder=5, alpha=alpha)   # CM1
+    ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5, alpha=alpha) # CM2
