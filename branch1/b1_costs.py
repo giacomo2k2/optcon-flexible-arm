@@ -47,7 +47,7 @@ def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:
             return QQt, RRt
         case 'swing_up':
             # ti = 0.1, tf = 0.4, Tend = 4.0, poly7
-            QQt = np.diag([100.0, 100.0, 10.0, 10.0]) * 1e-1
+            QQt = np.diag([100.0, 100.0, 10.0, 10.0]) * 1e-3
             RRt = 0.01 * np.eye(1)
             return QQt, RRt
         case 'left_to_right_elbow_up':

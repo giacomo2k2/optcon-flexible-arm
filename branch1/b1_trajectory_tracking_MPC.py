@@ -62,7 +62,7 @@ ni = model.ni  # number of inputs
 #######################################
 
 # MPC parameters
-T_pred = 50                  # MPC Prediction horizon
+T_pred = 200                  # MPC Prediction horizon
 
 # Input constraints
 umax = 100
@@ -126,7 +126,7 @@ QQT = np.diag([100, 100, 100, 100])
 
 # Initial state
 if perturb_initial_state:
-    epsilon = np.array([0.2, -0.2, 0.1, 0.1])  # initial state perturbation
+    epsilon = np.array([0.1, -0.1, 0.0, 0.0])  # initial state perturbation
 else:
     epsilon = np.zeros(4)
 
@@ -189,10 +189,20 @@ for tt in range(TT - 1):
         x_ref_slice = np.concatenate([x_ref_slice, x_ref_pad], axis=1)
         u_ref_slice = np.concatenate([u_ref_slice, u_ref_pad], axis=1)
 
+
+    dict_ioptions = {
+        "print_time": True,                 # Show computation time
+        "ipopt.print_level": 1,             # Level of detail (0 to 12)
+        "ipopt.sb": "no",                   # Remove Ipopt banner at start
+        "ipopt.derivative_test": "first-order", # Utility to check if gradients are correct
+    }
+
+    dict_ioptions = None
+
     res = solver.ltv_mpc(At_slice, Bt_slice, QQt, RRt, QQT, x_curr, x_ref_slice, u_ref_slice,
         umax=umax, umin=umin, x1_max=x1max, x1_min=x1min,
         x2_max=x2max, x2_min=x2min, x3_max=x3max, x3_min=x3min,
-        x4_max=x4max, x4_min=x4min, T_pred=T_pred
+        x4_max=x4max, x4_min=x4min, T_pred=T_pred, ipopt_opts=dict_ioptions
     )
     
     if res[0] is not None:
@@ -214,6 +224,8 @@ for tt in range(TT - 1):
 
 uu_real_mpc[:, -1] = uu_real_mpc[:, -2]  # for plotting purposes
 uu_real_opt[:, -1] = uu_real_opt[:, -2]  # for plotting purposes
+
+# TODO: insert this plot in a function
 
 fig, axs = plt.subplots(ns+ni, 1, figsize=(10, 8), sharex=True)
 fig.suptitle('MPC vs LQR: states and input', fontsize=14)
@@ -267,3 +279,7 @@ axs[4].legend(loc='upper right')
 fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 fig.align_ylabels(axs)
 plt.show()
+
+# Animation of the optimal trajectory
+if visu_animation:
+    anim.animate_comparison(model, xx_real_mpc, xx_star, eq_pair1, eq_pair2, target_fps=30)

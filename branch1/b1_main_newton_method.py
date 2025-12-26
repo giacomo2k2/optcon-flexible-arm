@@ -78,13 +78,15 @@ initial_reference_plot = False    # plot reference trajectory at beginning
 equilibrium_plot = False        # plot equilibrium manifold and points
 armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
-visu_animation = False          # animate final optimal trajectory
-debug_print = False             # print debug information
-final_plots = False             # plot final optimal trajectory
+visu_animation = True          # animate final optimal trajectory
+debug_print = True             # print debug information
+final_plots = True             # plot final optimal trajectory
 
 #######################################
 # Trajectory parameters
 #######################################
+
+# General setting: T0, ti, tf, Tend, dt = (0.0, 0.2, 0.5, 4.0, 0.01)
 
 T0 = 0.0        # Initial absolute time
 ti = 0.3        # Start time for trajectory segment (relative)
@@ -96,7 +98,7 @@ TT = len(t)                 # Number of time steps
 
 # Trajectory generation technique
 method = 'poly7'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
-
+model.discr_method = 'rk4'
 # Equilibrium go-to configurations
 equilibrium_traj = {
     'elbow_up': (
@@ -129,20 +131,21 @@ equilibrium_traj = {
 # Equilibrium points
 #######################################
 
-# data_dict = model.compute_equilibrium_manifold()
+data_dict = model.compute_equilibrium_manifold()
 # TODO: apparently problems with the stage state costs, want to be low
+# TODO: top_to_elbow_up da problemi con rk4, esplosione sin da subito
 # Select equilibrium trajectory (potentially ti=0.3, tf=0.5)
 # - elbow_up (it may finish at tf = 0.4)
 # - swing_up
 # - left_to_right_elbow_up
-# - top_to_elbow_up (need tf = 0.5)
+# - top_to_elbow_up (need tf = 0.5, ti = 0.2)
 # - top_to_elbow_down
 selected_equilibrium = 'left_to_right_elbow_up'
 eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
 (x_eq1, u_eq1), (x_eq2, u_eq2) = eq_pair1, eq_pair2
 
 if equilibrium_plot:
-    #plots.plot_equilibrium_manifold(data_dict)
+    plots.equilibrium_manifold(data_dict)
     model.plot_equilibrium_point(x_eq1, u_eq1, title="1")
     model.plot_equilibrium_point(x_eq2, u_eq2, title="2")
 
@@ -177,7 +180,7 @@ QQt, RRt = cst.get_cost_matrices(selected_equilibrium)
 AA_sym, BB_sym = model_sym.symbolic_jacobian() 
 
 # Compute QQT as solution of dare
-AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1])
+AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1], dt, model.discr_method)
 QQT = ctrl.dare(AA_ref, BB_ref, QQt, RRt)[0]
 
 # Symbolic hessian lambda product
@@ -282,6 +285,7 @@ for kk in range(max_iters-1):
         dJ_temp = rt + Bt.T @ pp[:,tt+1,kk][:,None]
         dJ[:,tt,kk] = dJ_temp.squeeze()
 
+    # TODO: QUESTION - descent norm often increase rather than decrease, why?
     # Compute descent direction norm after backward pass
     for tt in range(TT-1):
         deltau[:,tt,kk] = ss[:,tt,kk]                       # Descent direction in Newton method
@@ -359,6 +363,8 @@ if final_plots:
 
     # Optimal vs Reference Trajectories
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
+
+    # TODO: comparison con qualche curva intermedia
     
 
 # Animation of the optimal trajectory

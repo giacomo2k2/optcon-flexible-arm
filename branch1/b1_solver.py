@@ -97,7 +97,7 @@ def solver_step(model: object, x:np.ndarray, u: float = 0.0) -> np.ndarray:
         raise ValueError("Choose a valid method: 'fe' or 'rk4'.")
     return new_states
 
-def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val, dt: float = 0.01):
+def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val, dt: float = 0.01, method: str='fe'):
     """
     Compute the discrete-time Jacobian matrices A, B.
 
@@ -113,6 +113,8 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
         Input value at which to evaluate the Jacobians.
     dt : float, optional
         Discretization time step (default is 0.01).
+    method : str, optional
+        Discretization method: 'fe' (forward Euler) or 'rk4' (Runge-Kutta 4) (default is 'fe').
 
     Returns
     -------
@@ -138,12 +140,32 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
 
     u_scalar = u_val[0] if hasattr(u_val, "__len__") else u_val
     args = (*x_val, u_scalar)
-    Ac = f_A(*args)
-    Bc = f_B(*args)
+    Ac = f_A(*args)                     # Continuous-time A
+    Bc = f_B(*args)                     # Continuous-time B
 
     ns = Ac.shape[0]
-    Ad = np.eye(ns) + dt * Ac
-    Bd = dt * Bc
+
+    if method == 'fe':
+        Ad = np.eye(ns) + dt * Ac           # Discrete-time A
+        Bd = dt * Bc                        # Discrete-time B
+    elif method == 'rk4':
+
+        # The discrete-time B matrix (Bd) depends on Ac because it represents the 
+        # integrated effect of the input over the time step dt. 
+        # Under the Zero-Order Hold (ZOH) assumption, Bd = integral(exp(Ac*tau) * Bc) dtau 
+        # from 0 to dt. The RK4 expansion below approximates this integral by 
+        # accounting for how the system's internal dynamics (Ac) propagate the 
+        # input signal throughout the duration of the step.
+        dtA = Ac * dt
+        dtA2 = dtA @ dtA
+        dtA3 = dtA2 @ dtA
+        dtA4 = dtA3 @ dtA
+        
+        Ad = np.eye(ns) + dtA + (1/2)*dtA2 + (1/6)*dtA3 + (1/24)*dtA4
+        
+        Bd = (np.eye(ns) * dt + (1/2)*dtA*dt + (1/6)*dtA2*dt + (1/24)*dtA3*dt) @ Bc
+    else:
+        raise ValueError(f"Method {method} not supported.")
     
     return Ad, Bd
 
@@ -209,6 +231,7 @@ def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp
     # Valutazione e discretizzazione
     # Poiché la slide parla di f_t (dinamica discreta), se f è continua:
     # f_discreta = x + dt * f_continua -> grad^2 f_discreta = dt * grad^2 f_continua
+    # TODO: fare anche discretizzazione RK4, questo è FE
     Hxx_num = f_Hxx(*call_args) * dt
     Huu_num = f_Huu(*call_args) * dt
     Hxu_num = f_Hxu(*call_args) * dt
@@ -272,7 +295,7 @@ def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np
         
     return Kt, st.squeeze(), PPt, ppt.squeeze()
 
-def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, PPtp: np.ndarray):
+def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, PPtp: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Computes the Riccati recursion for a single time step, given the next time-step value.
 
@@ -381,7 +404,12 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
             x3_max: float = 20, x3_min: float = -20, x4_max: float = 20, x4_min: float = -20,
             T_pred: int = 50, ipopt_opts=None):
     """
-    ...
+    CasAdi solver for constrained LTV MPC problem.
+
+    Parameters
+    ----------
+    ipopt_opts : dict, optional
+        Options for the IPOPT solver.
     """
     # Unpack dimensions
     ns = Bt.shape[0] 

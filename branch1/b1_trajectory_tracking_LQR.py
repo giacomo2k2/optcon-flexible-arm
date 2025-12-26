@@ -62,8 +62,8 @@ ni = model.ni  # number of inputs
 #######################################
 
 # Visualization parameters
-initial_optimal_plot = False    # plot optimal trajectory
-perturb_initial_state = False    # perturb initial state
+initial_optimal_plot = True    # plot optimal trajectory
+perturb_initial_state = True    # perturb initial state
 final_plots = True              # plot final optimal trajectory
 visu_animation = True          # animate final optimal trajectory
 
@@ -142,7 +142,10 @@ uu_lqr[:,-1] = uu_lqr[:,-2] # for plotting purposes
 #######################################
 
 if final_plots:
+    # TODO: fix label in plots (ref, guess --> star, lqr)
     plots.trajectory_comparison(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Trajectory Tracking")
+    # TODO: plot system traj and desidred over perturbed initial condition
+    # TODO: tracking error for different initial conditions
 
 # Animation of the optimal trajectory
 if visu_animation:

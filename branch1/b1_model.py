@@ -131,7 +131,7 @@ class DoublePendulumFlexible:
         self.ns = 4 # State dimension
         self.ni = 1 # Input dimension
         self.dt = 0.01 # Default time step
-        self.discr_method = 'fe'  # 'fe' or 'rk4'
+        self.discr_method = 'rk4'  # 'fe' or 'rk4'
 
     def random_init(self) -> np.ndarray:
         """
@@ -280,107 +280,6 @@ class DoublePendulumFlexible:
             State vector at the next time step.
         """
         return solver.solver_step(self, x, u)
-    
-    # TODO: remove this in next versions. Symbolic jacobian is used
-    def discrete_jacobian(self, x: np.ndarray, u: np.ndarray, method: str = 'fe') -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compute the discrete-time Jacobian matrices A and B.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Current state vector.
-        u : np.ndarray
-            Current input vector.
-        method : str, optional
-            Discretization method ('fe' for Forward Euler, 'rk4' for Runge-Kutta 4), by default 'fe'.
-        
-        Returns
-        -------
-        A_discr : np.ndarray
-            Discrete-time state Jacobian matrix.
-        B_discr : np.ndarray
-            Discrete-time input Jacobian matrix.
-        """
-        if method == 'fe':            
-            return self._discrete_jacobian_fe(x, u)
-        elif method == 'rk4':            
-            return self._discrete_jacobian_rk4(x, u)
-        else:
-            raise ValueError(f"Discretization method '{method}' not supported. Use 'fe' or 'rk4'.")
-        
-    def _discrete_jacobian_fe(self, x: np.ndarray, u: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compute the discrete-time Jacobian matrices A and B using Forward Euler integration.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Current state vector.
-        u : np.ndarray
-            Current input vector.
-        
-        Returns
-        -------
-        A_discr : np.ndarray
-            Discrete-time state Jacobian matrix.
-        B_discr : np.ndarray
-            Discrete-time input Jacobian matrix.
-        """
-        A_cont, B_cont = self.jacobian(x, u)
-
-        A_discr = np.eye(self.ns) + A_cont * self.dt
-        B_discr = B_cont * self.dt
-
-        return A_discr, B_discr
-    
-    def _discrete_jacobian_rk4(self, x: np.ndarray, u: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compute the discrete-time Jacobian matrices A and B using RK4 integration.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Current state vector.
-        u : np.ndarray
-            Current input vector.
-        
-        Returns
-        -------
-        A_discr : np.ndarray
-            Discrete-time state Jacobian matrix.
-        B_discr : np.ndarray
-            Discrete-time input Jacobian matrix.
-        """
-        epsilon = 1e-6 
-
-        # Compute next state
-        x_next_base = self.discrete_dynamics(x, u)
-
-        # Initialize A_discr and B_discr
-        A_discr = np.zeros((self.ns, self.ns))
-        B_discr = np.zeros((self.ns, self.ni))
-
-        # --- Compute A_discr (Derivative w.r.t. x) ---
-        for j in range(self.ns):
-            x_perturbed = x.copy()
-            x_perturbed[j] += epsilon
-            
-            x_next_perturbed = self.discrete_dynamics(x_perturbed, u)
-            
-            # TODO: check this discretization method (with epsilon sufficently small should be ok)
-            A_discr[:, j] = (x_next_perturbed - x_next_base) / epsilon
-
-        # --- Compute B_discr (Derivative w.r.t. u) ---
-        for j in range(self.ni): 
-            u_perturbed = u.copy()
-            u_perturbed[j] += epsilon
-            
-            x_next_perturbed = self.discrete_dynamics(x, u_perturbed)
-            
-            B_discr[:, j] = (x_next_perturbed - x_next_base) / epsilon
-        
-        return A_discr, B_discr
         
     def find_equilibrium(self, fix_type: str, value: float) -> tuple[np.ndarray, float]:
         """
@@ -447,7 +346,7 @@ class DoublePendulumFlexible:
             Title for the plot (default is empty string).
         """
         fig, ax = plt.subplots(figsize=(6,6))
-        self.animation(x_eq, ax)
+        self.draw_frame(x_eq, ax)
         ax.set_title(f"Equilibria {title}: u = {u_eq:.2f} Nm\nq1 = {x_eq[0]:.2f}, q2 = {x_eq[1]:.2f}")
         plt.show()
         
