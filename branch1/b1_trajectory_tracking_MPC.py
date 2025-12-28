@@ -62,7 +62,7 @@ ni = model.ni  # number of inputs
 #######################################
 
 # MPC parameters
-T_pred = 200                  # MPC Prediction horizon
+T_pred = 50                  # MPC Prediction horizon
 
 # Input constraints
 umax = 100
@@ -79,7 +79,7 @@ x4max = 10
 x4min = -x4max
 
 # Visualization parameters
-initial_optimal_plot = False    # plot optimal trajectory
+initial_optimal_plot = True    # plot optimal trajectory
 perturb_initial_state = True    # perturb initial state
 final_plots = True              # plot final optimal trajectory
 visu_animation = True          # animate final optimal trajectory
@@ -112,7 +112,7 @@ AA_sym, BB_sym = model_sym.symbolic_jacobian()
 
 # Linearization along optimal trajectory
 for tt in range(TT):
-    At[:, :, tt], Bt[:, :, tt] = solver.jacobian_solver(AA_sym, BB_sym, xx_star[:,tt], uu_star[:,tt])
+    At[:, :, tt], Bt[:, :, tt] = solver.jacobian_solver(AA_sym, BB_sym, xx_star[:,tt], uu_star[:,tt], model)
 
 ######################################
 # Unconstrained LQR solution
@@ -225,7 +225,6 @@ for tt in range(TT - 1):
 uu_real_mpc[:, -1] = uu_real_mpc[:, -2]  # for plotting purposes
 uu_real_opt[:, -1] = uu_real_opt[:, -2]  # for plotting purposes
 
-# TODO: insert this plot in a function
 
 fig, axs = plt.subplots(ns+ni, 1, figsize=(10, 8), sharex=True)
 fig.suptitle('MPC vs LQR: states and input', fontsize=14)

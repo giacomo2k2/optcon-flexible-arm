@@ -97,7 +97,7 @@ def solver_step(model: object, x:np.ndarray, u: float = 0.0) -> np.ndarray:
         raise ValueError("Choose a valid method: 'fe' or 'rk4'.")
     return new_states
 
-def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val, dt: float = 0.01, method: str='fe'):
+def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val, model: object) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute the discrete-time Jacobian matrices A, B.
 
@@ -111,10 +111,8 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
         State vector at which to evaluate the Jacobians.
     u_val : float or np.ndarray
         Input value at which to evaluate the Jacobians.
-    dt : float, optional
-        Discretization time step (default is 0.01).
-    method : str, optional
-        Discretization method: 'fe' (forward Euler) or 'rk4' (Runge-Kutta 4) (default is 'fe').
+    model : object
+        System model.
 
     Returns
     -------
@@ -124,6 +122,9 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
         Discrete-time input Jacobian matrix.
     """
     global _JACOBIAN_CACHE
+
+    dt = model.dt
+    method = model.discr_method
 
     cache_key = (id(A_sym), id(B_sym))
     
@@ -145,31 +146,48 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
 
     ns = Ac.shape[0]
 
+    # TODO: QUESTION - è corretta la nostra implementazione della discretizzazione degli jacobiani?
     if method == 'fe':
-        Ad = np.eye(ns) + dt * Ac           # Discrete-time A
-        Bd = dt * Bc                        # Discrete-time B
+        Ad = np.eye(ns) + model.dt * Ac           # Discrete-time A
+        Bd = model.dt * Bc                        # Discrete-time B
     elif method == 'rk4':
+        k1 = model.dynamics(x_val, u_scalar)
+        k2 = model.dynamics(x_val + 0.5 * model.dt * k1, u_scalar)
+        k3 = model.dynamics(x_val + 0.5 * model.dt * k2, u_scalar)
+        k4 = model.dynamics(x_val + model.dt * k3, u_scalar)
+        
+        A1, B1 = f_A(*args), f_B(*args)
 
-        # The discrete-time B matrix (Bd) depends on Ac because it represents the 
-        # integrated effect of the input over the time step dt. 
-        # Under the Zero-Order Hold (ZOH) assumption, Bd = integral(exp(Ac*tau) * Bc) dtau 
-        # from 0 to dt. The RK4 expansion below approximates this integral by 
-        # accounting for how the system's internal dynamics (Ac) propagate the 
-        # input signal throughout the duration of the step.
-        dtA = Ac * dt
-        dtA2 = dtA @ dtA
-        dtA3 = dtA2 @ dtA
-        dtA4 = dtA3 @ dtA
-        
-        Ad = np.eye(ns) + dtA + (1/2)*dtA2 + (1/6)*dtA3 + (1/24)*dtA4
-        
-        Bd = (np.eye(ns) * dt + (1/2)*dtA*dt + (1/6)*dtA2*dt + (1/24)*dtA3*dt) @ Bc
+        x2 = x_val + 0.5 * model.dt * k1
+        A2, B2 = f_A(*x2, u_scalar), f_B(*x2, u_scalar)
+
+        x3 = x_val + 0.5 * model.dt * k2
+        A3, B3 = f_A(*x3, u_scalar), f_B(*x3, u_scalar)
+
+        x4 = x_val + model.dt * k3
+        A4, B4 = f_A(*x4, u_scalar), f_B(*x4, u_scalar)
+
+        dk1_dx = A1
+        dk2_dx = A2 @ (np.eye(ns) + 0.5 * model.dt * dk1_dx)    
+        dk3_dx = A3 @ (np.eye(ns) + 0.5 * model.dt * dk2_dx)
+        dk4_dx = A4 @ (np.eye(ns) + model.dt * dk3_dx)
+
+        Ad = np.eye(ns) + (model.dt / 6) * (dk1_dx + 2 * dk2_dx + 2 * dk3_dx + dk4_dx)
+
+        dk1_du = B1
+        dk2_du = A2 @ (0.5 * model.dt * dk1_du) + B2
+        dk3_du = A3 @ (0.5 * model.dt * dk2_du) + B3
+        dk4_du = A4 @ (model.dt * dk3_du) + B4
+
+        Bd = (model.dt / 6) * (dk1_du + 2 * dk2_du + 2 * dk3_du + dk4_du)
     else:
         raise ValueError(f"Method {method} not supported.")
     
     return Ad, Bd
 
-def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp.Matrix, x_val: np.ndarray, u_val, l_next_val: np.ndarray, dt: float = 0.01):
+# TODO: QUESTION - dobbiamo mettere la regolarizzazione con gli hessiani della dinamica?
+def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp.Matrix, x_val: np.ndarray, u_val, l_next_val: np.ndarray, model: object,
+                             A_sym: sp.Matrix, B_sym: sp.Matrix) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute the discrete-time Hessian matrices Hxx, Huu, Hxu.
 
@@ -187,8 +205,12 @@ def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp
         Input value at which to evaluate the Hessians.
     l_next_val : np.ndarray
         Costate vector at the next time step.
-    dt : float, optional
-        Discretization time step (default is 0.01).
+    model : object
+        System model.
+    A_sym : sympy.Matrix
+        Symbolic continuous-time state Jacobian matrix.
+    B_sym : sympy.Matrix
+        Symbolic continuous-time input Jacobian matrix.
     
     Returns
     -------
@@ -200,6 +222,10 @@ def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp
         Discrete-time Hessian matrix w.r.t. states and inputs.
     """
     global _HESS_PROD_CACHE
+
+    dt = model.dt
+    method = model.discr_method
+    ns = model.ns
     
     # Identificatore per la cache
     cache_key = (id(Hxx_sym), id(Huu_sym), id(Hxu_sym))
@@ -231,10 +257,39 @@ def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp
     # Valutazione e discretizzazione
     # Poiché la slide parla di f_t (dinamica discreta), se f è continua:
     # f_discreta = x + dt * f_continua -> grad^2 f_discreta = dt * grad^2 f_continua
-    # TODO: fare anche discretizzazione RK4, questo è FE
-    Hxx_num = f_Hxx(*call_args) * dt
-    Huu_num = f_Huu(*call_args) * dt
-    Hxu_num = f_Hxu(*call_args) * dt
+    
+    if method == 'fe':
+        Hxx_num = f_Hxx(*call_args) * dt
+        Huu_num = f_Huu(*call_args) * dt
+        Hxu_num = f_Hxu(*call_args) * dt
+    else:
+        pass
+    # Discretizzazione RK4 (opzionale, commentata)
+    cache_key = (id(A_sym), id(B_sym))
+    
+    if cache_key not in _JACOBIAN_CACHE:
+        q1, q2, q1_dot, q2_dot = sp.symbols('q1 q2 q1_dot q2_dot')
+        u = sp.symbols('u')
+
+        func_A = sp.lambdify((q1, q2, q1_dot, q2_dot, u), A_sym, 'numpy')
+        func_B = sp.lambdify((q1, q2, q1_dot, q2_dot, u), B_sym, 'numpy')
+        
+        _JACOBIAN_CACHE[cache_key] = (func_A, func_B)
+    
+    f_A, f_B = _JACOBIAN_CACHE[cache_key]
+    # args = (*x_val, u_scalar)
+    Ac = f_A(*args)                     # Continuous-time A
+    Bc = f_B(*args)                     # Continuous-time B
+    dtA = Ac * dt
+    dtA2 = dtA @ dtA
+    dtA3 = dtA2 @ dtA
+    dtA4 = dtA3 @ dtA
+    Ad = np.eye(ns) + dtA + (1/2)*dtA2 + (1/6)*dtA3 + (1/24)*dtA4
+    Bd = (np.eye(ns)*dt + (1/2)*dtA*dt + (1/6)*dtA2*dt + (1/24)*dtA3*dt) @ Bc
+
+    Huu_num = Bd.T @ P @ Bd #????
+    Hxx_num = Ad.T @ P @ Ad
+    Hxu_num = Ad.T @ P @ Bd
     
     return Hxx_num, Huu_num, Hxu_num
 

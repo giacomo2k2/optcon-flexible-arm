@@ -288,7 +288,7 @@ def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: boo
                 for i, pair in enumerate(manifold_data[key][:]):
                     print(f"Sample {i+1}: q1 = {pair[0]:.3f},\t q2 = {pair[1]:.3f},\t u = {pair[2]:.3f}")
 
-def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list) -> None:
+def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int) -> None:
     """
     Plots the Armijo descent direction and the costs associated with different stepsizes.
 
@@ -308,8 +308,11 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
         List of stepsizes tested.
     costs_armijo : list
         List of costs associated with the tested stepsizes.
+    kk : int
+        Current iteration index.
     """
     plt.figure(1)
+    
     plt.clf()
 
     plt.plot(steps, costs, color=colors['green'], label='$J(\\mathbf{u}^k - \\gamma \\cdot d^k)$')
@@ -318,13 +321,15 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     plt.plot(steps, JJ + c*descent_arm*steps, color=colors['green'], linestyle='dashed', label='$J(\\mathbf{u}^k) - \\gamma \\cdot c \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
 
     plt.scatter(stepsizes, costs_armijo, marker='*') # plot the tested stepsize
-
+    
+    
     plt.grid()
-    plt.xlabel('stepsize')
+    plt.xlabel('stepsize ($\\gamma$)')
+    plt.title(f'Armijo stepsize selection - Iteration {kk}')
     plt.legend()
-    plt.draw()
-
-    plt.show()
+    plt.draw()  
+    plt.pause(0.01)
+    
 
 def descent_direction(descent: np.ndarray, iters: int) -> None:
     """

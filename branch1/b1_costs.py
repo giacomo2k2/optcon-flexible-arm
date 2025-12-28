@@ -65,6 +65,10 @@ def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:
             QQt = np.diag([100.0, 100.0, 10.0, 10.0]) * 1e-1
             RRt = 0.01 * np.eye(1)
             return QQt, RRt
+        case 'custom':
+            QQt = np.diag([100.0, 100.0, 10.0, 10.0]) * 1e-1
+            RRt = 0.01 * np.eye(1)
+            return QQt, RRt
 
 SSt = np.zeros((1, 4))
 
@@ -154,3 +158,48 @@ def termcost(xT: np.ndarray, xT_ref: np.ndarray, QT: np.ndarray) -> tuple[float,
     lTxx = QT
 
     return llT.squeeze(), lTx, lTxx
+
+def total_cost(xx: np.ndarray, uu: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray,
+               QQt: np.ndarray, RRt: np.ndarray, QT: np.ndarray) -> float:
+    
+    """
+    Computes the total cost over the trajectory.
+    
+    Parameters
+    ----------
+    xx : np.ndarray
+        State trajectory (n, T)
+    uu : np.ndarray
+        Input trajectory (m, T)
+    xx_ref : np.ndarray
+        Reference state trajectory (n, T)
+    uu_ref : np.ndarray
+        Reference input trajectory (m, T)
+    QQt : np.ndarray
+        State cost matrix (n, n)
+    RRt : np.ndarray
+        Input cost matrix (m, m)
+    QT : np.ndarray
+        Terminal state cost matrix (n, n)
+    tf : float
+        Final relative time for the trajectory segment.
+
+    Returns
+    -------
+    total_ll : float
+        Total cost over the trajectory
+    """
+    
+    total_ll = 0.0
+    TT = xx.shape[1]
+    
+    
+    for t in range(TT-1):
+        ll, _, _, _, _, _ = stagecost(xx[:, t], uu[:, t], xx_ref[:, t], uu_ref[:, t], QQt, RRt)
+        total_ll += ll
+
+   
+    llT, _, _ = termcost(xx[:, -1], xx_ref[:, -1], QT)
+    total_ll += llT
+
+    return total_ll

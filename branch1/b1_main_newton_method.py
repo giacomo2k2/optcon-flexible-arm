@@ -70,7 +70,7 @@ Armijo = True
 stepsize_0 = 1.0
 c = 0.5
 beta = 0.7
-armijo_maxiters = 5
+armijo_maxiters = 10
 approx_1st_order = True
 
 # Visualization parameters
@@ -78,9 +78,9 @@ initial_reference_plot = False    # plot reference trajectory at beginning
 equilibrium_plot = False        # plot equilibrium manifold and points
 armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
-visu_animation = True          # animate final optimal trajectory
-debug_print = True             # print debug information
-final_plots = True             # plot final optimal trajectory
+visu_animation = False          # animate final optimal trajectory
+debug_print = False             # print debug information
+final_plots = False             # plot final optimal trajectory
 
 #######################################
 # Trajectory parameters
@@ -98,7 +98,8 @@ TT = len(t)                 # Number of time steps
 
 # Trajectory generation technique
 method = 'poly7'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
-model.discr_method = 'rk4'
+model.discr_method = 'fe'
+
 # Equilibrium go-to configurations
 equilibrium_traj = {
     'elbow_up': (
@@ -124,6 +125,11 @@ equilibrium_traj = {
     'top_to_elbow_down': (
         model.find_equilibrium(fix_type='q1', value=np.pi - 0.5),
         tuple(-val for val in model.find_equilibrium(fix_type='q1', value=np.pi/2))
+    ),
+
+    'custom': (
+        model.find_equilibrium(fix_type='q1', value=0.0),
+        model.find_equilibrium(fix_type='q1', value=np.pi/4)
     )
 }
 
@@ -132,13 +138,12 @@ equilibrium_traj = {
 #######################################
 
 data_dict = model.compute_equilibrium_manifold()
-# TODO: apparently problems with the stage state costs, want to be low
 # TODO: top_to_elbow_up da problemi con rk4, esplosione sin da subito
 # Select equilibrium trajectory (potentially ti=0.3, tf=0.5)
 # - elbow_up (it may finish at tf = 0.4)
 # - swing_up
 # - left_to_right_elbow_up
-# - top_to_elbow_up (need tf = 0.5, ti = 0.2)
+# - top_to_elbow_up (con fe need tf = 0.5, ti = 0.3)
 # - top_to_elbow_down
 selected_equilibrium = 'left_to_right_elbow_up'
 eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
@@ -180,7 +185,7 @@ QQt, RRt = cst.get_cost_matrices(selected_equilibrium)
 AA_sym, BB_sym = model_sym.symbolic_jacobian() 
 
 # Compute QQT as solution of dare
-AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1], dt, model.discr_method)
+AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1], model)
 QQT = ctrl.dare(AA_ref, BB_ref, QQt, RRt)[0]
 
 # Symbolic hessian lambda product
@@ -237,6 +242,7 @@ uu[:,:,0] = uu_init
 # Iteration loop
 ############################
 for kk in range(max_iters-1):
+    
     ############################
     # 0. Compute cost
     ############################
@@ -245,6 +251,8 @@ for kk in range(max_iters-1):
         JJ[kk] += stage_cost
     term_cost = cst.termcost(xx[:,-1,kk], xx_ref[:,-1], QQT)[0]
     JJ[kk] += term_cost
+
+    #JJ[kk] = cst.total_cost(xx[:,:,kk], uu[:,:,kk], xx_ref, uu_ref, QQt, RRt, QQT)
 
     ############################
     # 1. Compute descent direction
@@ -257,15 +265,15 @@ for kk in range(max_iters-1):
     pp[:,TT-1,kk] = lmbd[:,TT-1,kk].squeeze()
     for tt in reversed(range(TT-1)):
         qt, rt, QQt, RRt, SSt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:]
-        At, Bt = solver.jacobian_solver(AA_sym, BB_sym, xx[:, tt, kk], uu[:, tt, kk])
+        At, Bt = solver.jacobian_solver(AA_sym, BB_sym, xx[:, tt, kk], uu[:, tt, kk], model)
 
         # Compute modified cost matrices if 2nd order approximation
-        if not approx_1st_order:
+        if not approx_1st_order and kk > 50:
             Hxx_num, Huu_num, Hxu_num = solver.hessian_numerical_solver(
-                Hxx_sym, Huu_sym, Hux_sym, xx[:,tt,kk], uu[:,tt,kk], lmbd[:,tt+1,kk]
+                Hxx_sym, Huu_sym, Hux_sym, xx[:,tt,kk], uu[:,tt,kk], lmbd[:,tt+1,kk], model, AA_sym, BB_sym
             )
             Qtk = QQt + Hxx_num
-            Rtk = RRt + Huu_num + np.eye(ni)*1e-3  # regularization
+            Rtk = RRt + Huu_num + np.eye(ni)*10  # regularization
             Stk = SSt + Hxu_num.T
         else:
             Qtk = QQt
@@ -298,11 +306,13 @@ for kk in range(max_iters-1):
     ############################
     # 2. Stepsize selection - ARMIJO
     ############################
+    
     if Armijo:
-        stepsize = armijo.select_stepsize_newton(stepsize_0, armijo_maxiters, c, beta, 
+        stepsize = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
                                          ss[:,:,kk], KK[:,:,:,kk], xx_ref, uu_ref, 
                                          x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
-                                         QQt, RRt, QQT, plot=armijo_plot)
+                                         QQt, RRt, QQT, kk, plot=armijo_plot)
+        
     else:
         stepsize = fixed_stepsize
         if debug_print:

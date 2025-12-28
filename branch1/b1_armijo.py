@@ -18,9 +18,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Model
-from b1_model import DoublePendulumFlexible, PARAM_SET_2
-model = DoublePendulumFlexible(**PARAM_SET_2)
 
 # Costs
 import b1_costs as cst
@@ -35,7 +32,7 @@ import b1_plots as plots
 # Functions
 #######################################
 
-def select_stepsize(stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
+def select_stepsize(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                     deltau: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray,
                     uu: np.ndarray,
                     JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray, plot: bool = False):
@@ -44,6 +41,8 @@ def select_stepsize(stepsize_0: float, armijo_maxiters: int, c: float, beta: flo
 
     Parameters
     ----------
+    model : object
+        The system model.
     stepsize_0 : float
         Initial stepsize.
     armijo_maxiters : int
@@ -158,14 +157,17 @@ def select_stepsize(stepsize_0: float, armijo_maxiters: int, c: float, beta: flo
 
     return stepsize
 
-def select_stepsize_newton(stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
+def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                            ss_k: np.ndarray, KK_k: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray, 
-                           xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray, plot: bool = False):
+                           xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
+                           kk: int, plot: bool = False):
     """
     Select the stepsize using the Armijo rule for the Newton method.
 
     Parameters
     ----------
+    model : object
+        System model.
     stepsize_0 : float
         Initial stepsize to start the Armijo search.
     armijo_maxiters : int
@@ -198,6 +200,8 @@ def select_stepsize_newton(stepsize_0: float, armijo_maxiters: int, c: float, be
         Control cost matrix.
     QQT : np.ndarray
         Terminal state cost matrix.
+    kk : int
+        Current iteration.
     plot : bool, optional
         Whether to plot the Armijo descent, by default False.
 
@@ -232,6 +236,8 @@ def select_stepsize_newton(stepsize_0: float, armijo_maxiters: int, c: float, be
             JJ_temp += cost
         cost_term = cst.termcost(xx_temp[:, -1], xx_ref[:, -1], QQT)[0]
         JJ_temp += cost_term
+        #JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT)
+        
 
         uu_temp[:, -1] = uu_temp[:, -2]
 
@@ -273,9 +279,9 @@ def select_stepsize_newton(stepsize_0: float, armijo_maxiters: int, c: float, be
                 JJ_temp += cost
             cost_term = cst.termcost(xx_temp[:, -1], xx_ref[:, -1], QQT)[0]
             JJ_temp += cost_term
-
+            #JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT) 
             costs[ii] = JJ_temp
 
-        plots.armijo_descent(steps, costs, JJ, descent_arm, c, stepsizes, costs_armijo)        
+        plots.armijo_descent(steps, costs, JJ, descent_arm, c, stepsizes, costs_armijo, kk)        
 
     return stepsize

@@ -334,7 +334,8 @@ class DoublePendulumFlexible:
             return np.array([sol[0], sol[1], 0.0, 0.0]), value
         
     def plot_equilibrium_point(self, x_eq: np.ndarray, u_eq: float, title: str = "") -> None:
-        """ Visualize the double pendulum at the equilibrium point.
+        """
+        Visualize the double pendulum at the equilibrium point.
         
         Parameters
         ----------

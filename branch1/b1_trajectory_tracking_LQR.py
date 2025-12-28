@@ -101,7 +101,7 @@ AA_sym, BB_sym = model_sym.symbolic_jacobian()
 
 # Linearization along optimal trajectory
 for tt in range(TT):
-    At[:, :, tt], Bt[:, :, tt] = solver.jacobian_solver(AA_sym, BB_sym, xx_star[:,tt], uu_star[:,tt])
+    At[:, :, tt], Bt[:, :, tt] = solver.jacobian_solver(AA_sym, BB_sym, xx_star[:,tt], uu_star[:,tt], model)
 
 #######################################
 # 2. Solve time-varying LQR problem over finite horizon
