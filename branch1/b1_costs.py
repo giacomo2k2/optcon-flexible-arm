@@ -23,7 +23,7 @@ import numpy as np
 # Functions
 #######################################
 
-def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:
+def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:      #COST MATRICES CHOICE
     """
     Returns the state and input cost matrices for the given maneuver name.
 
@@ -66,8 +66,8 @@ def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:
             RRt = 0.01 * np.eye(1)
             return QQt, RRt
         case 'custom':
-            QQt = np.diag([100.0, 100.0, 10.0, 10.0]) * 1e-1
-            RRt = 0.01 * np.eye(1)
+            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) * 1
+            RRt = 0.1 * np.eye(1)
             return QQt, RRt
 
 SSt = np.zeros((1, 4))

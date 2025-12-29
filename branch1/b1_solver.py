@@ -132,7 +132,7 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
         q1, q2, q1_dot, q2_dot = sp.symbols('q1 q2 q1_dot q2_dot')
         u = sp.symbols('u')
 
-        func_A = sp.lambdify((q1, q2, q1_dot, q2_dot, u), A_sym, 'numpy')
+        func_A = sp.lambdify((q1, q2, q1_dot, q2_dot, u), A_sym, 'numpy') # create numerical function from symbolic A
         func_B = sp.lambdify((q1, q2, q1_dot, q2_dot, u), B_sym, 'numpy')
         
         _JACOBIAN_CACHE[cache_key] = (func_A, func_B)
@@ -146,7 +146,7 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
 
     ns = Ac.shape[0]
 
-    # TODO: QUESTION - è corretta la nostra implementazione della discretizzazione degli jacobiani?
+    
     if method == 'fe':
         Ad = np.eye(ns) + model.dt * Ac           # Discrete-time A
         Bd = model.dt * Bc                        # Discrete-time B
@@ -185,7 +185,7 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
     
     return Ad, Bd
 
-# TODO: QUESTION - dobbiamo mettere la regolarizzazione con gli hessiani della dinamica?
+
 def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp.Matrix, x_val: np.ndarray, u_val, l_next_val: np.ndarray, model: object,
                              A_sym: sp.Matrix, B_sym: sp.Matrix) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -271,7 +271,7 @@ def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp
         q1, q2, q1_dot, q2_dot = sp.symbols('q1 q2 q1_dot q2_dot')
         u = sp.symbols('u')
 
-        func_A = sp.lambdify((q1, q2, q1_dot, q2_dot, u), A_sym, 'numpy')
+        func_A = sp.lambdify((q1, q2, q1_dot, q2_dot, u), A_sym, 'numpy') 
         func_B = sp.lambdify((q1, q2, q1_dot, q2_dot, u), B_sym, 'numpy')
         
         _JACOBIAN_CACHE[cache_key] = (func_A, func_B)

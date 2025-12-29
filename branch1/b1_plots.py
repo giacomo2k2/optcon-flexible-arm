@@ -149,31 +149,40 @@ def trajectory_comparison(
     title : str
         Title for the plots.
     """
+
+    # Labels based on title content
+    if "ref" in title.lower():
+        suffix_ref = r'\text{ref}'
+        suffix_guess = r'\text{guess}'
+    else:
+        suffix_ref = r'*'
+        suffix_guess = r'\text{track}'
     
+    # Metadata
     config = {
         "q1": (
             x_ref[0, :], x_guess[0, :], 
-            r'$q_{1, \text{ref}}$', r'$q_{1, \text{guess}}$', 
+            rf'$q_1^{suffix_ref}$', rf'$q_1^{suffix_guess}$', 
             r'$\mathrm{[rad]}$'
         ),
         "q2": (
             x_ref[1, :], x_guess[1, :], 
-            r'$q_{2, \text{ref}}$', r'$q_{2, \text{guess}}$', 
+            rf'$q_2^{suffix_ref}$', rf'$q_2^{suffix_guess}$', 
             r'$\mathrm{[rad]}$'
         ),
         "q1_dot": (
             x_ref[2, :], x_guess[2, :], 
-            r'$\dot{q}_{1, \text{ref}}$', r'$\dot{q}_{1, \text{guess}}$', 
+            rf'$\dot{{q}}_1^{suffix_ref}$', rf'$\dot{{q}}_1^{suffix_guess}$', 
             r'$\mathrm{[rad/s]}$'
         ),
         "q2_dot": (
             x_ref[3, :], x_guess[3, :], 
-            r'$\dot{q}_{2, \text{ref}}$', r'$\dot{q}_{2, \text{guess}}$', 
+            rf'$\dot{{q}}_2^{suffix_ref}$', rf'$\dot{{q}}_2^{suffix_guess}$', 
             r'$\mathrm{[rad/s]}$'
         ),
         "input": (
             u_ref[0, :], u_guess[0, :], 
-            r'$u_{\text{ref}}$', r'$u_{\text{guess}}$', 
+            rf'$u^{suffix_ref}$', rf'$u^{suffix_guess}$', 
             r'$\mathrm{[Nm]}$'
         ),
     }
@@ -211,6 +220,82 @@ def trajectory_comparison(
         ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle=':', alpha=0.6)
         ax.legend(loc='best', fontsize='small', frameon=True)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.show()
+
+def trajectory_comparison_multirun(
+    time: np.ndarray,
+    x_ref: np.ndarray,
+    u_ref: np.ndarray,
+    x_track: np.ndarray,
+    u_track: np.ndarray,
+    title: str
+) -> None:
+    """
+    Plots the comparison between reference and multiple tracked trajectories for different perturbed intial conditions.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Array of time points.
+    x_ref : np.ndarray
+        Reference state trajectory.
+    u_ref : np.ndarray
+        Reference control inputs.
+    x_track : np.ndarray
+        Tracked state trajectories (ns, TT, runs).
+    u_track : np.ndarray
+        Tracked control inputs (ns, TT, runs).
+    title : str
+        Title for the plots.
+    """
+
+    num_runs = x_track.shape[2]
+    num_vars = x_track.shape[0] + u_track.shape[0]
+
+    s_ref, s_track = r'*', r'\text{track}'
+
+    fig, axes = plt.subplots(num_vars, num_runs, figsize=(4 * num_runs, 15), sharex=True)
+    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=18, fontweight='bold', y=0.98)
+
+    if num_runs == 1:
+        axes = axes.reshape(-1, 1)
+
+    for run_idx in range(num_runs):
+        # Initial condition for this run
+        x0 = x_track[:, 0, run_idx]
+        ic_str = rf"$x_0 = [{x0[0]:.2g}, {x0[1]:.2g}, {x0[2]:.2g}, {x0[3]:.2g}]^\top$"
+
+        # Metadata (ref_data, track_data, label_ref, label_track, unit)
+        config = [
+            (x_ref[0, :], x_track[0, :, run_idx], rf'$q_1^{s_ref}$', rf'$q_1^{s_track}$', r'$\mathrm{[rad]}$'),
+            (x_ref[1, :], x_track[1, :, run_idx], rf'$q_2^{s_ref}$', rf'$q_2^{s_track}$', r'$\mathrm{[rad]}$'),
+            (x_ref[2, :], x_track[2, :, run_idx], rf'$\dot{{q}}_1^{s_ref}$', rf'$\dot{{q}}_1^{s_track}$', r'$\mathrm{[rad/s]}$'),
+            (x_ref[3, :], x_track[3, :, run_idx], rf'$\dot{{q}}_2^{s_ref}$', rf'$\dot{{q}}_2^{s_track}$', r'$\mathrm{[rad/s]}$'),
+            (u_ref[0, :], u_track[0, :, run_idx], rf'$u^{s_ref}$', rf'$u^{s_track}$', r'$\mathrm{[Nm]}$'),
+        ]
+
+        for var_idx, (d_ref, d_track, l_ref, l_track, unit) in enumerate(config):
+            ax = axes[var_idx, run_idx]
+            
+            # Plotting
+            ax.plot(time, d_ref, color=colors['orange'], linestyle='--', linewidth=1.5, label=l_ref)
+            ax.plot(time, d_track, color=colors['blue'], linestyle='-', linewidth=2, label=l_track)
+            
+            # Title logic: IC only for the first row (q1)
+            if var_idx == 0:
+                ax.set_title(f"{ic_str}\n{l_ref} vs {l_track}", fontsize=12)
+            else:
+                ax.set_title(f"{l_ref} vs {l_track}", fontsize=12)
+
+            # Labels and style
+            ax.set_ylabel(unit)
+            if var_idx == num_vars - 1: # Only last row has X label
+                ax.set_xlabel(r'$t \mathrm{[s]}$')
+            
+            ax.grid(True, linestyle=':', alpha=0.6)
+            ax.legend(loc='best', fontsize='small')
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()

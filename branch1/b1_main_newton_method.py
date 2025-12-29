@@ -53,6 +53,7 @@ import control as ctrl
 model = DoublePendulumFlexible(**PARAM_SET_2)
 model_sym = DoublePendulumFlexibleSymbolic(**PARAM_SET_2)
 
+
 ns = model.ns  # number of states
 ni = model.ni  # number of inputs
 
@@ -63,41 +64,50 @@ ni = model.ni  # number of inputs
 # General parameters
 max_iters = 300
 fixed_stepsize = 1*1e-2
-term_cond = 1e-5
+term_cond = 1e-1
 
 # Armijo parameters
 Armijo = True
 stepsize_0 = 1.0
 c = 0.5
 beta = 0.7
-armijo_maxiters = 10
+armijo_maxiters = 20
 approx_1st_order = True
 
 # Visualization parameters
-initial_reference_plot = False    # plot reference trajectory at beginning
+initial_reference_plot = True  # plot reference trajectory at beginning
 equilibrium_plot = False        # plot equilibrium manifold and points
 armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
-visu_animation = False          # animate final optimal trajectory
-debug_print = False             # print debug information
-final_plots = False             # plot final optimal trajectory
+visu_animation = True          # animate final optimal trajectory
+debug_print = True             # print debug information
+final_plots = True             # plot final optimal trajectory
 
 #######################################
 # Trajectory parameters
 #######################################
 
 # General setting: T0, ti, tf, Tend, dt = (0.0, 0.2, 0.5, 4.0, 0.01)
+# General setting v2: T0, ti, tf, Tend, dt = (0.0, 0.05, 0.95, 4.0, 0.01)
 
 T0 = 0.0        # Initial absolute time
-ti = 0.3        # Start time for trajectory segment (relative)
-tf = 0.5        # End time for trajectory segment (relative)
-Tend = 4.0      # End absolute time
+ti = 0.05        # Start time for trajectory segment (relative)
+tf = 0.95        # End time for trajectory segment (relative)
+Tend = 6.0      # End absolute time
 dt = model.dt   # Time step
 t = np.arange(T0, Tend, dt) # Time vector
 TT = len(t)                 # Number of time steps
 
+# Notes on trajectory parameters and costs:
+# Higher times ----> lower inputs, you can help by penalizing the input more
+# Long flat regions ----> polynomial tends to stepwise ----> if traj difficult it becomes unstable ---> too rough, if you want to improve decrease U cost
+# Cost on speed must be low ---> in the middle it is normal since it is underactuated to have big swings of which we do not care much, so why penalizing?
+# In general you cannot impose arbitrarily fast maneuvers without high costs ---> underactuation forces to follow system frequency (some seconds)
+# FE and RK4 are similar in our case (rk4 little better in cost, FE is faster)
+# Not much sense in going up with smoothness of polynomial, the idea is to put a smooth transient, that's all (optimization sees too little difference between poly5 and poly7, it cares abt differences)
+
 # Trajectory generation technique
-method = 'poly7'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
+method = 'poly3'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
 model.discr_method = 'fe'
 
 # Equilibrium go-to configurations
@@ -128,8 +138,8 @@ equilibrium_traj = {
     ),
 
     'custom': (
-        model.find_equilibrium(fix_type='q1', value=0.0),
-        model.find_equilibrium(fix_type='q1', value=np.pi/4)
+        model.find_equilibrium(fix_type='q1', value=0),
+        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5)
     )
 }
 
@@ -138,14 +148,8 @@ equilibrium_traj = {
 #######################################
 
 data_dict = model.compute_equilibrium_manifold()
-# TODO: top_to_elbow_up da problemi con rk4, esplosione sin da subito
-# Select equilibrium trajectory (potentially ti=0.3, tf=0.5)
-# - elbow_up (it may finish at tf = 0.4)
-# - swing_up
-# - left_to_right_elbow_up
-# - top_to_elbow_up (con fe need tf = 0.5, ti = 0.3)
-# - top_to_elbow_down
-selected_equilibrium = 'left_to_right_elbow_up'
+
+selected_equilibrium = 'custom'
 eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
 (x_eq1, u_eq1), (x_eq2, u_eq2) = eq_pair1, eq_pair2
 
@@ -252,7 +256,7 @@ for kk in range(max_iters-1):
     term_cost = cst.termcost(xx[:,-1,kk], xx_ref[:,-1], QQT)[0]
     JJ[kk] += term_cost
 
-    #JJ[kk] = cst.total_cost(xx[:,:,kk], uu[:,:,kk], xx_ref, uu_ref, QQt, RRt, QQT)
+    JJ[kk] = cst.total_cost(xx[:,:,kk], uu[:,:,kk], xx_ref, uu_ref, QQt, RRt, QQT)
 
     ############################
     # 1. Compute descent direction
@@ -268,6 +272,7 @@ for kk in range(max_iters-1):
         At, Bt = solver.jacobian_solver(AA_sym, BB_sym, xx[:, tt, kk], uu[:, tt, kk], model)
 
         # Compute modified cost matrices if 2nd order approximation
+        # TODO: - QUESTION: dobbiamo mettere questo 
         if not approx_1st_order and kk > 50:
             Hxx_num, Huu_num, Hxu_num = solver.hessian_numerical_solver(
                 Hxx_sym, Huu_sym, Hux_sym, xx[:,tt,kk], uu[:,tt,kk], lmbd[:,tt+1,kk], model, AA_sym, BB_sym
@@ -293,7 +298,6 @@ for kk in range(max_iters-1):
         dJ_temp = rt + Bt.T @ pp[:,tt+1,kk][:,None]
         dJ[:,tt,kk] = dJ_temp.squeeze()
 
-    # TODO: QUESTION - descent norm often increase rather than decrease, why?
     # Compute descent direction norm after backward pass
     for tt in range(TT-1):
         deltau[:,tt,kk] = ss[:,tt,kk]                       # Descent direction in Newton method
@@ -363,6 +367,7 @@ for kk in range(max_iters-1):
 xx_star = xx[:,:,max_iters-1]
 uu_star = uu[:,:,max_iters-1]
 uu_star[:,-1] = uu_star[:,-2] # for plotting purposes
+descent[max_iters-1] = descent[ max_iters-2]
 
 if final_plots:
     # Descent Direction

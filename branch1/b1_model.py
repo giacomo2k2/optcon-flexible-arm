@@ -128,10 +128,10 @@ class DoublePendulumFlexible:
         self.f2 = f2
         self.k = k
 
-        self.ns = 4 # State dimension
-        self.ni = 1 # Input dimension
-        self.dt = 0.01 # Default time step
-        self.discr_method = 'rk4'  # 'fe' or 'rk4'
+        self.ns = 4                 # State dimension
+        self.ni = 1                 # Input dimension
+        self.dt = 0.01              # Discretization time step
+        self.discr_method = 'rk4'   # Discretization method
 
     def random_init(self) -> np.ndarray:
         """
@@ -299,7 +299,7 @@ class DoublePendulumFlexible:
         u_eq : float
             Equilibrium input torque.
         """
-        def equations(vars, fix_type, value):
+        def _equations(vars, fix_type, value):
             if fix_type == 'q1':
                 q1 = value
                 q2, u = vars
@@ -321,8 +321,12 @@ class DoublePendulumFlexible:
             return [eq1, eq2]
         
         initial_guess = [0.0, 0.0]
-        sol, info, ier, msg = fsolve(equations, initial_guess, args=(fix_type, value), full_output=True)
+        sol, info, ier, msg = fsolve(_equations, initial_guess, args=(fix_type, value), full_output=True)
         
+        # limit solution from -pi to pi using mod
+        
+        
+        sol[0] = (sol[0] + np.pi) % (2 * np.pi) - np.pi
         if ier != 1:
             raise ValueError(f"fsolve did not converge: {msg}")
 
@@ -331,6 +335,7 @@ class DoublePendulumFlexible:
         elif fix_type == 'q2':
             return np.array([sol[0], value, 0.0, 0.0]), float(sol[1])
         else:
+            sol[1] = (sol[1] + np.pi) % (2 * np.pi) - np.pi
             return np.array([sol[0], sol[1], 0.0, 0.0]), value
         
     def plot_equilibrium_point(self, x_eq: np.ndarray, u_eq: float, title: str = "") -> None:

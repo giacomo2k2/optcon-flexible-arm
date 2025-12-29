@@ -32,6 +32,7 @@ import b1_plots as plots
 # Functions
 #######################################
 
+#OPENLOOP
 def select_stepsize(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                     deltau: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray,
                     uu: np.ndarray,
@@ -144,7 +145,7 @@ def select_stepsize(model, stepsize_0: float, armijo_maxiters: int, c: float, be
             JJ_temp = 0
 
             for tt in range(TT-1):
-                uu_temp[:,tt] = uu[:,tt] + step*deltau[:,tt]
+                uu_temp[:,tt] = uu[:,tt] + step*deltau[:,tt]  #OPEN LOOP LINE
                 xx_temp[:,tt+1] = model.discrete_dynamics(xx_temp[:,tt], uu_temp[:,tt])
                 temp_cost = cst.stagecost(xx_temp[:,tt], uu_temp[:,tt], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[0]
                 JJ_temp += temp_cost
@@ -157,6 +158,7 @@ def select_stepsize(model, stepsize_0: float, armijo_maxiters: int, c: float, be
 
     return stepsize
 
+#CLOSEDLOOP
 def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                            ss_k: np.ndarray, KK_k: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray, 
                            xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
@@ -230,7 +232,7 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
         # Forward integration (Closed-loop)
         for tt in range(TT - 1):
             delta_x = xx_temp[:, tt] - xx[:, tt]
-            uu_temp[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + stepsize * ss_k[:, tt]
+            uu_temp[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + stepsize * ss_k[:, tt] #CLOSED LOOP LINE
             xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])
             cost = cst.stagecost(xx_temp[:, tt], uu_temp[:, tt], xx_ref[:, tt], uu_ref[:, tt], QQt, RRt)[0]
             JJ_temp += cost
