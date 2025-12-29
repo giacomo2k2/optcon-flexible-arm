@@ -1,0 +1,44 @@
+1. Due tipologie di Armijo: check 
+2. Come scegliere le matrici di costo
+3. é normale che la convergenza dipenda molto dalla traiettoria e dal temp_cost
+4. Quanto tempo dovremmo mantenere di equilibrio all'inizio e alla fine
+5. Solver equilibrio ha difficoltà quando si è con pendolo invertito
+6. Dobbiamo utilizzare l'hessiano della dinamica (2nd order approx).
+   Nel caso affermativo, come lo discretizziamo
+7. La descent a volte aumenta anziché diminuire sempre, è normale?
+8. Discretizzazione dello jacobian, soprattutto rk4
+9. Dobbiamo utilizzare un nostro lqr e mpc o possiamo utilizzare casadi o altro
+10. Ha senso rendere dinamiche le matrici Q e R in modo che all'inizio e fine siano alte e man mano al centro siano più basse
+11. Dobbiamo tenere per forza tempi di assestamento iniziale e finale. Ci avviciniamo di più ad una stepwise
+12. Leggere il nostro sum-up
+
+
+
+
+-----------------------------------
+Notes on trajectory generation using Newton method:
+*Higher times ----> lower inputs, you can help by penalizing the input more
+*Long flat regions ----> polynomial tends to stepwise ----> if traj difficult it becomes unstable ---> too rough, if you want to improve decrease U cost
+*Cost on speed must be low ---> in the middle it is normal since it is underactuated to have big swings of which we do not care much, so why penalizing?
+*In general you cannot impose arbitrarily fast maneuvers without high costs ---> underactuation forces to follow system frequency (some seconds)
+*FE and RK4 are similar in our case (rk4 little better in cost, FE is faster)
+*Not much sense in going up with smoothness of polynomial, the idea is to put a smooth transient, that's all 
+(optimization sees too little difference between poly5 and poly7, it cares abt differences)
+
+-----------------------------------
+The use of dare to compute the final cost weighting matrix is driven by the fact that we chose a target 
+which is a equilibria of the system. Using this choce, the linearization of the non linear system around the
+equilibria pair
+provide a LTI system. For which then we can use the DARE to compute the P_inf, and set it as final cost matrix used for the 
+backpropagation of the costate.
+
+By doing that, Q_final, account also for all the cost from TT-1 up to infinte
+
+
+-----------------------------------
+Notes on trajectory tracking:
+*Since deviations are tipically small, you have to emphasize them by putting high costs.
+*If you put high U cost, the deviation from the right u is penalized but siince the x differ if you appply the u that was thought for the nominal 
+case it provides worse tracking.
+
+

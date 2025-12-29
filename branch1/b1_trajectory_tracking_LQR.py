@@ -108,7 +108,7 @@ for tt in range(TT):
 #######################################
 
 # Cost matrices
-QQt = np.diag([10, 10, 1, 1]) * 1e-3
+QQt = np.diag([10, 10, 10, 10]) * 1
 RRt = 0.01 * np.eye(ni)
 QQT = ctrl.dare(At[:, :, -1], Bt[:, :, -1], QQt, RRt)[0]  # Terminal cost weight matrix
 

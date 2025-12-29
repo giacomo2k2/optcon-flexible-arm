@@ -98,14 +98,6 @@ dt = model.dt   # Time step
 t = np.arange(T0, Tend, dt) # Time vector
 TT = len(t)                 # Number of time steps
 
-# Notes on trajectory parameters and costs:
-# Higher times ----> lower inputs, you can help by penalizing the input more
-# Long flat regions ----> polynomial tends to stepwise ----> if traj difficult it becomes unstable ---> too rough, if you want to improve decrease U cost
-# Cost on speed must be low ---> in the middle it is normal since it is underactuated to have big swings of which we do not care much, so why penalizing?
-# In general you cannot impose arbitrarily fast maneuvers without high costs ---> underactuation forces to follow system frequency (some seconds)
-# FE and RK4 are similar in our case (rk4 little better in cost, FE is faster)
-# Not much sense in going up with smoothness of polynomial, the idea is to put a smooth transient, that's all (optimization sees too little difference between poly5 and poly7, it cares abt differences)
-
 # Trajectory generation technique
 method = 'poly3'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
 model.discr_method = 'fe'
