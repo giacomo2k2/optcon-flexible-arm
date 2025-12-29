@@ -79,7 +79,7 @@ initial_reference_plot = True  # plot reference trajectory at beginning
 equilibrium_plot = False        # plot equilibrium manifold and points
 armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
-visu_animation = True          # animate final optimal trajectory
+visu_animation = False          # animate final optimal trajectory
 debug_print = True             # print debug information
 final_plots = True             # plot final optimal trajectory
 

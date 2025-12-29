@@ -201,6 +201,12 @@ def trajectory_comparison(
         "input":   fig.add_subplot(gs[2, :])
     }
 
+    # if there's a discrepancy in the initial state plot in the title the perturbation info
+    if x_guess[:,0].tolist() != x_ref[:,0].tolist():
+        eps = x_guess[:,0] - x_ref[:,0]
+        ic_str = rf"$ \varepsilon = [{eps[0]:.2g}, {eps[1]:.2g}, {eps[2]:.2g}, {eps[3]:.2g}]^\top$"
+        fig.suptitle(f"Trajectory Comparison: {title}\n{ic_str}", fontsize=16, fontweight='bold', ha='center', x=0.5)
+
     # Plot
     for key, ax in axes_map.items():
         data_ref, data_guess, label_ref, label_guess, unit = config[key]
@@ -216,6 +222,72 @@ def trajectory_comparison(
                 label=label_guess)
         
         ax.set_title(f"{label_ref} vs {label_guess}", fontsize=14)
+        ax.set_ylabel(unit)
+        ax.set_xlabel(r'$t \mathrm{[s]}$')
+        ax.grid(True, linestyle=':', alpha=0.6)
+        ax.legend(loc='best', fontsize='small', frameon=True)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.show()
+
+def tracking_error(
+    time: np.ndarray,
+    x_ref: np.ndarray,
+    u_ref: np.ndarray,
+    x_track: np.ndarray,
+    u_track: np.ndarray,
+    title: str
+) -> None:
+    """
+    Plots the tracking error between reference and tracked trajectories.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Array of time points.
+    x_ref : np.ndarray
+        Reference state trajectory.
+    u_ref : np.ndarray
+        Reference control inputs.
+    x_track : np.ndarray
+        Tracked state trajectory.
+    u_track : np.ndarray
+        Tracked control inputs.
+    title : str
+        Title for the plots.
+    """
+    # Metadata
+    config = {
+        "q1":      (x_ref[0, :] - x_track[0, :], r'$e_{q_1}(t)$',  r'$\mathrm{[rad]}$'),
+        "q2":      (x_ref[1, :] - x_track[1, :], r'$e_{q_2}(t)$',  r'$\mathrm{[rad]}$'),
+        "q1_dot":  (x_ref[2, :] - x_track[2, :], r'$e_{\dot{q}_1}(t)$', r'$\mathrm{[rad/s]}$'),
+        "q2_dot":  (x_ref[3, :] - x_track[3, :], r'$e_{\dot{q}_2}(t)$', r'$\mathrm{[rad/s]}$'),
+        "input":   (u_ref[0, :] - u_track[0, :], r'$e_{u}(t)$',   r'$\mathrm{[Nm]}$'),
+    }
+
+    fig = plt.figure(figsize=(12, 10))
+    fig.suptitle(f"Tracking Error: {title}", fontsize=16, fontweight='bold', ha='center', x=0.5)
+    
+    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.25)
+
+    # Map
+    axes_map = {
+        "q1":      fig.add_subplot(gs[0, 0]),
+        "q2":      fig.add_subplot(gs[0, 1]),
+        "q1_dot":  fig.add_subplot(gs[1, 0]),
+        "q2_dot":  fig.add_subplot(gs[1, 1]),
+        "input":   fig.add_subplot(gs[2, :])
+    }
+
+    # Plot
+    for key, ax in axes_map.items():
+        error_data, label, unit = config[key]
+        
+        ax.plot(time, error_data, 
+                color=colors['red'], linestyle='-', linewidth=2, 
+                label=label)
+        
+        ax.set_title(f"{label}", fontsize=14)
         ax.set_ylabel(unit)
         ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle=':', alpha=0.6)
@@ -285,19 +357,117 @@ def trajectory_comparison_multirun(
             
             # Title logic: IC only for the first row (q1)
             if var_idx == 0:
-                ax.set_title(f"{ic_str}\n{l_ref} vs {l_track}", fontsize=12)
+                ax.set_title(f"{ic_str}\n{l_ref} vs {l_track}", fontsize=8)
             else:
-                ax.set_title(f"{l_ref} vs {l_track}", fontsize=12)
+                ax.set_title(f"{l_ref} vs {l_track}", fontsize=8)
 
             # Labels and style
-            ax.set_ylabel(unit)
+            ax.set_ylabel(unit, fontsize=8)
             if var_idx == num_vars - 1: # Only last row has X label
-                ax.set_xlabel(r'$t \mathrm{[s]}$')
+                ax.set_xlabel(r'$t \mathrm{[s]}$', fontsize=8)
             
             ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend(loc='best', fontsize='small')
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.show()
+
+def tracking_error_multirun(
+    time: np.ndarray,
+    x_ref: np.ndarray,
+    u_ref: np.ndarray,
+    x_track: np.ndarray,
+    u_track: np.ndarray,
+    title: str
+) -> None:
+    """
+    Plots the tracking error between reference and multiple tracked trajectories for different perturbed intial conditions.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Array of time points.
+    x_ref : np.ndarray
+        Reference state trajectory.
+    u_ref : np.ndarray
+        Reference control inputs.
+    x_track : np.ndarray
+        Tracked state trajectories (ns, TT, runs).
+    u_track : np.ndarray
+        Tracked control inputs (ns, TT, runs).
+    title : str
+        Title for the plots.
+    """
+    num_runs = x_track.shape[2]
+    cmap = plt.get_cmap('tab10')
+    run_colors = [cmap(i) for i in range(num_runs)]
+
+    fig = plt.figure(figsize=(14, 12))
+    fig.suptitle(f"Tracking Error Analysis: {title}", fontsize=16, fontweight='bold')
+
+    # 3x2 layout: row1(q1,q2), row2(velocities), row3(u, legend)
+    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.35, wspace=0.25)
+
+    # Assi: 6 celle
+    axes_map = {
+        "q1":      fig.add_subplot(gs[0, 0]),
+        "q2":      fig.add_subplot(gs[0, 1]),
+        "q1_dot":  fig.add_subplot(gs[1, 0]),
+        "q2_dot":  fig.add_subplot(gs[1, 1]),
+        "input":   fig.add_subplot(gs[2, 0]),
+        "legend":  fig.add_subplot(gs[2, 1])
+    }
+
+    # Configurazione metadati (indice_stato, label_errore, unità)
+    # Nota: l'input usa u_ref/u_track, gli altri x_ref/x_track
+    config = {
+        "q1":      (0, r'$e_{q_1}$', r'$\mathrm{[rad]}$'),
+        "q2":      (1, r'$e_{q_2}$', r'$\mathrm{[rad]}$'),
+        "q1_dot":  (2, r'$e_{\dot{q}_1}$', r'$\mathrm{[rad/s]}$'),
+        "q2_dot":  (3, r'$e_{\dot{q}_2}$', r'$\mathrm{[rad/s]}$'),
+    }
+
+    epsilon_labels = []  # Per la legenda per-run
+
+    # Ciclo sulle RUN per raccogliere epsilon e preparare i plot
+    for r in range(num_runs):
+        # Calcolo epsilon (differenza condizioni iniziali)
+        eps = x_track[:, 0, r] - x_ref[:, 0]
+        eps_str = f"Run {r+1}: $\epsilon$ = [{eps[0]:.2f}, {eps[1]:.2f}, {eps[2]:.2f}, {eps[3]:.2f}]"
+        epsilon_labels.append(eps_str)
+
+        # Plot degli stati
+        for key, (idx, label, unit) in config.items():
+            ax = axes_map[key]
+            error = x_ref[idx, :] - x_track[idx, :, r]
+            ax.plot(time, error, color=run_colors[r], label=f"Run {r+1}", linewidth=1.5, alpha=0.8)
+            ax.set_title(f"Error {label}", fontsize=12)
+            ax.set_ylabel(unit)
+            ax.grid(True, linestyle=':', alpha=0.6)
+
+        # Plot dell'input (caso speciale) nella cella [2,0]
+        ax_u = axes_map["input"]
+        error_u = u_ref[0, :] - u_track[0, :, r]
+        ax_u.plot(time, error_u, color=run_colors[r], label=f"Run {r+1}", linewidth=1.5, alpha=0.8)
+        ax_u.set_title(r"Error $e_u$", fontsize=12)
+        ax_u.set_ylabel(r"$\mathrm{[Nm]}$")
+        ax_u.grid(True, linestyle=':', alpha=0.6)
+
+    # Label asse X per la riga finale
+    axes_map["q1_dot"].set_xlabel(r'$t \mathrm{[s]}$')
+    axes_map["q2_dot"].set_xlabel(r'$t \mathrm{[s]}$')
+    axes_map["input"].set_xlabel(r'$t \mathrm{[s]}$')
+
+    # Cella legenda: mostra le run con colore e epsilon
+    ax_leg = axes_map["legend"]
+    ax_leg.axis('off')
+    # Crea handle fittizi per la legenda con i colori delle run
+    for r in range(num_runs):
+        ax_leg.plot([], [], color=run_colors[r], label=epsilon_labels[r])
+    ax_leg.legend(loc='center', ncol=1, fontsize=10, frameon=True,
+                  title="Perturbed Initial Conditions ($\\epsilon$)")
+
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     plt.show()
 
 def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:

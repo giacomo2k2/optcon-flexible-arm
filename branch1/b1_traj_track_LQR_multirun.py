@@ -127,7 +127,10 @@ else:
 QQt = np.diag([10, 10, 1, 1]) * 1e-3
 RRt = 0.01 * np.eye(ni)
 
-A_final, B_final = At[:, :, -1, 0], Bt[:, :, -1, 0] if multiple_runs else At[:, :, -1], Bt[:, :, -1] 
+if multiple_runs:
+    A_final, B_final = At[:, :, -1, 0], Bt[:, :, -1, 0]
+else:
+    A_final, B_final = At[:, :, -1], Bt[:, :, -1]
 
 QQT = ctrl.dare(A_final, B_final, QQt, RRt)[0]  # Terminal cost weight matrix
 
@@ -146,15 +149,18 @@ else:
 # 3. Track the optimal trajcetory with LQR controller
 #######################################
 
+if perturb_initial_state:
+    epsilon = np.random.uniform(-0.1, 0.1, size=(4,))  # initial state perturbation
+else:
+    epsilon = np.zeros(4)
+
 # Initial state
 if multiple_runs:
     for rr in range(runs):
-        if perturb_initial_state:
-            epsilon = np.random.uniform(-0.1, 0.1, size=(4,))  # initial state perturbation
-        else:
-            epsilon = np.zeros(4)
-        
-        x0[:,rr] = xx_star[:,0] + epsilon # initial state
+        # Perturbation epsilon slightly increase for each run
+        epsilon_scaled = epsilon * (rr + 1) / runs
+
+        x0[:,rr] = xx_star[:,0] + epsilon_scaled # initial state
         xx_lqr[:,0,rr] = x0[:,rr]
 
         for tt in range(TT-1):
@@ -162,13 +168,7 @@ if multiple_runs:
             xx_lqr[:,tt+1,rr] = model.discrete_dynamics(xx_lqr[:,tt,rr], uu_lqr[:,tt,rr])
         
     uu_lqr[:,-1,:] = uu_lqr[:,-2,:] # for plotting purposes
-    
 else:
-    if perturb_initial_state:
-        epsilon = np.array([0.1, -0.1, 0.0, 0.0])  # initial state perturbation
-    else:
-        epsilon = np.zeros(4)
-
     x0 = xx_star[:,0] + epsilon  # initial state
     xx_lqr[:,0] = x0
 
@@ -186,14 +186,17 @@ else:
 if final_plots:
     if multiple_runs:
         # Optimal traj vs LQR traj for multiple perturbed initial conditions
-        plots.trajectory_comparison_multiple_runs(time, xx_star, uu_star, xx_lqr, uu_lqr, runs, title="LQR Trajectory Tracking - Multiple Runs")
+        plots.trajectory_comparison_multirun(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Trajectory Tracking - Multiple Runs")
+        plots.tracking_error_multirun(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Tracking Error - Multiple Runs")
     else:
         # Optimal traj vs LQR traj for single perturbed initial condition
         plots.trajectory_comparison(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Trajectory Tracking")
-    
-
-    # TODO: tracking error for different initial conditions
+        plots.tracking_error(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Tracking Error")
 
 # Animation of the optimal trajectory
 if visu_animation:
-    anim.animate_comparison(model, xx_lqr, xx_star, eq_pair1, eq_pair2, target_fps=30)
+    if multiple_runs:
+        # Animate only the first run, in future all pendulum may be animated in contemporary
+        anim.animate_comparison(model, xx_lqr[:,:,0], xx_star, eq_pair1, eq_pair2, target_fps=30)
+    else:
+        anim.animate_comparison(model, xx_lqr, xx_star, eq_pair1, eq_pair2, target_fps=30)
