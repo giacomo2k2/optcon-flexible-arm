@@ -249,8 +249,6 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
         if JJ_temp > JJ + c*stepsize*descent_arm:
             stepsize = beta*stepsize
         else:
-            if plot:
-                print('Armijo stepsize = {:.3e}'.format(stepsize))
             break
 
         if ii == armijo_maxiters -1 and plot:

@@ -116,118 +116,13 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
         ax.set_title(label, fontsize=12, fontweight='bold')
         ax.plot(time, data, linewidth=2, label=label, linestyle='-', color=colors["blue"])
         ax.set_ylabel(unit)
-        ax.set_xlabel(r'$t \mathrm{[s]}$')
+        if key == "input":
+            ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle='--', alpha=0.5)
         ax.legend()
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
-    plt.show()
-
-def trajectory_comparison(
-    time: np.ndarray, 
-    x_ref: np.ndarray, 
-    u_ref: np.ndarray, 
-    x_guess: np.ndarray, 
-    u_guess: np.ndarray, 
-    title: str
-) -> None:
-    """
-    Plots the comparison between reference and guess trajectories.
-
-    Parameters
-    ----------
-    time : np.ndarray
-        Array of time points.
-    x_ref : np.ndarray
-        Reference state trajectory .
-    u_ref : np.ndarray
-        Reference control inputs.
-    x_guess : np.ndarray
-        Guess state trajectory.
-    u_guess : np.ndarray
-        Guess control inputs.
-    title : str
-        Title for the plots.
-    """
-
-    # Labels based on title content
-    if "ref" in title.lower():
-        suffix_ref = r'\text{ref}'
-        suffix_guess = r'\text{guess}'
-    else:
-        suffix_ref = r'*'
-        suffix_guess = r'\text{track}'
-    
-    # Metadata
-    config = {
-        "q1": (
-            x_ref[0, :], x_guess[0, :], 
-            rf'$q_1^{suffix_ref}$', rf'$q_1^{suffix_guess}$', 
-            r'$\mathrm{[rad]}$'
-        ),
-        "q2": (
-            x_ref[1, :], x_guess[1, :], 
-            rf'$q_2^{suffix_ref}$', rf'$q_2^{suffix_guess}$', 
-            r'$\mathrm{[rad]}$'
-        ),
-        "q1_dot": (
-            x_ref[2, :], x_guess[2, :], 
-            rf'$\dot{{q}}_1^{suffix_ref}$', rf'$\dot{{q}}_1^{suffix_guess}$', 
-            r'$\mathrm{[rad/s]}$'
-        ),
-        "q2_dot": (
-            x_ref[3, :], x_guess[3, :], 
-            rf'$\dot{{q}}_2^{suffix_ref}$', rf'$\dot{{q}}_2^{suffix_guess}$', 
-            r'$\mathrm{[rad/s]}$'
-        ),
-        "input": (
-            u_ref[0, :], u_guess[0, :], 
-            rf'$u^{suffix_ref}$', rf'$u^{suffix_guess}$', 
-            r'$\mathrm{[Nm]}$'
-        ),
-    }
-
-    fig = plt.figure(figsize=(12, 10))
-    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=16, fontweight='bold', ha='center', x=0.5)
-    
-    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.25)
-
-    # Map
-    axes_map = {
-        "q1":      fig.add_subplot(gs[0, 0]),
-        "q2":      fig.add_subplot(gs[0, 1]),
-        "q1_dot":  fig.add_subplot(gs[1, 0]),
-        "q2_dot":  fig.add_subplot(gs[1, 1]),
-        "input":   fig.add_subplot(gs[2, :])
-    }
-
-    # if there's a discrepancy in the initial state plot in the title the perturbation info
-    if x_guess[:,0].tolist() != x_ref[:,0].tolist():
-        eps = x_guess[:,0] - x_ref[:,0]
-        ic_str = rf"$ \varepsilon = [{eps[0]:.2g}, {eps[1]:.2g}, {eps[2]:.2g}, {eps[3]:.2g}]^\top$"
-        fig.suptitle(f"Trajectory Comparison: {title}\n{ic_str}", fontsize=16, fontweight='bold', ha='center', x=0.5)
-
-    # Plot
-    for key, ax in axes_map.items():
-        data_ref, data_guess, label_ref, label_guess, unit = config[key]
-        
-        # Plot Reference 
-        ax.plot(time, data_ref, 
-                color=colors['orange'], linestyle='--', linewidth=1.5, 
-                label=label_ref)
-        
-        # Plot Guess 
-        ax.plot(time, data_guess, 
-                color=colors['blue'], linestyle='-', linewidth=2, 
-                label=label_guess)
-        
-        ax.set_title(f"{label_ref} vs {label_guess}", fontsize=14)
-        ax.set_ylabel(unit)
-        ax.set_xlabel(r'$t \mathrm{[s]}$')
-        ax.grid(True, linestyle=':', alpha=0.6)
-        ax.legend(loc='best', fontsize='small', frameon=True)
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.subplots_adjust(hspace=0.5)
+    # plt.tight_layout(rect=[0, 0.03, 1, 0.97])
     plt.show()
 
 def trajectory_comparison(
@@ -257,7 +152,7 @@ def trajectory_comparison(
         Title for the plots.
     """
 
-    # Ensure
+    # Ensure x_track and u_track have 3 dimensions
     if x_track.ndim < 3:
         #print(f"before: {x_track.ndim}")
         x_track = x_track.reshape(x_track.shape[0], x_track.shape[1], 1)
@@ -268,21 +163,25 @@ def trajectory_comparison(
         u_track = u_track.reshape(u_track.shape[0], u_track.shape[1], 1)
         #print(f"after: {u_track.ndim}")
 
-
+    # Extract dimensions
     num_runs = x_track.shape[2]
     num_vars = x_track.shape[0] + u_track.shape[0]
 
-    s_ref, s_track = r'*', r'\text{track}'
+    # Suffixes for labels
+    if 'ref' in title.lower():
+        s_ref, s_track = r'\text{ref}', r'\text{guess}'
+    else:
+        s_ref, s_track = r'*', r'\text{track}'
 
     fig, axes = plt.subplots(num_vars, num_runs, figsize=(4 * num_runs, 15), sharex=True)
-    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=18, fontweight='bold', y=0.98)
+    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=18, fontweight='bold', x=0.5, y=0.98, ha='center')
 
     if num_runs == 1:
         axes = axes.reshape(-1, 1)
 
     for run_idx in range(num_runs):
 
-        ic_str = r"$\varepsilon = 0$"
+        ic_str = r"$\varepsilon = [0, 0, 0, 0]^\top$"
         # Initial condition for this run
 
         if x_ref[:,0].tolist() != x_track[:,0, run_idx].tolist():
@@ -318,8 +217,10 @@ def trajectory_comparison(
             
             ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend(loc='best', fontsize='small')
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            
+    plt.subplots_adjust(hspace=0.5)
+    if num_runs > 1:
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
 def tracking_error(
@@ -353,7 +254,7 @@ def tracking_error(
     run_colors = [cmap(i) for i in range(num_runs)]
 
     fig = plt.figure(figsize=(14, 12))
-    fig.suptitle(f"Tracking Error Analysis: {title}", fontsize=16, fontweight='bold')
+    fig.suptitle(f"Tracking Error Analysis: {title}", fontsize=16, fontweight='bold', x=0.5, ha='center')
 
     # 3x2 layout: row1(q1,q2), row2(velocities), row3(u, legend)
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.35, wspace=0.25)
@@ -383,7 +284,7 @@ def tracking_error(
     for r in range(num_runs):
         # Calcolo epsilon (differenza condizioni iniziali)
         eps = x_track[:, 0, r] - x_ref[:, 0]
-        eps_str = f"Run {r+1}: $\epsilon$ = [{eps[0]:.2f}, {eps[1]:.2f}, {eps[2]:.2f}, {eps[3]:.2f}]"
+        eps_str = fr"Run {r+1}: $\varepsilon$ = [{eps[0]:.2f}, {eps[1]:.2f}, {eps[2]:.2f}, {eps[3]:.2f}]"
         epsilon_labels.append(eps_str)
 
         # Plot degli stati
@@ -404,7 +305,6 @@ def tracking_error(
         ax_u.grid(True, linestyle=':', alpha=0.6)
 
     # Label asse X per la riga finale
-    axes_map["q1_dot"].set_xlabel(r'$t \mathrm{[s]}$')
     axes_map["q2_dot"].set_xlabel(r'$t \mathrm{[s]}$')
     axes_map["input"].set_xlabel(r'$t \mathrm{[s]}$')
 
@@ -417,13 +317,13 @@ def tracking_error(
     ax_leg.legend(loc='center', ncol=1, fontsize=10, frameon=True,
                   title="Perturbed Initial Conditions ($\\epsilon$)")
 
-    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+    plt.subplots_adjust(hspace=0.5)
+    if num_runs > 1:
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
 def trajectory_comparison_mid(
     time: np.ndarray,
-    x_init: np.ndarray,
-    u_init: np.ndarray,
     x_total: np.ndarray,
     u_total: np.ndarray,
     n_mid: int,
@@ -437,29 +337,25 @@ def trajectory_comparison_mid(
     ----------
     time : np.ndarray
         Array of time points.
-    x_init : np.ndarray
-        Initial guess state trajectory (ns, TT).
-    u_init : np.ndarray
-        Initial guess control inputs (ni, TT).
     x_total : np.ndarray
-        In-mid optimized state trajectory (ns, TT, max_iters).
+        All optimized state trajectory (ns, TT, max_iters).
     u_total : np.ndarray
-        In-mid optimized control inputs.
-        Final optimal control inputs.
+        All optimized control inputs (ni, TT, max_iters).
     n_mid : int
         Index of the in-mid iteration to plot.
     title : str
         Title for the plots.
     """
     
-   
-    # Color palette
-    colors_mid = plt.cm.Blues(np.linspace(0.1, 1.0, n_mid))
+    indices_to_plot = np.linspace(0, max_iters - 2, n_mid, dtype=int)
+
+    # Color palette 
+    colors_mid = plt.cm.Blues(np.linspace(0.3, 0.9, len(indices_to_plot)))
     c_init = 'blue'
     c_final = 'orange'
 
     fig = plt.figure(figsize=(15, 12))
-    fig.suptitle(f"Newton Method Evolution: {title}", fontsize=18, fontweight='bold')
+    fig.suptitle(f"Newton Method Evolution: {title}", fontsize=18, fontweight='bold', ha='center', x=0.5)
     
     # Grid view
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.25)
@@ -488,46 +384,42 @@ def trajectory_comparison_mid(
         idx, tex, unit = config[key]
         
         # Select data
-        data_init = x_init[idx, :] if key != "input" else u_init[idx, :]
+        data_init = x_total[idx, :, 0] if key != "input" else u_total[idx, :, 0]
         data_total = x_total if key != "input" else u_total
 
         # 1. Plot Initial Guess
         ax.plot(time, data_init, color=c_init, linestyle='--', linewidth=1.2, label='Initial Guess')
 
         # 2. Plot Intermediate Trajectories
-        count = 0
-        for i in range(max_iters-1):
-            if i % (max_iters//n_mid) == 0: 
-                ax.plot(time, data_total[idx, :, i], color=colors_mid[count], 
-                        linewidth=1.0, alpha=0.6, label=f'Iter {i}')
-                count += 1
-        print(max_iters)
+        for count, i in enumerate(indices_to_plot):
+            ax.plot(time, data_total[idx, :, i], color=colors_mid[count], 
+                    linewidth=1.0, alpha=0.6, label=f'Iter {i}')
+            
         # 3. Plot Final Optimal
         ax.plot(time, data_total[idx, :, max_iters-1], color=c_final, linewidth=2.0, 
-                label=rf'{tex}$^*$ (Final)')
+                label='Final Optimal')
 
         ax.set_title(f"State {tex}" if key != "input" else "Control Input", fontsize=13)
         ax.set_ylabel(unit)
-        ax.set_xlabel(r'$t \mathrm{[s]}$')
+        if key in ['q2_dot', 'input']:
+            ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle=':', alpha=0.6)
 
-    # Gestione della Sesta Cella (Legenda)
+    # Legend handling
     ax_leg = axes_map["legend"]
-    ax_leg.axis('off') # Nascondi assi
+    ax_leg.axis('off')
     
-    # Recuperiamo gli handles dall'ultimo plot fatto (input)
+    # Recover handles and labels from one of the axes
     handles, labels = axes_map["input"].get_legend_handles_labels()
     
-    # Posizioniamo la legenda al centro della sesta cella
+    # Position the legend at the center of the sixth cell
     ax_leg.legend(handles, labels, loc='center', fontsize=10, 
                   title="Trajectory Evolution", title_fontsize=12, frameon=True, ncol=3)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.subplots_adjust(hspace=2)
     plt.show()
     
-
-
-
 def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
         """
         Plot the equilibrium manifold in 2D projections and 3D.
@@ -545,7 +437,7 @@ def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: boo
 
         if plot_2d:
             fig2d, axs = plt.subplots(1, 3, figsize=(18, 5))
-            fig2d.suptitle(f'Equilibria analysis', fontsize=16)
+            fig2d.suptitle(f'Equilibria analysis', fontsize=16, x=0.5, ha='center', fontweight='bold')
 
             # q1 vs q2
             if r1.size > 0: axs[0].plot(r1[:, 0], r1[:, 1], 'r-', label='Fix $q_1$')

@@ -53,7 +53,6 @@ import control as ctrl
 model = DoublePendulumFlexible(**PARAM_SET_2)
 model_sym = DoublePendulumFlexibleSymbolic(**PARAM_SET_2)
 
-
 ns = model.ns  # number of states
 ni = model.ni  # number of inputs
 
@@ -76,7 +75,7 @@ approx_1st_order = True
 
 # Visualization parameters
 initial_reference_plot = True  # plot reference trajectory at beginning
-equilibrium_plot = False        # plot equilibrium manifold and points
+equilibrium_plot = True        # plot equilibrium manifold and points
 armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
 visu_animation = False          # animate final optimal trajectory
@@ -172,10 +171,11 @@ print("\n" + "="*80)
 print(f"Reference Trajectory - {method}".center(80))
 print("="*80)
 
-
+# Generate reference trajectory for states and inputs
 time, xx_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoints=x_setpoints, method=method)
 time, uu_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoints=u_setpoints, method=method)
 
+# Plot reference trajectory
 if initial_reference_plot:
     plots.show_traj(time, xx_ref, uu_ref, eq_pair1, eq_pair2, "Reference " + method)
 
@@ -213,26 +213,24 @@ if initial_reference_plot:
 # Arrays to store data
 ######################################
 
-xx = np.zeros((ns, TT, max_iters))              # State seq.
-uu = np.zeros((ni, TT, max_iters))              # Input seq.
+xx = np.zeros((ns, TT, max_iters))          # State seq.
+uu = np.zeros((ni, TT, max_iters))          # Input seq.
 
-lmbd = np.zeros((ns, TT, max_iters))            # Lambdas - costate seq.
+lmbd = np.zeros((ns, TT, max_iters))        # Lambdas - costate seq.
 
-deltau = np.zeros((ni,TT, max_iters))           # Du - descent direction
-dJ = np.zeros((ni,TT, max_iters))               # DJ - gradient of J wrt u
+deltau = np.zeros((ni,TT, max_iters))       # Du - descent direction
+dJ = np.zeros((ni,TT, max_iters))           # DJ - gradient of J wrt u
 
-JJ = np.zeros(max_iters)                        # Collect cost
-descent = np.zeros(max_iters)                   # Collect descent direction norm
-descent_arm = np.zeros(max_iters)               # Collect descent condition value
+JJ = np.zeros(max_iters)                    # Collect cost
+descent = np.zeros(max_iters)               # Collect descent direction norm
+descent_arm = np.zeros(max_iters)           # Collect descent condition value
 
-PP = np.zeros((ns, ns, TT, max_iters))          # P matrices for affine LQR
-pp = np.zeros((ns, TT, max_iters))              # p vectors for affine LQR
-KK = np.zeros((ni, ns, TT, max_iters))          # K gain matrices for affine LQR
-ss = np.zeros((ni, TT, max_iters))              # s vectors for affine LQR
+PP = np.zeros((ns, ns, TT, max_iters))      # P matrices for affine LQR
+pp = np.zeros((ns, TT, max_iters))          # p vectors for affine LQR
+KK = np.zeros((ni, ns, TT, max_iters))      # K gain matrices for affine LQR
+ss = np.zeros((ni, TT, max_iters))          # s vectors for affine LQR
 
-n_mid = 20                                       # number of intermediate trajectories
-# xx_mid = np.zeros((ns, TT, n_mid))              # intermediate state trajectories
-# uu_mid = np.zeros((ni, TT, n_mid))              # intermediate input trajectories
+n_mid = 20                                  # number of intermediate trajectories to plot
 
 xx_total = np.zeros((ns, TT, max_iters))    # all state trajectories
 uu_total = np.zeros((ni, TT, max_iters))    # all input trajectories
@@ -396,19 +394,42 @@ if final_plots:
     # Optimal vs Reference Trajectories
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
 
-    
-    plots.trajectory_comparison_mid(time, xx_init, uu_init, xx_total, uu_total, n_mid, max_iters, title="Trajectory Comparison with Intermediate Trajectories")
-
-    
+    # Intermediate Trajectories
+    plots.trajectory_comparison_mid(time, xx, uu, n_mid, max_iters, title="Trajectory Comparison with Intermediate Trajectories")
 
 # Animation of the optimal trajectory
 if visu_animation:
     anim.animate_comparison(model, xx_star, xx_ref, eq_pair1, eq_pair2, target_fps=30)
 
+##################################
+# Export functions
+##################################
 
 def get_optimal_trajectory():
+    """
+    Returns the optimal trajectory computed by the Newton method.
+
+    Returns
+    -------
+    time : np.ndarray
+    Time vector (T,).   
+    xx_star : np.ndarray
+        Optimal state trajectory (ns, T).
+    uu_star : np.ndarray
+        Optimal input trajectory (ni, T).
+    """
     return time, xx_star, uu_star
 
 def get_equilibrium_pairs():
+    """
+    Returns the equilibrium pairs used for trajectory generation.
+
+    Returns
+    -------
+    eq_pair1 : tuple
+        First equilibrium pair (x_eq1, u_eq1).
+    eq_pair2 : tuple
+        Second equilibrium pair (x_eq2, u_eq2).
+    """
     return eq_pair1, eq_pair2
 

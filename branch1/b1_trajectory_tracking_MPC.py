@@ -175,9 +175,8 @@ else:
 # Model Predictive Control
 #######################################
 
-xx_mpc = np.zeros((ns,TT,runs))
-uu_mpc = np.zeros((ni,TT,runs))
-
+xx_mpc = np.zeros((ns,TT,runs))     # State seq.
+uu_mpc = np.zeros((ni,TT,runs))     # Input seq.
 
 for rr in range(runs):
     
@@ -208,14 +207,13 @@ for rr in range(runs):
             x_ref_slice = xx_star[:, tt:]
             u_ref_slice = uu_star[:, tt:]
             
-            # Aggiungi (padda) l'ultimo valore disponibile per riempire T_pred
-            # Usiamo np.repeat per mantenere l'ultima matrice/stato costante
+            # Pad the last available data
             At_pad = np.repeat(At[:, :, -1:], padding_len, axis=2)
             Bt_pad = np.repeat(Bt[:, :, -1:], padding_len, axis=2)
             x_ref_pad = np.repeat(xx_star[:, -1:], padding_len, axis=1)
             u_ref_pad = np.repeat(uu_star[:, -1:], padding_len, axis=1)
             
-            # Concatena i dati reali con il padding
+            # Concatenate real data with padded data
             At_slice = np.concatenate([At_slice, At_pad], axis=2)
             Bt_slice = np.concatenate([Bt_slice, Bt_pad], axis=2)
             x_ref_slice = np.concatenate([x_ref_slice, x_ref_pad], axis=1)
@@ -250,8 +248,8 @@ for rr in range(runs):
 
 # Final plots
 if final_plots:
-    plots.trajectory_comparison(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Trajectory Tracking - Multiple Runs")
-    plots.tracking_error(time, xx_star, uu_star, xx_mpc, uu_mpc, title="LQR Tracking Error - Multiple Runs")
+    plots.trajectory_comparison(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Trajectory Tracking ")
+    plots.tracking_error(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Tracking Error")
 
 # Animation of the optimal trajectory
 if visu_animation:

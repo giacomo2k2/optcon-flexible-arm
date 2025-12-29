@@ -12,6 +12,7 @@
 11. Dobbiamo tenere per forza tempi di assestamento iniziale e finale. Ci avviciniamo di più ad una stepwise
 12. Leggere il nostro sum-up
 13. per MPC va bene casedi o dobbiamo farlo noi
+14. per alcune perturbation, il traj_tracking esplode, ma alla fine, a cosa è dovuto questo?
 
 
 
