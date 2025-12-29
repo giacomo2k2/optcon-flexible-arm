@@ -11,7 +11,7 @@
 10. Ha senso rendere dinamiche le matrici Q e R in modo che all'inizio e fine siano alte e man mano al centro siano più basse
 11. Dobbiamo tenere per forza tempi di assestamento iniziale e finale. Ci avviciniamo di più ad una stepwise
 12. Leggere il nostro sum-up
-
+13. per MPC va bene casedi o dobbiamo farlo noi
 
 
 
@@ -26,19 +26,20 @@ Notes on trajectory generation using Newton method:
 (optimization sees too little difference between poly5 and poly7, it cares abt differences)
 
 -----------------------------------
-The use of dare to compute the final cost weighting matrix is driven by the fact that we chose a target 
+Notes on trajectory tracking LQR:
+*Since deviations are tipically small, you have to emphasize them by putting high costs.
+*If you put high U cost, the deviation from the right u is penalized but siince the x differ if you appply the u that was thought for the nominal 
+case it provides worse tracking.
+*QQT gets chosen as a LTI infinite time horizon because, at the end of the finite time horizon we think the system as in an equilibrium state, so it becomes as if the 
+system was a LTI infinite from that to infinity. Hence, the P matrix is calculated as with the Algebraic Riccati equation because of this, and since it is the same for t=T 
+to t=infinite, it is that P_inf is the same also for t=T (backward iteration), so we know that for that point P is P_inf. But since that point is also the terminal point of a LTV
+finite horizon, it will be that PT = QQT = P_inf because it is the first step also of infinite LTI. In fact for the calculation of P inf, linearization around last point of 
+ltv finite horizon is performed for the calculation of P_inf (see[]).
+
+[The use of dare to compute the final cost weighting matrix is driven by the fact that we chose a target 
 which is a equilibria of the system. Using this choce, the linearization of the non linear system around the
 equilibria pair
 provide a LTI system. For which then we can use the DARE to compute the P_inf, and set it as final cost matrix used for the 
 backpropagation of the costate.
 
-By doing that, Q_final, account also for all the cost from TT-1 up to infinte
-
-
------------------------------------
-Notes on trajectory tracking:
-*Since deviations are tipically small, you have to emphasize them by putting high costs.
-*If you put high U cost, the deviation from the right u is penalized but siince the x differ if you appply the u that was thought for the nominal 
-case it provides worse tracking.
-
-
+By doing that, Q_final, account also for all the cost from TT-1 up to infinte]

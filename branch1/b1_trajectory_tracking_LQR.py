@@ -4,6 +4,7 @@
 #
 # File:         trajectory_tracking_LQR.py
 # Description:  Trajectory tracking via LQR.
+# TODO: questo file dovrà sostituire il b1_traj_track_LQR.py
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
@@ -63,13 +64,19 @@ ni = model.ni  # number of inputs
 
 # Visualization parameters
 initial_optimal_plot = True    # plot optimal trajectory
-perturb_initial_state = True    # perturb initial state
+perturb_initial_state = True   # perturb initial state for LQR tracking
 final_plots = True              # plot final optimal trajectory
 visu_animation = True          # animate final optimal trajectory
+
+runs = 5                       # number of runs with perturbed initial conditions
 
 #######################################
 # Optimal trajectory
 #######################################
+
+print("\n" + "="*80)
+print("Trajectory Tracking - LQR".center(80))
+print("="*80)
 
 eq_pair1, eq_pair2 = traj_gen_newton.get_equilibrium_pairs()
 time, xx_star, uu_star = traj_gen_newton.get_optimal_trajectory()
@@ -83,14 +90,13 @@ if initial_optimal_plot:
 # Arrays to store data
 ######################################
 
-xx_lqr = np.zeros((ns, TT))      # State seq.
-uu_lqr = np.zeros((ni, TT))      # Input seq.
-
-At = np.zeros((ns, ns, TT))      # State matrices
-Bt = np.zeros((ns, ni, TT))      # Input matrices
-
-PP = np.zeros((ns, ns, TT))      # P matrices for LQR
-KK = np.zeros((ni, ns, TT))      # Feedback gain matrices
+xx_lqr = np.zeros((ns, TT, runs))      # State seq.
+uu_lqr = np.zeros((ni, TT, runs))      # Input seq.
+At = np.zeros((ns, ns, TT, runs))      # State matrices
+Bt = np.zeros((ns, ni, TT, runs))      # Input matrices
+PP = np.zeros((ns, ns, TT, runs))      # P matrices for LQR
+KK = np.zeros((ni, ns, TT, runs))      # Feedback gain matrices
+x0 = np.zeros((ns, runs))
 
 #######################################
 # 1. Linearize system along optimal trajectory
@@ -100,22 +106,24 @@ KK = np.zeros((ni, ns, TT))      # Feedback gain matrices
 AA_sym, BB_sym = model_sym.symbolic_jacobian() 
 
 # Linearization along optimal trajectory
-for tt in range(TT):
-    At[:, :, tt], Bt[:, :, tt] = solver.jacobian_solver(AA_sym, BB_sym, xx_star[:,tt], uu_star[:,tt], model)
+for rr in range(runs):
+    for tt in range(TT):
+        At[:, :, tt, rr], Bt[:, :, tt, rr] = solver.jacobian_solver(AA_sym, BB_sym, xx_star[:,tt], uu_star[:,tt], model)
+
 
 #######################################
 # 2. Solve time-varying LQR problem over finite horizon
+# NOTE: the solution is directly computed in the solver.ltv_LQR() function in step 3
 #######################################
 
 # Cost matrices
-QQt = np.diag([10, 10, 10, 10]) * 1
+QQt = np.diag([10, 10, 10, 10])
 RRt = 0.01 * np.eye(ni)
-QQT = ctrl.dare(At[:, :, -1], Bt[:, :, -1], QQt, RRt)[0]  # Terminal cost weight matrix
 
-# Solve Riccati difference equation backward in time
-PP[:,:,TT-1] = QQT
-for tt in reversed(range(TT-1)):
-    KK[:,:,tt], PP[:,:,tt] = solver.ltv_LQR_step(At[:,:,tt], Bt[:,:,tt], QQt, RRt, PP[:,:,tt+1])
+# Terminal matrices
+A_final, B_final = At[:, :, -1, 0], Bt[:, :, -1, 0]
+
+QQT = ctrl.dare(A_final, B_final, QQt, RRt)[0]  # Terminal cost weight matrix
 
 #######################################
 # 3. Track the optimal trajcetory with LQR controller
@@ -123,30 +131,27 @@ for tt in reversed(range(TT-1)):
 
 # Initial state
 if perturb_initial_state:
-    epsilon = np.array([0.1, -0.1, 0.0, 0.0])  # initial state perturbation
+    epsilon = np.random.uniform(-0.1, 0.1, size=(4,))  # initial state perturbation
 else:
     epsilon = np.zeros(4)
 
-x0 = xx_star[:,0] + epsilon  # initial state
+for rr in range(runs):
+    # Perturbation epsilon slightly increase for each run
+    epsilon_scaled = epsilon * (rr**3 + 1) / runs # Select a scaling factor
 
-xx_lqr[:,0] = x0
-
-for tt in range(TT-1):
-    uu_lqr[:,tt] = uu_star[:,tt] + KK[:,:,tt] @ (xx_lqr[:,tt] - xx_star[:,tt])
-    xx_lqr[:,tt+1] = model.discrete_dynamics(xx_lqr[:,tt], uu_lqr[:,tt])
-
-uu_lqr[:,-1] = uu_lqr[:,-2] # for plotting purposes
+    x0[:,rr] = xx_star[:,0] + epsilon_scaled # initial state
+    
+    xx_lqr[:,:,rr], uu_lqr[:,:,rr] = solver.ltv_LQR(At[:,:,:,rr], Bt[:,:,:,rr], QQt, RRt, QQT, x0[:, rr], xx_star, uu_star, model)
 
 #######################################
 # Results
 #######################################
 
+# Final plots
 if final_plots:
-    # TODO: fix label in plots (ref, guess --> star, lqr)
-    plots.trajectory_comparison(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Trajectory Tracking")
-    # TODO: plot system traj and desidred over perturbed initial condition
-    # TODO: tracking error for different initial conditions
+    plots.trajectory_comparison(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Trajectory Tracking - Multiple Runs")
+    plots.tracking_error(time, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Tracking Error - Multiple Runs")
 
 # Animation of the optimal trajectory
 if visu_animation:
-    anim.animate_comparison(model, xx_lqr, xx_star, eq_pair1, eq_pair2, target_fps=30)
+    anim.animate_comparison(model, xx_lqr[:,:,0], xx_star, eq_pair1, eq_pair2, target_fps=30)

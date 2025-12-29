@@ -453,6 +453,65 @@ def unconstrained_ltv_lqr(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: 
     
     return np.asarray(sol.value(dX)), np.asarray(sol.value(dU)).reshape(ni, TT)
 
+def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
+                        x0: np.ndarray, xx_star: np.ndarray, uu_star: np.ndarray, model: object) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Linear time-varying LQR solver.
+    
+    Parameters
+    ----------
+    At : np.ndarray, (ns x ns x TT)
+        Sequence of state dynamics matrices.
+    Bt : np.ndarray, (ns x ni x TT)
+        Sequence of input dynamics matrices.
+    QQt : np.ndarray, (ns x ns)
+        State cost matrix.
+    RRt : np.ndarray, (ni x ni)
+        Input cost matrix.
+    QQT : np.ndarray, (ns x ns)
+        Terminal state cost matrix.
+    x0 : np.ndarray, (ns,)
+        Initial state vector.
+    xx_star : np.ndarray, (ns x TT)
+        Optimal state trajectory to track.
+    uu_star : np.ndarray, (ni x TT)
+        Optimal input trajectory to track.
+    model : object
+        System model.
+
+    Returns
+    -------
+    xx_lqr : np.ndarray, (ns x TT)
+        LQR state trajectory.
+    uu_lqr : np.ndarray, (ni x TT)
+        LQR input trajectory.
+    """
+    # Unpack dimensions
+    ns = model.ns
+    ni = model.ni
+    TT = xx_star.shape[1]
+
+    xx_lqr = np.zeros((ns, TT))      # State seq.
+    uu_lqr = np.zeros((ni, TT))
+    PP = np.zeros((ns, ns, TT))      # P matrices for LQR
+    KK = np.zeros((ni, ns, TT))      # Feedback gain matrices
+
+    xx_lqr[:,0] = x0
+
+    # Solve Riccati difference equation backward in time
+    PP[:,:,TT-1] = QQT
+    for tt in reversed(range(TT-1)):
+        KK[:,:,tt], PP[:,:,tt] = ltv_LQR_step(At[:,:,tt], Bt[:,:,tt], QQt, RRt, PP[:,:,tt+1])
+
+    for tt in range(TT-1):
+        uu_lqr[:,tt] = uu_star[:,tt] + KK[:,:,tt] @ (xx_lqr[:,tt] - xx_star[:,tt])
+        xx_lqr[:,tt+1] = model.discrete_dynamics(xx_lqr[:,tt], uu_lqr[:,tt])
+
+    # For plotting purposes
+    uu_lqr[:,-1] = uu_lqr[:,-2]
+    
+    return xx_lqr, uu_lqr
+
 def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
             xxt: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, umax: float = 1000, umin: float = -1000,
             x1_max: float = 20, x1_min: float = -20, x2_max: float = 20, x2_min: float = -20,

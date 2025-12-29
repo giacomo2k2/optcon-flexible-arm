@@ -139,6 +139,10 @@ equilibrium_traj = {
 # Equilibrium points
 #######################################
 
+print("\n" + "="*80)
+print("Equilibrium Manifold".center(80))
+print("="*80)
+
 data_dict = model.compute_equilibrium_manifold()
 
 selected_equilibrium = 'custom'
@@ -163,6 +167,11 @@ u_setpoints = np.array([
 ######################################
 # Reference curve
 ######################################
+
+print("\n" + "="*80)
+print(f"Reference Trajectory - {method}".center(80))
+print("="*80)
+
 
 time, xx_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoints=x_setpoints, method=method)
 time, uu_ref = traj.trajectory_generator(T0, Tend, ti=ti, tf=tf, dt=dt, setpoints=u_setpoints, method=method)
@@ -221,11 +230,20 @@ pp = np.zeros((ns, TT, max_iters))              # p vectors for affine LQR
 KK = np.zeros((ni, ns, TT, max_iters))          # K gain matrices for affine LQR
 ss = np.zeros((ni, TT, max_iters))              # s vectors for affine LQR
 
+n_mid = 20                                       # number of intermediate trajectories
+# xx_mid = np.zeros((ns, TT, n_mid))              # intermediate state trajectories
+# uu_mid = np.zeros((ni, TT, n_mid))              # intermediate input trajectories
+
+xx_total = np.zeros((ns, TT, max_iters))    # all state trajectories
+uu_total = np.zeros((ni, TT, max_iters))    # all input trajectories
+
 ######################################
 # Trajectory Generation
 ######################################
 
-print("=================== Trajectory generation - Newton method ===================")
+print("\n" + "="*80)
+print("Trajectory Generation - Newton Method".center(80))
+print("="*80)
 
 # Iteration counter
 kk = 0
@@ -311,8 +329,6 @@ for kk in range(max_iters-1):
         
     else:
         stepsize = fixed_stepsize
-        if debug_print:
-            print(f"Fixed stepsize: {stepsize:.3e}")
 
     ############################
     # 3. Forward closed-loop integration
@@ -329,6 +345,10 @@ for kk in range(max_iters-1):
 
     uu_temp[:,-1] = uu_temp[:,-2]
 
+    # Store trajectories
+    xx_total[:,:,kk+1] = xx_temp.copy()
+    uu_total[:,:,kk+1] = uu_temp.copy()
+
     xx[:,:,kk+1] = xx_temp.copy()
     uu[:,:,kk+1] = uu_temp.copy()
 
@@ -340,16 +360,21 @@ for kk in range(max_iters-1):
                                         title=f"Iteration {kk}")
     
     if debug_print:
-        print(f"Iter: {kk} \tCost: {JJ[kk]:.6e} \tStepsize: {stepsize:.3e} \tDescent norm: {descent[kk]:.6e} \tDescent condition value: {descent_arm[kk]:.6e}")
+        log_str = (f"Iter: {kk} | "
+               f"Cost: {JJ[kk]:.6e} | "
+               f"Stepsize: {stepsize:.3e} | "
+               f"Descent norm: {descent[kk]:.6e} | "
+               f"Descent cond: {descent_arm[kk]:.6e}")
+        print(f"\r{log_str}".ljust(120), end="", flush=True)
     else:
         dots = "." * (kk % 4)
-        print(f"\rComputing trajectory{dots:3}", end="", flush=True)
+        print(f"\rComputing trajectory{dots:3}")
 
     ############################
     # 5. Termination condition
     ############################
     if descent[kk] <= term_cond:
-        print(f"\nConvergence reached at iteration {kk}!")
+        print(f"\n\nConvergence reached at iteration {kk}!")
         max_iters = kk
         break
 
@@ -371,7 +396,9 @@ if final_plots:
     # Optimal vs Reference Trajectories
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
 
-    # TODO: comparison con qualche curva intermedia
+    
+    plots.trajectory_comparison_mid(time, xx_init, uu_init, xx_total, uu_total, n_mid, max_iters, title="Trajectory Comparison with Intermediate Trajectories")
+
     
 
 # Animation of the optimal trajectory
