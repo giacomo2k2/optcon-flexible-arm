@@ -62,8 +62,7 @@ ni = model.ni  # number of inputs
 
 # General parameters
 max_iters = 300
-fixed_stepsize = 1*1e-2
-term_cond = 1e-1
+term_cond = 1e-6
 
 # Armijo parameters
 Armijo = True
@@ -71,11 +70,10 @@ stepsize_0 = 1.0
 c = 0.5
 beta = 0.7
 armijo_maxiters = 20
-approx_1st_order = True
 
 # Visualization parameters
 initial_reference_plot = True  # plot reference trajectory at beginning
-equilibrium_plot = True        # plot equilibrium manifold and points
+equilibrium_plot = False        # plot equilibrium manifold and points
 armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
 visu_animation = False          # animate final optimal trajectory
@@ -90,12 +88,13 @@ final_plots = True             # plot final optimal trajectory
 # General setting v2: T0, ti, tf, Tend, dt = (0.0, 0.05, 0.95, 4.0, 0.01)
 
 T0 = 0.0        # Initial absolute time
-ti = 0.05        # Start time for trajectory segment (relative)
-tf = 0.95        # End time for trajectory segment (relative)
-Tend = 6.0      # End absolute time
+ti = 0.2        # Start time for trajectory segment (relative)
+tf = 0.7        # End time for trajectory segment (relative)
+Tend = 4.0      # End absolute time
 dt = model.dt   # Time step
 t = np.arange(T0, Tend, dt) # Time vector
 TT = len(t)                 # Number of time steps
+n_mid = 20                  # number of intermediate trajectories to plot
 
 # Trajectory generation technique
 method = 'poly3'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
@@ -144,7 +143,32 @@ print("="*80)
 
 data_dict = model.compute_equilibrium_manifold()
 
-selected_equilibrium = 'custom'
+# elbow_up (fe):
+# QQt = np.diag([10.0, 10.0, 0.1, 0.1]) * 1
+# RRt = 0.01 * np.eye(1)
+# ti = 0.2, tf = 0.7, Tend = 4.0, poly3
+
+# elbow_up (rk4):
+# QQt = np.diag([10.0, 10.0, 0.1, 0.1]) * 1
+# RRt = 0.01 * np.eye(1)
+# ti = 0.2, tf = 0.95, Tend = 4.0, poly3
+
+# swing_up:
+# QQt = np.diag([10.0, 10.0, 0.1, 0.1]) * 1e-1
+# RRt = 0.01 * np.eye(1)
+# ti = 0.2, tf = 0.7, Tend = 4.0, poly3
+
+# left_to_right_elbow_up: 
+# QQt = np.diag([100.0, 100.0, 1.0, 1.0]) * 1e-1
+# RRt = 0.01 * np.eye(1)
+# ti = 0.2, tf = 0.7, Tend = 4.0, poly7
+
+# top_to_elbow_up:
+
+# top_to_elbow_down:
+
+
+selected_equilibrium = 'elbow_up'
 eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
 (x_eq1, u_eq1), (x_eq2, u_eq2) = eq_pair1, eq_pair2
 
@@ -190,21 +214,24 @@ QQt, RRt = cst.get_cost_matrices(selected_equilibrium)
 AA_sym, BB_sym = model_sym.symbolic_jacobian() 
 
 # Compute QQT as solution of dare
-AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1], model)
+#AA_ref, BB_ref = solver.jacobian_solver(AA_sym, BB_sym, xx_ref[:,TT-1], uu_ref[:,TT-1], model)
+AA_ref, BB_ref = solver.jacobian_analytic(xx_ref[:,TT-1], uu_ref[:,TT-1], model)
 QQT = ctrl.dare(AA_ref, BB_ref, QQt, RRt)[0]
-
-# Symbolic hessian lambda product
-if not approx_1st_order:
-    Hxx_sym, Huu_sym, Hux_sym = model_sym.symbolic_hessians_lambda_product()
 
 ######################################
 # Initial Trajectories Guesses
 ######################################
 
-xx_init = np.zeros((ns, TT))  # initial state trajectory guess
-uu_init = np.zeros((ni, TT))  # initial input trajectory guess
 
 x0 = xx_ref[:, 0]  # initial state
+
+
+# Initial guess: reference trajectory
+xx_init = np.tile(x0[:, None], (1, TT))
+uu_init = np.tile(uu_ref[:, 0][:, None], (1, TT))
+
+
+
 
 if initial_reference_plot:
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference")
@@ -230,7 +257,9 @@ pp = np.zeros((ns, TT, max_iters))          # p vectors for affine LQR
 KK = np.zeros((ni, ns, TT, max_iters))      # K gain matrices for affine LQR
 ss = np.zeros((ni, TT, max_iters))          # s vectors for affine LQR
 
-n_mid = 20                                  # number of intermediate trajectories to plot
+AA = np.zeros((ns, ns, TT, max_iters))
+BB = np.zeros((ns, ni, TT, max_iters))
+deltax = np.zeros((ns, TT, max_iters))
 
 xx_total = np.zeros((ns, TT, max_iters))    # all state trajectories
 uu_total = np.zeros((ni, TT, max_iters))    # all input trajectories
@@ -250,22 +279,21 @@ kk = 0
 xx[:,:,0] = xx_init
 uu[:,:,0] = uu_init
 
+
+
 ############################
 # Iteration loop
 ############################
+
+gradient_error_arr = []
 for kk in range(max_iters-1):
     
     ############################
     # 0. Compute cost
     ############################
-    for tt in range(TT-1):
-        stage_cost = cst.stagecost(xx[:,tt,kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[0]
-        JJ[kk] += stage_cost
-    term_cost = cst.termcost(xx[:,-1,kk], xx_ref[:,-1], QQT)[0]
-    JJ[kk] += term_cost
-
+    
     JJ[kk] = cst.total_cost(xx[:,:,kk], uu[:,:,kk], xx_ref, uu_ref, QQt, RRt, QQT)
-
+    
     ############################
     # 1. Compute descent direction
     ############################
@@ -275,23 +303,19 @@ for kk in range(max_iters-1):
     lmbd[:,TT-1,kk] = lmbd_temp.squeeze()
     PP[:,:,TT-1,kk] = QQT
     pp[:,TT-1,kk] = lmbd[:,TT-1,kk].squeeze()
+
     for tt in reversed(range(TT-1)):
         qt, rt, QQt, RRt, SSt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:]
-        At, Bt = solver.jacobian_solver(AA_sym, BB_sym, xx[:, tt, kk], uu[:, tt, kk], model)
+        #At, Bt = solver.jacobian_solver(AA_sym, BB_sym, xx[:, tt, kk], uu[:, tt, kk], model)
+        At, Bt = solver.jacobian_analytic(xx[:, tt, kk], uu[:, tt, kk], model)
+        
+        AA[:, :, tt, kk] = At
+        BB[:, :, tt, kk] = Bt
 
-        # Compute modified cost matrices if 2nd order approximation
-        # TODO: - QUESTION: dobbiamo mettere questo 
-        if not approx_1st_order and kk > 50:
-            Hxx_num, Huu_num, Hxu_num = solver.hessian_numerical_solver(
-                Hxx_sym, Huu_sym, Hux_sym, xx[:,tt,kk], uu[:,tt,kk], lmbd[:,tt+1,kk], model, AA_sym, BB_sym
-            )
-            Qtk = QQt + Hxx_num
-            Rtk = RRt + Huu_num + np.eye(ni)*10  # regularization
-            Stk = SSt + Hxu_num.T
-        else:
-            Qtk = QQt
-            Rtk = RRt + np.eye(ni)*1e-2  # regularization
-            Stk = SSt 
+        # Regularization for 1st order approx.
+        Qtk = QQt
+        Rtk = RRt + np.eye(ni)*1e-6  # regularization
+        Stk = SSt 
 
         # Costate equation
         lmbd_temp = At.T @ lmbd[:,tt+1,kk][:,None] + qt
@@ -306,39 +330,47 @@ for kk in range(max_iters-1):
         dJ_temp = rt + Bt.T @ pp[:,tt+1,kk][:,None]
         dJ[:,tt,kk] = dJ_temp.squeeze()
 
+
+    deltax[:,0,kk] = np.zeros(ns)  # initial state deviation is zero
+    
     # Compute descent direction norm after backward pass
     for tt in range(TT-1):
-        deltau[:,tt,kk] = ss[:,tt,kk]                       # Descent direction in Newton method
-        descent_norm_sq += np.linalg.norm(ss[:,tt,kk])**2   # Norm squared of descent direction
-        descent_arm_val += np.dot(dJ[:,tt,kk], ss[:,tt,kk]) # Descent condition value
-    
-    descent[kk] = np.sqrt(descent_norm_sq)                  # Store norm
-    descent_arm[kk] = float(descent_arm_val)                # Store descent condition value
+        deltau[:,tt,kk] = ss[:,tt,kk]  #+  KK[:,:,tt,kk] @  deltax[:, tt, kk]   
+        #deltax[:, tt+1, kk] = AA[:, :, tt, kk] @ deltax[:, tt, kk] + BB[:, :, tt, kk] @ deltau[:,tt,kk] 
+
+        # descent[kk] += deltau[:,tt,kk].T @ deltau[:,tt,kk]  # Descent norm
+        # descent_arm[kk] += dJ[:,tt,kk].T @ deltau[:,tt,kk]  # Descent condition value
+
+        descent_norm_sq += np.linalg.norm(deltau[:,tt,kk])**2
+        descent_arm_val += np.dot(dJ[:,tt,kk], deltau[:,tt,kk])
+
+    descent[kk] = np.sqrt(descent_norm_sq)
+    descent_arm[kk] = float(descent_arm_val)
 
     ############################
     # 2. Stepsize selection - ARMIJO
     ############################
     
-    if Armijo:
-        stepsize = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
-                                         ss[:,:,kk], KK[:,:,:,kk], xx_ref, uu_ref, 
-                                         x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
-                                         QQt, RRt, QQT, kk, plot=armijo_plot)
-        
-    else:
-        stepsize = fixed_stepsize
-
+    stepsize, grad_error = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
+                                        ss[:,:,kk], KK[:,:,:,kk], xx_ref, uu_ref, 
+                                        x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
+                                        QQt, RRt, QQT, kk, deltau[:,:,kk], plot=armijo_plot)
+    
+    gradient_error_arr.append(grad_error)
+            
     ############################
     # 3. Forward closed-loop integration
     ############################
+    
     xx_temp = np.zeros((ns,TT))
-    uu_temp = np.zeros((ni,TT))
-
+    uu_temp = np.zeros((ni,TT)) 
     xx_temp[:,0] = x0
-
+        
+    
     for tt in range(TT-1):
         delta_x = xx_temp[:,tt] - xx[:,tt,kk]
         uu_temp[:,tt] = uu[:,tt,kk] + KK[:,:,tt,kk] @ delta_x + stepsize * ss[:,tt,kk]
+        #uu_temp[:,tt] = uu[:,tt,kk] + stepsize * deltau[:,tt,kk]
         xx_temp[:,tt+1] = model.discrete_dynamics(xx_temp[:,tt], uu_temp[:,tt])
 
     uu_temp[:,-1] = uu_temp[:,-2]
@@ -366,12 +398,12 @@ for kk in range(max_iters-1):
         print(f"\r{log_str}".ljust(120), end="", flush=True)
     else:
         dots = "." * (kk % 4)
-        print(f"\rComputing trajectory{dots:3}")
+        print(f"\rComputing trajectory{dots:3}", end="", flush=True)
 
     ############################
     # 5. Termination condition
     ############################
-    if descent[kk] <= term_cond:
+    if descent[kk] <= term_cond or stepsize == 0.0:
         print(f"\n\nConvergence reached at iteration {kk}!")
         max_iters = kk
         break
@@ -383,6 +415,11 @@ xx_star = xx[:,:,max_iters-1]
 uu_star = uu[:,:,max_iters-1]
 uu_star[:,-1] = uu_star[:,-2] # for plotting purposes
 descent[max_iters-1] = descent[ max_iters-2]
+
+plt.figure()
+plt.plot(gradient_error_arr)
+plt.show()
+
 
 if final_plots:
     # Descent Direction

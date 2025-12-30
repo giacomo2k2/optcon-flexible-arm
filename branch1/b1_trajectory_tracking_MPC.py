@@ -98,10 +98,6 @@ runs = 2                       # number of runs with perturbed initial condition
 # Optimal trajectory
 #######################################
 
-print("\n" + "="*80)
-print("Trajectory Tracking - LQR".center(80))
-print("="*80)
-
 eq_pair1, eq_pair2 = traj_gen_newton.get_equilibrium_pairs()
 time, xx_star, uu_star = traj_gen_newton.get_optimal_trajectory()
 
@@ -174,6 +170,10 @@ else:
 #######################################
 # Model Predictive Control
 #######################################
+
+print("\n" + "="*80)
+print("Trajectory Tracking - MPC".center(80))
+print("="*80)
 
 xx_mpc = np.zeros((ns,TT,runs))     # State seq.
 uu_mpc = np.zeros((ni,TT,runs))     # Input seq.

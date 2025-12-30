@@ -186,112 +186,81 @@ def jacobian_solver(A_sym: sp.Matrix, B_sym: sp.Matrix, x_val: np.ndarray, u_val
     return Ad, Bd
 
 
-def hessian_numerical_solver(Hxx_sym: sp.Matrix, Huu_sym: sp.Matrix, Hxu_sym: sp.Matrix, x_val: np.ndarray, u_val, l_next_val: np.ndarray, model: object,
-                             A_sym: sp.Matrix, B_sym: sp.Matrix) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def jacobian_analytic(x_val: np.ndarray, u_val, model: object) -> tuple[np.ndarray, np.ndarray]:
     """
-    Compute the discrete-time Hessian matrices Hxx, Huu, Hxu.
+    Compute the discrete-time Jacobian matrices A, B.
 
     Parameters
     ----------
-    Hxx_sym : sympy.Matrix
-        Symbolic continuous-time Hessian matrix w.r.t. states.
-    Huu_sym : sympy.Matrix
-        Symbolic continuous-time Hessian matrix w.r.t. inputs.
-    Hxu_sym : sympy.Matrix
-        Symbolic continuous-time Hessian matrix w.r.t. states and inputs.
-    x_val : np.ndarray
-        State vector at which to evaluate the Hessians.
-    u_val : float or np.ndarray
-        Input value at which to evaluate the Hessians.
-    l_next_val : np.ndarray
-        Costate vector at the next time step.
-    model : object
-        System model.
     A_sym : sympy.Matrix
         Symbolic continuous-time state Jacobian matrix.
     B_sym : sympy.Matrix
         Symbolic continuous-time input Jacobian matrix.
-    
+    x_val : np.ndarray
+        State vector at which to evaluate the Jacobians.
+    u_val : float or np.ndarray
+        Input value at which to evaluate the Jacobians.
+    model : object
+        System model.
+
     Returns
     -------
-    Hxx_num : np.ndarray
-        Discrete-time Hessian matrix w.r.t. states.
-    Huu_num : np.ndarray
-        Discrete-time Hessian matrix w.r.t. inputs.
-    Hxu_num : np.ndarray
-        Discrete-time Hessian matrix w.r.t. states and inputs.
+    Ad : np.ndarray
+        Discrete-time state Jacobian matrix.
+    Bd : np.ndarray
+        Discrete-time input Jacobian matrix.
     """
-    global _HESS_PROD_CACHE
+   
 
     dt = model.dt
     method = model.discr_method
-    ns = model.ns
+
+   
+    Ac, Bc = model.jacobian(x_val, u_val)  
+    u_scalar = u_val[0] if hasattr(u_val, "__len__") else u_val         
     
-    # Identificatore per la cache
-    cache_key = (id(Hxx_sym), id(Huu_sym), id(Hxu_sym))
-    
-    if cache_key not in _HESS_PROD_CACHE:
-        # Definiamo i simboli per la lambdify
-        q1, q2, q1_dot, q2_dot = sp.symbols('q1 q2 q1_dot q2_dot')
-        u = sp.symbols('u')
-        l1, l2, l3, l4 = sp.symbols('l1 l2 l3 l4')
-        
-        args = (q1, q2, q1_dot, q2_dot, u, l1, l2, l3, l4)
-        
-        # Trasformiamo in funzioni numeriche NumPy
-        f_Hxx = sp.lambdify(args, Hxx_sym, 'numpy')
-        f_Huu = sp.lambdify(args, Huu_sym, 'numpy')
-        f_Hxu = sp.lambdify(args, Hxu_sym, 'numpy')
-        
-        _HESS_PROD_CACHE[cache_key] = (f_Hxx, f_Huu, f_Hxu)
-    
-    # Estraiamo le funzioni dalla cache
-    f_Hxx, f_Huu, f_Hxu = _HESS_PROD_CACHE[cache_key]
-    
-    # Prepariamo i valori numerici (appiattiamo l_next se necessario)
-    u_scalar = u_val[0] if hasattr(u_val, "__len__") else u_val
-    l_vals = l_next_val.flatten()
-    
-    call_args = (*x_val, u_scalar, *l_vals)
-    
-    # Valutazione e discretizzazione
-    # Poiché la slide parla di f_t (dinamica discreta), se f è continua:
-    # f_discreta = x + dt * f_continua -> grad^2 f_discreta = dt * grad^2 f_continua
+    ns = Ac.shape[0]
+
     
     if method == 'fe':
-        Hxx_num = f_Hxx(*call_args) * dt
-        Huu_num = f_Huu(*call_args) * dt
-        Hxu_num = f_Hxu(*call_args) * dt
-    else:
-        pass
-    # Discretizzazione RK4 (opzionale, commentata)
-    cache_key = (id(A_sym), id(B_sym))
-    
-    if cache_key not in _JACOBIAN_CACHE:
-        q1, q2, q1_dot, q2_dot = sp.symbols('q1 q2 q1_dot q2_dot')
-        u = sp.symbols('u')
-
-        func_A = sp.lambdify((q1, q2, q1_dot, q2_dot, u), A_sym, 'numpy') 
-        func_B = sp.lambdify((q1, q2, q1_dot, q2_dot, u), B_sym, 'numpy')
+        Ad = np.eye(ns) + model.dt * Ac           # Discrete-time A
+        Bd = model.dt * Bc                        # Discrete-time B
+    elif method == 'rk4':
+        k1 = model.dynamics(x_val, u_scalar)
+        k2 = model.dynamics(x_val + 0.5 * model.dt * k1, u_scalar)
+        k3 = model.dynamics(x_val + 0.5 * model.dt * k2, u_scalar)
+        k4 = model.dynamics(x_val + model.dt * k3, u_scalar)
         
-        _JACOBIAN_CACHE[cache_key] = (func_A, func_B)
-    
-    f_A, f_B = _JACOBIAN_CACHE[cache_key]
-    # args = (*x_val, u_scalar)
-    Ac = f_A(*args)                     # Continuous-time A
-    Bc = f_B(*args)                     # Continuous-time B
-    dtA = Ac * dt
-    dtA2 = dtA @ dtA
-    dtA3 = dtA2 @ dtA
-    dtA4 = dtA3 @ dtA
-    Ad = np.eye(ns) + dtA + (1/2)*dtA2 + (1/6)*dtA3 + (1/24)*dtA4
-    Bd = (np.eye(ns)*dt + (1/2)*dtA*dt + (1/6)*dtA2*dt + (1/24)*dtA3*dt) @ Bc
+        A1, B1 = model.jacobian(x_val, u_scalar)
 
-    Huu_num = Bd.T @ P @ Bd #????
-    Hxx_num = Ad.T @ P @ Ad
-    Hxu_num = Ad.T @ P @ Bd
+        x2 = x_val + 0.5 * model.dt * k1
+        A2, B2 = model.jacobian(x2, u_scalar)
+
+        x3 = x_val + 0.5 * model.dt * k2
+        A3, B3 = model.jacobian(x3, u_scalar)
+
+        x4 = x_val + model.dt * k3
+        A4, B4 = model.jacobian(x4, u_scalar)
+
+        dk1_dx = A1
+        dk2_dx = A2 @ (np.eye(ns) + 0.5 * model.dt * dk1_dx)    
+        dk3_dx = A3 @ (np.eye(ns) + 0.5 * model.dt * dk2_dx)
+        dk4_dx = A4 @ (np.eye(ns) + model.dt * dk3_dx)
+
+        Ad = np.eye(ns) + (model.dt / 6) * (dk1_dx + 2 * dk2_dx + 2 * dk3_dx + dk4_dx)
+
+        dk1_du = B1
+        dk2_du = A2 @ (0.5 * model.dt * dk1_du) + B2
+        dk3_du = A3 @ (0.5 * model.dt * dk2_du) + B3
+        dk4_du = A4 @ (model.dt * dk3_du) + B4
+
+        Bd = (model.dt / 6) * (dk1_du + 2 * dk2_du + 2 * dk3_du + dk4_du)
+    else:
+        raise ValueError(f"Method {method} not supported.")
     
-    return Hxx_num, Huu_num, Hxu_num
+    return Ad, Bd
+
+
 
 def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray,
                         SSt: np.ndarray, PPtp: np.ndarray, pptp: np.ndarray, qt: np.ndarray, rt: np.ndarray):

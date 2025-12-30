@@ -280,6 +280,109 @@ class DoublePendulumFlexible:
             State vector at the next time step.
         """
         return solver.solver_step(self, x, u)
+    
+    def jacobian(self, x: np.ndarray, u:np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the continuous-time Jacobian matrices A, B analytically.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Current state vector.
+        u : np.ndarray
+            Current input vector.
+        
+        Returns
+        -------
+        A : np.ndarray
+            Continuous-time state Jacobian matrix.
+        B : np.ndarray
+            Continuous-time input Jacobian matrix.
+        """
+        a11 = np.zeros((2, 2))
+        a12 = np.eye(2)
+
+        q1 = x[0]
+        q2 = x[1]
+        q1_dot = x[2]
+        q2_dot = x[3]
+
+        q_dot = np.array([
+                            [q1_dot],
+                            [q2_dot]
+                         ])
+
+        s1 = np.sin(q1)
+        c1 = np.cos(q1)
+        s2 = np.sin(q2)
+        c2 = np.cos(q2)
+
+        c12 = np.cos(q1 + q2)
+        s12 = np.sin(q1 + q2)
+
+        M, M_inv, C, G, F = self.dynamic_model(x)
+
+        if isinstance(u, np.ndarray):
+            u = u.item()
+
+        T = np.array([
+                        np.array([u]),
+                        np.array([0.0])
+                    ]).reshape((2,1))
+
+        dc_dq_dot = 2*self.l1 * self.lc2 * self.m2 * s2 * np.array([
+                                                                    [-q2_dot, -q1_dot - q2_dot],
+                                                                    [q1_dot, 0.0]
+                                                                ])
+
+        a22 = M_inv @ (-F - dc_dq_dot)
+
+        dM_dq1 = np.array([
+            [0, 0],
+            [0, 0]
+        ])
+
+        dM_dq2 = np.array([
+                            [- 2 * self.l1 * self.lc2 * self.m2 * s2, - self.l1 * self.lc2 *self.m2 * s2],
+                            [- self.l1 * self.lc2 *self.m2 * s2, 0.0]
+                        ])
+        
+        tau = - F @ q_dot - C @ q_dot - G + T
+
+        dM_inv_dq_tau_1 = - M_inv @ dM_dq1 @ M_inv @ tau
+        dM_inv_dq_tau_2 = - M_inv @ dM_dq2 @ M_inv @ tau
+
+        dM_inv_dq_tau = np.array([
+            [dM_inv_dq_tau_1[0, 0], dM_inv_dq_tau_2[0, 0]],
+            [dM_inv_dq_tau_1[1, 0], dM_inv_dq_tau_2[1, 0]]
+        ])
+
+        dc_dq = self.l1 * self.lc2 * self.m2 * c2 * np.array([
+                                                                [0.0, -2*q1_dot*q2_dot - q2_dot**2],
+                                                                [0.0, q1_dot**2]
+                                                            ])
+        
+        dG_dq = np.array([
+                           [self.g * self.lc1 * self.m1 * c1 + self.g * self.m2 * self.l1 * c1 + self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12],
+                           [self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12 + 3 * self.k * (c2**2 - 2*s2**2) * c2]
+                        ])
+        
+        a21 = dM_inv_dq_tau + M_inv @ (- dc_dq - dG_dq)
+
+        A = np.block([
+            [a11, a12],
+            [a21, a22]
+        ])
+
+        b1 = np.zeros((2, 1))
+        b2 = M_inv @ np.array([
+                                [1.0],
+                                [0.0]
+                             ])
+        
+        B = np.vstack((b1, b2))
+
+        return A, B
         
     def find_equilibrium(self, fix_type: str, value: float) -> tuple[np.ndarray, float]:
         """
