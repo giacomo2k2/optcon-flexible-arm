@@ -114,6 +114,7 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
         stepsizes.append(stepsize)      # save the stepsize
         costs_armijo.append(JJ_temp)    # save the cost associated to the stepsize
 
+        
         if JJ_temp > JJ + c*stepsize*descent_arm:
             stepsize = beta*stepsize
         else:
@@ -138,7 +139,7 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
 
     for tt in range(TT - 1):
         delta_x = xx_step[:, tt] - xx[:, tt]
-        uu_step[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt] #CLOSED LOOP LINE
+        uu_step[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt] 
         #uu_temp[:, tt] = uu[:, tt] + step * deltau[:,tt]
         xx_step[:, tt+1] = model.discrete_dynamics(xx_step[:, tt], uu_step[:, tt])
                 
@@ -168,7 +169,7 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
 
             for tt in range(TT - 1):
                 delta_x = xx_temp[:, tt] - xx[:, tt]
-                uu_temp[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt] #CLOSED LOOP LINE
+                uu_temp[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt] 
                 #uu_temp[:, tt] = uu[:, tt] + step * deltau[:,tt]
                 xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])
                 

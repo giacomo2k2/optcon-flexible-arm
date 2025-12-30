@@ -348,79 +348,7 @@ def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarra
     PPt = At.T @ PPtp @ At - (At.T @ PPtp @ Bt) @ MMt_inv @ (Bt.T @ PPtp @ At) + QQt
     return Kt, PPt
 
-def unconstrained_ltv_lqr(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                          x0: np.ndarray, TT: int, ipopt_opts=None):
-    """
-    CasAdi solver for unconstrained LTV LQR problem.
 
-    Parameters
-    ----------
-    At : np.ndarray, (ns x ns x TT)
-        Sequence of state dynamics matrices.
-    Bt : np.ndarray, (ns x ni x TT)
-        Sequence of input dynamics matrices.
-    QQt : np.ndarray, (ns x ns)
-        State cost matrix.
-    RRt : np.ndarray, (ni x ni)
-        Input cost matrix.
-    QQT : np.ndarray, (ns x ns)
-        Terminal state cost matrix.
-    x0 : np.ndarray, (ns,)
-        Initial state vector.
-    xx_star : np.ndarray, (ns x TT)
-        Optimal state trajectory to track.
-    uu_star : np.ndarray, (ni x TT)
-        Optimal input trajectory to track.
-    TT : int
-        Time horizon length.
-    ipopt_opts : dict, optional
-        Options for the IPOPT solver.
-
-    Returns
-    -------
-    X : np.ndarray, (ns x TT)
-        Optimal state trajectory.
-    U : np.ndarray, (ni x TT)
-        Optimal input trajectory.
-    """
-    # Unpack dimensions
-    ns = At.shape[0]
-    ni = Bt.shape[1]
-
-    # Initialize CasAdi optimization
-    opti = ca.Opti()
-
-    # Decision variables
-    dX = opti.variable(ns, TT)
-    dU = opti.variable(ni, TT)
-
-    # Objective function
-    cost = 0
-    for tt in range(TT - 1):
-        # Stage cost
-        cost += ca.mtimes([dX[:, tt].T, QQt, dX[:, tt]]) + ca.mtimes([dU[:, tt].T, RRt, dU[:, tt]])
-
-        # Dynamic constraint
-        opti.subject_to(dX[:, tt + 1] == ca.DM(At[:,:,tt]) @ dX[:, tt] + ca.DM(Bt[:,:,tt]) @ dU[:, tt])
-
-    # Terminal cost
-    cost += ca.mtimes([dX[:, TT - 1].T, QQT, dX[:, TT - 1]])
-    
-    # Initial condition
-    opti.subject_to(dX[:, 0] == ca.DM(x0))
-
-    # Cost to minimize
-    opti.minimize(cost)
-
-    # Solver options
-    if ipopt_opts is None:
-        ipopt_opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.max_iter": 1000}
-    opti.solver("ipopt", ipopt_opts)
-
-    # Solve the optimization problem
-    sol = opti.solve()
-    
-    return np.asarray(sol.value(dX)), np.asarray(sol.value(dU)).reshape(ni, TT)
 
 def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
                         x0: np.ndarray, xx_star: np.ndarray, uu_star: np.ndarray, model: object) -> tuple[np.ndarray, np.ndarray]:

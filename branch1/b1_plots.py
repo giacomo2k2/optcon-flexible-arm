@@ -416,7 +416,7 @@ def trajectory_comparison_mid(
     ax_leg.legend(handles, labels, loc='center', fontsize=10, 
                   title="Trajectory Evolution", title_fontsize=12, frameon=True, ncol=3)
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    #plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.subplots_adjust(hspace=2)
     plt.show()
     
