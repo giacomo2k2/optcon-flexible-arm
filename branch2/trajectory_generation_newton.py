@@ -24,26 +24,28 @@ plt.rcParams['font.family'] = 'serif'
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 # Model
-from branch2.model import DoublePendulumFlexible, PARAM_SET_2
+from model import DoublePendulumFlexible, PARAM_SET_2
 
 # Costs
-import branch2.costs as cst
+import costs as cst
 
 # Armijo
-import branch2.armijo as armijo
+import armijo as armijo
 
 # Trajectories
-import branch2.trajectory_generation as traj
+import trajectory as traj
 
 # Solver
-import branch2.solver as solver
+import solver as solver
 
 # Animation & plots
-import branch2.animation as anim
-import branch2.plots as plots
+import animation as anim
+import plots as plots
 
 # Control
 import control as ctrl
+
+import equilibrium as eq
 
 #######################################
 # Model
@@ -70,8 +72,8 @@ armijo_maxiters = 20
 
 # Visualization parameters
 initial_reference_plot = False  # plot reference trajectory at beginning
-equilibrium_plot = False        # plot equilibrium manifold and points
-armijo_plot = True             # plot armijo descent direction
+equilibrium_plot = True        # plot equilibrium manifold and points
+armijo_plot = False             # plot armijo descent direction
 iteration_traj_plot = False     # plot trajectory at each iteration
 animation = False          # animate final optimal trajectory
 debug_print = True             # print debug information
@@ -91,41 +93,8 @@ TT = len(t)                 # Number of time steps
 
 
 # Trajectory generation technique
-method = 'poly3'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
-model.discr_method = 'fe'
-
-# Equilibrium go-to configurations
-equilibrium_traj = {
-    'elbow_up': (
-        model.find_equilibrium(fix_type='q1', value=0),
-        model.find_equilibrium(fix_type='q2', value=np.pi/2)
-    ),
-
-    'swing_up': (
-        model.find_equilibrium(fix_type='q1', value=0),
-        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5)
-    ),
-
-    'left_to_right_elbow_up': (
-        tuple(-val for val in model.find_equilibrium(fix_type='q2', value=np.pi/2)),
-        model.find_equilibrium(fix_type='q2', value=np.pi/2)
-    ),
-
-    'top_to_elbow_up': (
-        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5),
-        model.find_equilibrium(fix_type='q2', value=np.pi/2)
-    ),
-
-    'top_to_elbow_down': (
-        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5),
-        tuple(-val for val in model.find_equilibrium(fix_type='q1', value=np.pi/2))
-    ),
-
-    'custom': (
-        model.find_equilibrium(fix_type='q1', value=0),
-        model.find_equilibrium(fix_type='q1', value=np.pi - 0.5)
-    )
-}
+method = 'poly5'  # 'poly3', 'poly5', 'poly7', 'stepwise', 'cubic_spline'
+model.discr_method = 'rk4'
 
 
 
@@ -133,15 +102,15 @@ equilibrium_traj = {
 # Equilibrium points
 #######################################
 
-selected_equilibrium = 'swing_up'
+selected_equilibrium = 'elbow_up'  # choose from keys of equilibrium_traj
 
 data_dict = model.compute_equilibrium_manifold()
 
-eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
-(x_eq1, u_eq1), (x_eq2, u_eq2) = eq_pair1, eq_pair2
+trajectory_selected = traj.configurations[selected_equilibrium]
+(x_eq1, u_eq1), (x_eq2, u_eq2) = trajectory_selected['start'], trajectory_selected['end']
 
 if equilibrium_plot:
-    plots.equilibrium_manifold(data_dict)
+    plots.equilibrium_manifold(data_dict, print_results=False)
     model.plot_equilibrium_point(x_eq1, u_eq1, title="1")
     model.plot_equilibrium_point(x_eq2, u_eq2, title="2")
 
@@ -209,8 +178,15 @@ uu_total = np.zeros((ni, TT, max_iters))    # all input trajectories
 
 x0 = xx_ref[:, 0]  # initial state
 
-uu_init = np.zeros((ni, TT))
+# uu_init = np.zeros((ni, TT))
+# xx_init = np.zeros((ns, TT))
+
+uu_init = uu_ref.copy()
 xx_init = np.zeros((ns, TT))
+# Rollout to make the state trajectory dynamically feasible consistent with x0
+xx_init[:, 0] = x0
+for t in range(TT - 1):
+    xx_init[:, t+1] = model.discrete_dynamics(xx_init[:, t], uu_init[:, t])
 
 
 if initial_reference_plot:
@@ -248,7 +224,6 @@ for kk in range(max_iters-1):
     for tt in reversed(range(TT-1)):
         qt, rt, QQt, RRt, SSt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:]
         At, Bt = solver.jacobian_analytic(xx[:, tt, kk], uu[:, tt, kk], model)
-        
             
         AA[:, :, tt, kk] = At
         BB[:, :, tt, kk] = Bt
@@ -273,6 +248,7 @@ for kk in range(max_iters-1):
         dJ[:,tt,kk] = dJ_temp.squeeze()
 
     
+    
     # Compute descent direction norm after backward pass
     for tt in range(TT-1):
         deltau[:,tt,kk] = ss[:,tt,kk] +  KK[:,:,tt,kk] @  deltax[:, tt, kk]   
@@ -289,7 +265,7 @@ for kk in range(max_iters-1):
     stepsize, grad_error_temp = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
                                         ss[:,:,kk], KK[:,:,:,kk], xx_ref, uu_ref, 
                                         x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
-                                        QQt, RRt, QQT, kk, deltau[:,:,kk], plot=armijo_plot)
+                                        QQt, RRt, QQT, kk, plot=armijo_plot)
     
     gradient_error[kk] = grad_error_temp
 
@@ -298,7 +274,7 @@ for kk in range(max_iters-1):
     # 3. Termination condition
     ############################
 
-    if  stepsize == 0.0:
+    if stepsize == 0.0:
         print(f"\n\nConvergence reached at iteration {kk}!")
         max_iters = kk
         break
@@ -318,8 +294,8 @@ for kk in range(max_iters-1):
 
     
     for tt in range(TT-1):
-        deltax = xx_temp[:,tt] - xx[:,tt,kk]
-        uu_temp[:,tt] = uu[:,tt,kk] + stepsize * ss[:,tt,kk] + KK[:,:,tt,kk] @ deltax
+        dx = xx_temp[:,tt] - xx[:,tt,kk]
+        uu_temp[:,tt] = uu[:,tt,kk] + stepsize * ss[:,tt,kk] + KK[:,:,tt,kk] @ dx
         xx_temp[:,tt+1] = model.discrete_dynamics(xx_temp[:,tt], uu_temp[:,tt])
         
         
@@ -366,7 +342,7 @@ descent[max_iters-1] = descent[ max_iters-2]
 
 
 plt.figure()
-plt.plot(gradient_error)
+plt.plot(abs(gradient_error[:max_iters-1]))
 plt.show()
 
 if final_plots:

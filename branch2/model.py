@@ -22,13 +22,13 @@ from scipy.optimize import fsolve
 plt.rcParams['font.family'] = 'serif'
 
 # Solver
-import branch2.solver as solver
+import solver as solver
 
 # Color palette
-from branch2.plots import colors
+from plots import colors
 
 # Plots
-import branch2.plots as plots
+import plots as plots
 
 # Parameters settings
 PARAM_SET_1 = {
@@ -383,134 +383,8 @@ class DoublePendulumFlexible:
         B = np.vstack((b1, b2))
 
         return A, B
-        
-    def find_equilibrium(self, fix_type: str, value: float) -> tuple[np.ndarray, float]:
-        """
-        Find the equilibrium state and input fixing one of (q1, q2, u).
-        
-        Parameters
-        ----------
-        fix_type : str
-            One of 'q1', 'q2', or 'u'.
-        value : float
-            The fixed value for the chosen variable.
-            
-        Returns
-        -------
-        x_eq : np.ndarray
-            Equilibrium state [q1, q2, 0, 0].
-        u_eq : float
-            Equilibrium input torque.
-        """
-        def _equations(vars, fix_type, value):
-            if fix_type == 'q1':
-                q1 = value
-                q2, u = vars
-            elif fix_type == 'q2':
-                q2 = value
-                q1, u = vars
-            elif fix_type == 'u':
-                u = value
-                q1, q2 = vars
-            else:
-                raise ValueError("fix_type must be one of 'q1', 'q2', or 'u'.")
-            
-            x_temp = np.array([q1, q2, 0.0, 0.0])
-            G = self.dynamic_model(x_temp)[3].flatten()
-
-            eq1 = G[0] - u
-            eq2 = G[1]
-
-            return [eq1, eq2]
-        
-        initial_guess = [0.0, 0.0]
-        sol, info, ier, msg = fsolve(_equations, initial_guess, args=(fix_type, value), full_output=True)
-        
-        # limit solution from -pi to pi using mod
-        
-        
-        sol[0] = (sol[0] + np.pi) % (2 * np.pi) - np.pi
-        if ier != 1:
-            raise ValueError(f"fsolve did not converge: {msg}")
-
-        if fix_type == 'q1':
-            return np.array([value, sol[0], 0.0, 0.0]), float(sol[1])
-        elif fix_type == 'q2':
-            return np.array([sol[0], value, 0.0, 0.0]), float(sol[1])
-        else:
-            sol[1] = (sol[1] + np.pi) % (2 * np.pi) - np.pi
-            return np.array([sol[0], sol[1], 0.0, 0.0]), value
-        
-    def plot_equilibrium_point(self, x_eq: np.ndarray, u_eq: float, title: str = "") -> None:
-        """
-        Visualize the double pendulum at the equilibrium point.
-        
-        Parameters
-        ----------
-        x_eq : np.ndarray
-            Equilibrium state [q1, q2, 0, 0].
-        u_eq : float
-            Equilibrium input torque.
-        title : str, optional
-            Title for the plot (default is empty string).
-        """
-        fig, ax = plt.subplots(figsize=(6,6))
-        self.draw_frame(x_eq, ax)
-        ax.set_title(f"Equilibria {title}: u = {u_eq:.2f} Nm\nq1 = {x_eq[0]:.2f}, q2 = {x_eq[1]:.2f}")
-        plt.show()
-        
-    def compute_equilibrium_manifold(self, n_points: int = 50, q_max: float = np.pi, u_max: float = 20.0) -> dict:
-        """
-        Compute the equilibrium manifold by fixing q1, q2, and u over specified ranges.
-
-        Parameters
-        ----------
-        n_points : int, optional
-            Number of points to sample in each range (default is 50).
-        q_max : float, optional
-            Maximum absolute value for joint angles q1 and q2 (default is pi).
-        u_max : float, optional
-            Maximum absolute value for input torque u (default is 20.0).
-
-        Returns
-        -------
-        manifold_data : dict
-            Dictionary containing equilibrium data for 'q1_fix', 'q2_fix', and 'u_fix'.
-        """
-        q_range = np.linspace(-q_max, q_max, n_points)
-        u_range = np.linspace(-u_max, u_max, n_points)
-
-        res = {'q1_fix': [], 'q2_fix': [], 'u_fix': []}
-
-        print(f"Computing manifold for {self.__class__.__name__}...")
-
-        for val in q_range:
-            # 1. Fix q1 --> find q2, u
-            try:
-                x_eq, u_eq = self.find_equilibrium('q1', val)
-                res['q1_fix'].append([val, x_eq[1], u_eq])
-            except: pass
-
-            # 2. Fix q2 --> find q1, u
-            try:
-                x_eq, u_eq = self.find_equilibrium('q2', val)
-                res['q2_fix'].append([x_eq[0], val, u_eq])
-            except: pass
-
-        for val in u_range:
-            # 3. Fix u --> find q1, q2
-            try:
-                x_eq, u_eq = self.find_equilibrium('u', val)
-                q_wrapped = np.arctan2(np.sin(x_eq[:2]), np.cos(x_eq[:2]))
-                res['u_fix'].append([q_wrapped[0], q_wrapped[1], val])
-            except: pass
-
-        # Convert lists to numpy arrays
-        for key in res:
-            res[key] = np.array(res[key])
-                
-        return res
     
+
     def _get_forward_kinematics(self, x:np.ndarray, com:bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the forward kinematics of the double pendulum.
@@ -546,6 +420,164 @@ class DoublePendulumFlexible:
         else:
             return p1, p2
 
+        
+    def find_equilibrium(self, fix_type, value_fixed=0.0, right=True, up=True):
+    
+        def error_func(guess):
+            if fix_type == 'q1':
+                x_test = np.array([value_fixed, float(guess), 0.0, 0.0])
+            else:
+                x_test = np.array([float(guess), value_fixed, 0.0, 0.0])
+            
+            _, _, _, G, _ = self.dynamic_model(x_test)
+            return G[1, 0] 
+
+    
+        # Search full circle
+        guesses = [0.0, np.pi, -np.pi, np.pi/2, -np.pi/2, 0.5, -0.5]
+        valid_solutions = []
+        seen_vals = []
+
+
+        for guess in guesses:
+            sol, info, ier, msg = fsolve(error_func, guess, full_output=True)
+            
+
+            current_error = np.abs(info['fvec'])
+            if ier == 1 or current_error < 1e-6:
+                # Normalize to [-pi, pi]
+                val = np.arctan2(np.sin(sol[0]), np.cos(sol[0]))
+                
+                # Check uniqueness
+                is_new = True
+                for existing in seen_vals:
+                    if np.abs(val - existing) < 1e-3 or np.abs(val + np.pi) < 1e-3:
+                        is_new = False
+                        break
+                
+                # Double check residual
+                if is_new and abs(error_func(val)) < 1e-4:
+                    # Calculate required u
+                    if fix_type == 'q1':
+                        x_final = np.array([value_fixed, val, 0.0, 0.0])
+                    else:
+                        x_final = np.array([val, value_fixed, 0.0, 0.0])
+
+                    _, _, _, G_final, _ = self.dynamic_model(x_final)
+                    u_calc = G_final[0, 0]
+                    if fix_type == 'q1':
+                        valid_solutions.append({'q1': value_fixed, 'q2': val, 'u': u_calc})
+                    else:
+                        valid_solutions.append({'q1': val, 'q2': value_fixed, 'u': u_calc})
+                    seen_vals.append(val)
+
+
+        index = 0    
+        if fix_type == 'q1':
+            for i, sol in enumerate(valid_solutions):
+                q2 = sol['q2']
+                if up:
+                    if value_fixed >= 0 and q2 >= 0 or value_fixed < 0 and q2 <= 0:
+                        index = i
+                if not up:
+                    if value_fixed >= 0 and q2 <= 0 or value_fixed < 0 and q2 >= 0:
+                        index = i
+
+        else:            
+            for i, sol in enumerate(valid_solutions):
+                
+                q1 = sol['q1']
+                if right:
+                    if q1 >= 0: 
+                        index = i
+                if not right:
+                    if q1 < 0:
+                        index = i
+
+
+
+        return (valid_solutions[index]['q1'], valid_solutions[index]['q2'], valid_solutions[index]['u'])
+
+
+        
+        
+    def compute_equilibrium_manifold(self, n_points: int = 50, q_max: float = np.pi) -> dict:
+        """
+        Compute the equilibrium manifold by fixing q1 and q2 over specified ranges.
+        
+        Note: This function sweeps positions (q1 and q2) and calculates the required 
+        torque (u). It does not sweep 'u' directly as the solver is position-based.
+
+        Parameters
+        ----------
+        n_points : int, optional
+            Number of points to sample in each range (default is 50).
+        q_max : float, optional
+            Maximum absolute value for joint angles (default is pi).
+
+        Returns
+        -------
+        manifold_data : dict
+            Dictionary containing equilibrium data for 'q1_fix' and 'q2_fix'.
+            Format: {'q1_fix': np.array([[q1, q2, u], ...]), ...}
+        """
+        q_range = np.linspace(-q_max, q_max, n_points)
+        
+        # We only initialize lists for q1 and q2 sweeps
+        res = {'q1_fix': [], 'q2_fix': []}
+
+        print(f"Computing manifold for {self.__class__.__name__}...")
+
+        # 1. Sweep q1 -> Find q2 and required u
+        for val in q_range:
+            try:
+                # The new signature returns (q1, q2, u) directly
+                q1_sol, q2_sol, u_sol = self.find_equilibrium('q1', value_fixed=val, up=False)
+                res['q1_fix'].append([q1_sol, q2_sol, u_sol])
+                q1_sol, q2_sol, u_sol = self.find_equilibrium('q1', value_fixed=val, up=True)
+                res['q1_fix'].append([q1_sol, q2_sol, u_sol])
+            except Exception as e:
+                # Useful to catch empty valid_solutions list or solver errors
+                pass
+
+        # 2. Sweep q2 -> Find q1 and required u
+        for val in q_range:
+            try:
+                # The new signature returns (q1, q2, u) directly
+                q1_sol, q2_sol, u_sol = self.find_equilibrium('q2', value_fixed=val, right=False)
+                res['q2_fix'].append([q1_sol, q2_sol, u_sol])
+                q1_sol, q2_sol, u_sol = self.find_equilibrium('q2', value_fixed=val, right=True)
+                res['q2_fix'].append([q1_sol, q2_sol, u_sol])
+            except Exception as e:
+                pass
+
+        # Convert lists to numpy arrays for easier plotting
+        for key in res:
+            res[key] = np.array(res[key])
+                
+        return res
+    
+    
+    def plot_equilibrium_point(self, q1: float, q2:float, u: float, title: str = "") -> None:
+        """
+        Visualize the double pendulum at the equilibrium point.
+        
+        Parameters
+        ----------
+        x_eq : np.ndarray
+            Equilibrium state [q1, q2, 0, 0].
+        u_eq : float
+            Equilibrium input torque.
+        title : str, optional
+            Title for the plot (default is empty string).
+        """
+        fig, ax = plt.subplots(figsize=(6,6))
+        
+        self.draw_frame(np.array([q1, q2, 0.0, 0.0]), ax)
+        ax.set_title(f"Equilibria {title}: u = {u:.2f} Nm\nq1 = {q1:.2f}, q2 = {q2:.2f}")
+        plt.show()
+    
+
     def draw_frame(self, x: np.ndarray, ax: plt.Axes) -> None:
         """
         Create an animation frame for the double pendulum at state x.
@@ -558,8 +590,8 @@ class DoublePendulumFlexible:
             Matplotlib Axes to draw on.
         """
 
-        # TODO: consider flexible arm for animation
         p1, p2, pc1, pc2 = self._get_forward_kinematics(x, com=True)
+        
 
         # Limit for total pendolum length
         lim_size = (self.l1 + self.l2) * 1.5

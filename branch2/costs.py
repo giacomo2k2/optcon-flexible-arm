@@ -42,7 +42,7 @@ def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:      #COST MA
     match name:
         case 'elbow_up':
             # ti = 0.1, tf = 0.4, Tend = 4.0, poly7
-            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) 
+            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) *1e-1
             RRt = 0.01 * np.eye(1)
             return QQt, RRt
         case 'swing_up':
@@ -62,7 +62,7 @@ def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:      #COST MA
             return QQt, RRt
         case 'top_to_elbow_down':
             # ti = 0.3, tf = 0.6, Tend = 4.0 / 8.0, poly7 / stepwise
-            QQt = np.diag([100.0, 100.0, 1, 1]) * 1e-1
+            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) * 1e-2
             RRt = 0.01 * np.eye(1)
             return QQt, RRt
         case 'custom':

@@ -421,77 +421,120 @@ def trajectory_comparison_mid(
     plt.show()
     
 def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
-        """
-        Plot the equilibrium manifold in 2D projections and 3D.
+    """
+    Plot the equilibrium manifold using scatter plots with torque-based coloring.
+    """
+    # Safely retrieve data
+    r1 = manifold_data.get('q1_fix', np.array([]))
+    r2 = manifold_data.get('q2_fix', np.array([]))
+    
+    # Combine datasets for unified plotting (since we want same markers)
+    # We stack them if both exist, or take whichever exists
+    if r1.size > 0 and r2.size > 0:
+        data_combined = np.vstack((r1, r2))
+    elif r1.size > 0:
+        data_combined = r1
+    elif r2.size > 0:
+        data_combined = r2
+    else:
+        print("No data to plot.")
+        return
 
-        Parameters
-        ----------
-        manifold_data : dict
-            Dictionary containing equilibrium data for 'q1_fix', 'q2_fix', and 'u_fix'.
-        plot_2d : bool, optional
-            Whether to plot 2D projections (default is True).
-        plot_3d : bool, optional
-            Whether to plot 3D manifold (default is True).
-        """
-        r1, r2, r3 = manifold_data['q1_fix'], manifold_data['q2_fix'], manifold_data['u_fix']
+    # Extract columns for clarity
+    q1_all = data_combined[:, 0]
+    q2_all = data_combined[:, 1]
+    u_all  = data_combined[:, 2]
 
-        if plot_2d:
-            fig2d, axs = plt.subplots(1, 3, figsize=(18, 5))
-            fig2d.suptitle(f'Equilibria analysis', fontsize=16, x=0.5, ha='center', fontweight='bold')
-
-            # q1 vs q2
-            if r1.size > 0: axs[0].plot(r1[:, 0], r1[:, 1], 'r-', label='Fix $q_1$')
-            if r2.size > 0: axs[0].plot(r2[:, 0], r2[:, 1], 'b--', label='Fix $q_2$')
-            if r3.size > 0: axs[0].scatter(r3[:, 0], r3[:, 1], c=r3[:, 2], cmap='viridis', s=30, label='Fix $u$')
-            axs[0].set_xlabel('$q_1$ [rad]')
-            axs[0].set_ylabel('$q_2$ [rad]')
-            axs[0].grid(True)
-            axs[0].legend()
-
-            # u vs q1
-            if r1.size > 0: 
-                axs[1].plot(r1[:, 0], r1[:, 2], 'r-')
-                axs[1].set_xlabel('$q_1$ [rad]')
-                axs[1].set_ylabel('$u$ [Nm]')
-                axs[1].grid(True)
-
-            # u vs q2
-            if r2.size > 0:
-                axs[2].plot(r2[:, 1], r2[:, 2], 'b--')
-                axs[2].set_xlabel('$q_2$ [rad]')
-                axs[2].set_ylabel('$u$ [Nm]')
-                axs[2].grid(True)
-
-        if plot_3d:
-            fig3d = plt.figure(figsize=(10, 8))
-            ax = fig3d.add_subplot(111, projection='3d')
-
-            if r1.size > 0:
-                ax.plot(r1[:, 0], r1[:, 1], r1[:, 2], 'r-', linewidth=3, label='Fix $q_1$')
-            if r2.size > 0:
-                ax.plot(r2[:, 0], r2[:, 1], r2[:, 2], 'b--', linewidth=2, label='Fix $q_2$')
-            if r3.size > 0:
-                sc = ax.scatter(r3[:, 0], r3[:, 1], r3[:, 2], c=r3[:, 2], cmap='viridis', s=30, label='Fix $u$')
-                fig3d.colorbar(sc, ax=ax, label='Torque $u$ [Nm]')
-
-            ax.set_xlabel('$q_1$ [rad]')
-            ax.set_ylabel('$q_2$ [rad]')
-            ax.set_zlabel('$u$ [Nm]')
-            ax.set_title('3D Equilibrium Manifold')
-            ax.view_init(elev=25, azim=-45)
-            ax.legend()
+    if plot_2d:
+        fig2d, axs = plt.subplots(1, 3, figsize=(18, 5))
+        fig2d.suptitle('Equilibrium Manifold Analysis', fontsize=18, fontweight='bold')
         
-        if plot_2d or plot_3d:        
-            plt.show()
+        # --- Plot 1: Config Space (q1 vs q2) ---
+        axs[0].set_title(r'Configuration Space ($q_1$ vs $q_2$)', fontsize=12)
+        axs[0].set_xlabel(r'$q_1$ [rad]')
+        axs[0].set_ylabel(r'$q_2$ [rad]')
+        
+        # Reference grid for pi
+        for val in [-np.pi, 0, np.pi]:
+            axs[0].axvline(val, color='k', linestyle=':', alpha=0.2)
+            axs[0].axhline(val, color='k', linestyle=':', alpha=0.2)
 
-        # Display results
-        if print_results:
-            for key in manifold_data:
-                print(f"\nEquilibria computed for {key}: {len(manifold_data[key])} state/input pairs found.")
-                print("=============== Sampled equilibria (q1, q2, u) ===============")
-                print(f"Fixed Variable: {key.replace('Fix ', '')}")
-                for i, pair in enumerate(manifold_data[key][:]):
-                    print(f"Sample {i+1}: q1 = {pair[0]:.3f},\t q2 = {pair[1]:.3f},\t u = {pair[2]:.3f}")
+        # Scatter plot colored by Torque
+        sc1 = axs[0].scatter(q1_all, q2_all, c=u_all, cmap='coolwarm', s=15, alpha=0.8)
+        
+        cbar = plt.colorbar(sc1, ax=axs[0])
+        cbar.set_label('Torque $u$ [Nm]')
+        axs[0].grid(True, alpha=0.3)
+
+        # --- Plot 2: Torque Profile (u vs q1) ---
+        axs[1].set_title(r'Torque Profile vs $q_1$', fontsize=12)
+        axs[1].set_xlabel(r'$q_1$ [rad]')
+        axs[1].set_ylabel(r'$u$ [Nm]')
+        axs[1].axhline(0, color='k', linewidth=1, alpha=0.5) # Zero torque line
+        
+        # Scatter only
+        axs[1].scatter(q1_all, u_all, c=u_all, cmap='coolwarm', s=10, alpha=0.6)
+        axs[1].grid(True, alpha=0.3)
+
+        # --- Plot 3: Torque Profile (u vs q2) ---
+        axs[2].set_title(r'Torque Profile vs $q_2$', fontsize=12)
+        axs[2].set_xlabel(r'$q_2$ [rad]')
+        axs[2].set_ylabel(r'$u$ [Nm]')
+        axs[2].axhline(0, color='k', linewidth=1, alpha=0.5)
+
+        # Scatter only
+        axs[2].scatter(q2_all, u_all, c=u_all, cmap='coolwarm', s=10, alpha=0.6)
+        axs[2].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+
+    if plot_3d:
+        fig3d = plt.figure(figsize=(10, 8))
+        ax = fig3d.add_subplot(111, projection='3d')
+
+        # 3D Scatter
+        sc_3d = ax.scatter(q1_all, q2_all, u_all, c=u_all, cmap='coolwarm', s=20, alpha=0.9)
+        
+        ax.set_xlabel(r'$q_1$ [rad]', fontsize=11, labelpad=8)
+        ax.set_ylabel(r'$q_2$ [rad]', fontsize=11, labelpad=8)
+        ax.set_zlabel(r'Torque $u$ [Nm]', fontsize=11, labelpad=8)
+        ax.set_title('3D Equilibrium Surface', fontsize=14)
+        
+        # Zero-torque plane reference
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        xx, yy = np.meshgrid(np.linspace(xlim[0], xlim[1], 2), np.linspace(ylim[0], ylim[1], 2))
+        ax.plot_surface(xx, yy, np.zeros_like(xx), alpha=0.1, color='gray')
+
+        # Add colorbar for 3D plot
+        cbar3d = fig3d.colorbar(sc_3d, ax=ax, pad=0.1)
+        cbar3d.set_label('Torque $u$ [Nm]')
+
+        ax.view_init(elev=25, azim=-60)
+        
+    if plot_2d or plot_3d:
+        plt.show()
+        
+    # Display results text
+    if print_results:
+        for key in manifold_data:
+            # Get the data for the current key
+            data = manifold_data[key]
+            if len(data) == 0:
+                print(f"\nNo equilibria found for sweep: {key}")
+                continue
+            
+            print(f"\nEquilibria computed for {key}: {len(data)} state/input pairs found.")
+            print("=============== Sampled equilibria (q1, q2, u) ===============")
+            
+            # Limit print output if too large (optional, remove slicing [:10] if you want all)
+            limit = 10 
+            print(f"Showing first {limit} samples:")
+            
+            for i, pair in enumerate(data[:limit]):
+                print(f"Sample {i+1}: q1 = {pair[0]:.3f},\t q2 = {pair[1]:.3f},\t u = {pair[2]:.3f}")
+            
+            if len(data) > limit:
+                print(f"... and {len(data) - limit} more.")
 
 def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int) -> None:
     """
@@ -533,6 +576,7 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     plt.title(f'Armijo stepsize selection - Iteration {kk}')
     plt.legend()
     plt.draw()  
+    
     plt.pause(0.01)
     
 def descent_direction(descent: np.ndarray, iters: int) -> None:

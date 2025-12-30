@@ -16,7 +16,7 @@
 import matplotlib.pyplot as plt
 import time
 import numpy as np
-from branch2.model import DoublePendulumFlexible
+from model import DoublePendulumFlexible
 
 plt.rcParams['font.family'] = 'serif'
 

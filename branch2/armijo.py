@@ -14,14 +14,9 @@
 # Imports
 #######################################
 
-# Python libraries
 import numpy as np
-
-# Costs
-import branch2.costs as cst
-
-# Plots
-import branch2.plots as plots
+import costs as cst
+import plots as plots
 
 #######################################
 # Functions
@@ -30,7 +25,7 @@ import branch2.plots as plots
 def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                            ss_k: np.ndarray, KK_k: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray, 
                            xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                           kk: int, deltau: np.ndarray, plot: bool = False):
+                           kk: int, plot: bool = False):
     """
     Select the stepsize using the Armijo rule for the Newton method.
 
@@ -127,6 +122,9 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
     
     gradient_error = 0.0
 
+   
+   
+   
     step = 1e-6
 
     xx_step = np.zeros((ns,TT))
@@ -139,13 +137,15 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
         xx_step[:, tt+1] = model.discrete_dynamics(xx_step[:, tt], uu_step[:, tt])
                 
     cost_step = cst.total_cost(xx_step, uu_step, xx_ref, uu_ref, QQt, RRt, QQT) 
-    slope_cost = (cost_step - JJ)/step
-    gradient_cost = descent_arm
+    slope_numeric = (cost_step - JJ)/step
+    slope_analytic = descent_arm
 
-    gradient_error = slope_cost - gradient_cost
+  
+    gradient_error = slope_numeric - slope_analytic
+    
 
     ############################
-    # Descent Plot
+    # Descent Plots
     ############################
 
     if plot:

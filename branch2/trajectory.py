@@ -15,10 +15,50 @@
 #######################################
 import numpy as np
 from scipy.interpolate import CubicSpline
+from model import DoublePendulumFlexible, PARAM_SET_2
 
 #######################################
 # Functions
 #######################################
+
+
+model = DoublePendulumFlexible(**PARAM_SET_2)
+
+configurations = {
+    'D-D': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=False), 
+    'D-U': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=True),
+    'U-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=False),
+    'U-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=True),
+    'R-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=False),
+    'R-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=True),
+    'L-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/2, up=False),
+    'L-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/2, up=True),
+    'RD-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4, up=False),
+    'RD-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4, up=True),
+    'LD-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4, up=False),
+    'LD-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4, up=True),
+    'RU-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4*3, up=False),
+    'RU-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4*3, up=True),
+    'LU-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4*3, up=False),
+    'LU-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4*3, up=True),
+}
+
+tasks = {
+    'elbow_up': {'start': configurations['D-D'], 'end': configurations['D-U']},
+    'swing_up': {'start': configurations['D-D'], 'end': configurations['U-D']},
+    'half_swing':{'start': configurations['D-D'], 'end': configurations['U-D']},
+    'top_to_elbow_up': {'start': configurations['U-U'], 'end': configurations['R-U']},
+    'top_to_elbow_down': {'start': configurations['U-U'], 'end': configurations['L-D']},
+    'inverted_hand_off': {'start': configurations['D-U'], 'end': configurations['U-D']},
+    'topside_pump': {'start': configurations['U-D'], 'end': configurations['U-U']},
+    'lateral_swing': {'start': configurations['L-U'], 'end': configurations['R-U']},
+    'diagonal_swing': {'start': configurations['LD-D'], 'end': configurations['RU-U']},
+    'the_dive': {'start': configurations['U-U'], 'end': configurations['D-D']},
+    'overhead_wipe': {'start': configurations['LU-U'], 'end': configurations['RU-U']},
+    'low_diagonal_hold': {'start': configurations['D-D'], 'end': configurations['RD-D']},
+}
+
+
 
 def trajectory_generator(
     T0: int = 0,

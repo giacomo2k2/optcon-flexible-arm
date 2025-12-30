@@ -34,7 +34,7 @@ import branch2.costs as cst
 import branch2.armijo as armijo
 
 # Trajectories
-import branch2.trajectory_generation as traj
+import branch2.trajectory as traj
 import branch2.trajectory_generation_newton as traj_gen_newton
 
 # Solver
