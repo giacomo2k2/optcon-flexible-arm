@@ -359,6 +359,7 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
         opti.subject_to(u_real <= umax)
         opti.subject_to(u_real >= umin)
         
+
   
   # Terminal cost
     cost += ca.mtimes([dX[:, T_pred - 1].T, QQT, dX[:, T_pred - 1]])
