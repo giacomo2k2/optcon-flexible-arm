@@ -324,8 +324,6 @@ def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
 
 def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
             xxt: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, umax: float = 1000, umin: float = -1000,
-            x1_max: float = 20, x1_min: float = -20, x2_max: float = 20, x2_min: float = -20,
-            x3_max: float = 20, x3_min: float = -20, x4_max: float = 20, x4_min: float = -20,
             T_pred: int = 50, ipopt_opts=None):
     """
     CasAdi solver for constrained LTV MPC problem.
@@ -361,22 +359,8 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
         opti.subject_to(u_real <= umax)
         opti.subject_to(u_real >= umin)
         
-        # States constraints
-        x1_real = ca.DM(x_ref[0, t_p]) + dX[0, t_p]
-        x2_real = ca.DM(x_ref[1, t_p]) + dX[1, t_p]
-        x3_real = ca.DM(x_ref[2, t_p]) + dX[2, t_p]
-        x4_real = ca.DM(x_ref[3, t_p]) + dX[3, t_p]
-
-        opti.subject_to(x1_real <= x1_max)
-        opti.subject_to(x1_real >= x1_min)
-        opti.subject_to(x2_real <= x2_max)
-        opti.subject_to(x2_real >= x2_min)
-        opti.subject_to(x3_real <= x3_max)
-        opti.subject_to(x3_real >= x3_min)
-        opti.subject_to(x4_real <= x4_max)
-        opti.subject_to(x4_real >= x4_min)
-
-    # Terminal cost
+  
+  # Terminal cost
     cost += ca.mtimes([dX[:, T_pred - 1].T, QQT, dX[:, T_pred - 1]])
     
     # Initial condition
@@ -404,3 +388,45 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
             return None, None, None
 
     return np.asarray(sol.value(dU[:, 0])), np.asarray(sol.value(dX)), np.asarray(sol.value(dU))
+
+
+
+def PD_controller_gravity_comp(model, x_act: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray): 
+    """
+    Proportional-Derivative controller with gravity compensation.
+
+    Parameters
+    ----------
+    model : object
+        Dynamic model with a 'gravity_compensation' method.
+    x0 : np.ndarray
+        Current state vector.
+    x_ref : np.ndarray
+        Reference state vector.
+    u_ref : np.ndarray
+        Reference input vector.
+
+    Returns
+    -------
+    u_pd : np.ndarray
+        Control input computed by the PD controller with gravity compensation.
+    """
+    # PD gains
+    Kp = np.array([5.0, -5.0])  # Proportional gains
+    Kd = np.array([5.0, -5.0])    # Derivative gains
+
+    # State error
+    position_error = x_ref[0:2] - x_act[0:2]
+    velocity_error = x_ref[2:4] - x_act[2:4]
+
+    # PD control law
+    u_pd = np.dot(Kp, position_error) + np.dot(Kd, velocity_error)# + u_ref
+
+
+    # Gravity compensation
+    _, _, _, G, _ = model.dynamic_model(x_act)
+
+    # Total control input
+    u_total = u_pd + G[0]
+    
+    return u_total.squeeze()

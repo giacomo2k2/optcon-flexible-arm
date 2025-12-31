@@ -168,7 +168,7 @@ data_dict = model.compute_equilibrium_manifold()
 # top_to_elbow_down:
 
 
-selected_equilibrium = 'elbow_up'
+selected_equilibrium = 'top_to_elbow_up'
 eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
 (x_eq1, u_eq1), (x_eq2, u_eq2) = eq_pair1, eq_pair2
 
@@ -227,8 +227,9 @@ x0 = xx_ref[:, 0]  # initial state
 
 
 # Initial guess: reference trajectory
-xx_init = np.tile(x0[:, None], (1, TT))
-uu_init = np.tile(uu_ref[:, 0][:, None], (1, TT))
+
+xx_init = np.zeros((ns, TT))
+uu_init = np.zeros((ni, TT))
 
 
 

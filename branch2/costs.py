@@ -23,54 +23,6 @@ import numpy as np
 # Functions
 #######################################
 
-def get_cost_matrices(name: str) -> tuple[np.ndarray, np.ndarray]:      #COST MATRICES CHOICE
-    """
-    Returns the state and input cost matrices for the given maneuver name.
-
-    Parameters
-    ----------
-    name : str
-        The name of the maneuver
-    
-    Returns
-    -------
-    QQt : np.ndarray
-        The state cost matrix
-    RRt : np.ndarray
-        The input cost matrix
-    """
-    match name:
-        case 'elbow_up':
-            # ti = 0.1, tf = 0.4, Tend = 4.0, poly7
-            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) *1e-1
-            RRt = 0.01 * np.eye(1)
-            return QQt, RRt
-        case 'swing_up':
-            # ti = 0.1, tf = 0.4, Tend = 4.0, poly7
-            QQt = np.diag([10.0, 10.0, 0.1, 0.1])*1e-1
-            RRt = 0.01 * np.eye(1)
-            return QQt, RRt
-        case 'left_to_right_elbow_up':
-            # ti = 0.3, tf = 0.7, Tend = 4.0, poly7
-            QQt = np.diag([10.0, 10.0, 0.1, 0.1])
-            RRt = 0.01 * np.eye(1)
-            return QQt, RRt
-        case 'top_to_elbow_up':
-            # ti = 0.2, tf = 0.5, Tend = 4.0, poly7
-            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) 
-            RRt = 0.01 * np.eye(1)
-            return QQt, RRt
-        case 'top_to_elbow_down':
-            # ti = 0.3, tf = 0.6, Tend = 4.0 / 8.0, poly7 / stepwise
-            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) * 1e-2
-            RRt = 0.01 * np.eye(1)
-            return QQt, RRt
-        case 'custom':
-            QQt = np.diag([10.0, 10.0, 0.1, 0.1]) * 1
-            RRt = 0.1 * np.eye(1)
-            return QQt, RRt
-
-SSt = np.zeros((1, 4))
 
 def stagecost(x: np.ndarray, u:np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, QQt: np.ndarray, RRt: np.ndarray) -> tuple[float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -122,7 +74,7 @@ def stagecost(x: np.ndarray, u:np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray,
     # Second Derivatives
     lxx = QQt
     luu = RRt
-    lux = SSt
+    lux = np.zeros((u.shape[0], x.shape[0]))  # cross term is zero
 
     return ll.squeeze(), lx, lu, lxx, luu, lux
 

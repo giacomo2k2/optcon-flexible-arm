@@ -495,8 +495,7 @@ class DoublePendulumFlexible:
                         index = i
 
 
-
-        return (valid_solutions[index]['q1'], valid_solutions[index]['q2'], valid_solutions[index]['u'])
+        return (np.array([valid_solutions[index]['q1'], valid_solutions[index]['q2'], 0.0, 0.0]), valid_solutions[index]['u'])
 
 
         
@@ -526,16 +525,14 @@ class DoublePendulumFlexible:
         # We only initialize lists for q1 and q2 sweeps
         res = {'q1_fix': [], 'q2_fix': []}
 
-        print(f"Computing manifold for {self.__class__.__name__}...")
-
         # 1. Sweep q1 -> Find q2 and required u
         for val in q_range:
             try:
                 # The new signature returns (q1, q2, u) directly
-                q1_sol, q2_sol, u_sol = self.find_equilibrium('q1', value_fixed=val, up=False)
-                res['q1_fix'].append([q1_sol, q2_sol, u_sol])
-                q1_sol, q2_sol, u_sol = self.find_equilibrium('q1', value_fixed=val, up=True)
-                res['q1_fix'].append([q1_sol, q2_sol, u_sol])
+                x_eq1, u_eq1 = self.find_equilibrium('q1', value_fixed=val, up=False)
+                res['q1_fix'].append([x_eq1[0], x_eq1[1], u_eq1])
+                x_eq2, u_eq2 = self.find_equilibrium('q1', value_fixed=val, up=True)
+                res['q1_fix'].append([x_eq2[0], x_eq2[1], u_eq2])
             except Exception as e:
                 # Useful to catch empty valid_solutions list or solver errors
                 pass
@@ -544,10 +541,10 @@ class DoublePendulumFlexible:
         for val in q_range:
             try:
                 # The new signature returns (q1, q2, u) directly
-                q1_sol, q2_sol, u_sol = self.find_equilibrium('q2', value_fixed=val, right=False)
-                res['q2_fix'].append([q1_sol, q2_sol, u_sol])
-                q1_sol, q2_sol, u_sol = self.find_equilibrium('q2', value_fixed=val, right=True)
-                res['q2_fix'].append([q1_sol, q2_sol, u_sol])
+                x_eq1, u_eq1 = self.find_equilibrium('q2', value_fixed=val, right=False)
+                res['q2_fix'].append([x_eq1[0], x_eq1[1], u_eq1])
+                x_eq2, u_eq2 = self.find_equilibrium('q2', value_fixed=val, right=True)
+                res['q2_fix'].append([x_eq2[0], x_eq2[1], u_eq2])
             except Exception as e:
                 pass
 
@@ -558,7 +555,7 @@ class DoublePendulumFlexible:
         return res
     
     
-    def plot_equilibrium_point(self, q1: float, q2:float, u: float, title: str = "") -> None:
+    def draw_pendulums(self, x_eq: np.ndarray, u_eq: np.ndarray, task: str = "") -> None:
         """
         Visualize the double pendulum at the equilibrium point.
         
@@ -571,11 +568,18 @@ class DoublePendulumFlexible:
         title : str, optional
             Title for the plot (default is empty string).
         """
-        fig, ax = plt.subplots(figsize=(6,6))
+
+        fig, ax = plt.subplots(1, x_eq.shape[0], figsize=(12, 6))
+        for i in range(x_eq.shape[0]):
+            self.draw_frame(x_eq[i, :], ax[i])
+            ax[i].set_title(f"u = {u_eq[i]:.2f} Nm, q1 = {x_eq[i][0]:.2f} rad, q2 = {x_eq[i][1]:.2f} rad")
         
-        self.draw_frame(np.array([q1, q2, 0.0, 0.0]), ax)
-        ax.set_title(f"Equilibria {title}: u = {u:.2f} Nm\nq1 = {q1:.2f}, q2 = {q2:.2f}")
+        # title for the two subplots
+        if task:
+            fig.suptitle(f"Double Pendulum Equilibria - {task}", fontsize=16)
+
         plt.show()
+        
     
 
     def draw_frame(self, x: np.ndarray, ax: plt.Axes) -> None:

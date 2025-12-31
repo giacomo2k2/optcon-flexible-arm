@@ -122,7 +122,7 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
         ax.legend()
 
     plt.subplots_adjust(hspace=0.5)
-    # plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+    
     plt.show()
 
 def trajectory_comparison(
@@ -219,8 +219,7 @@ def trajectory_comparison(
             ax.legend(loc='best', fontsize='small')
             
     plt.subplots_adjust(hspace=0.5)
-    if num_runs > 1:
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    
     plt.show()
 
 def tracking_error(
@@ -318,8 +317,7 @@ def tracking_error(
                   title="Perturbed Initial Conditions ($\\epsilon$)")
 
     plt.subplots_adjust(hspace=0.5)
-    if num_runs > 1:
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+   
     plt.show()
 
 def trajectory_comparison_mid(
@@ -416,20 +414,30 @@ def trajectory_comparison_mid(
     ax_leg.legend(handles, labels, loc='center', fontsize=10, 
                   title="Trajectory Evolution", title_fontsize=12, frameon=True, ncol=3)
 
-    #plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    
     plt.subplots_adjust(hspace=2)
     plt.show()
     
-def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
     """
-    Plot the equilibrium manifold using scatter plots with torque-based coloring.
+    Plot the equilibrium manifold using scatter plots with torque-based coloring,
+    highlighting two specific equilibrium pairs.
     """
+
+    # Unpack equilibrium pairs
+    # Assuming structure is x_eq = [q1, q2], u_eq = scalar
+    x_eq1, u_eq1 = eq_pair1
+    x_eq2, u_eq2 = eq_pair2
+
     # Safely retrieve data
     r1 = manifold_data.get('q1_fix', np.array([]))
     r2 = manifold_data.get('q2_fix', np.array([]))
     
-    # Combine datasets for unified plotting (since we want same markers)
-    # We stack them if both exist, or take whichever exists
+    # Combine datasets for unified plotting
     if r1.size > 0 and r2.size > 0:
         data_combined = np.vstack((r1, r2))
     elif r1.size > 0:
@@ -459,9 +467,14 @@ def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: boo
             axs[0].axvline(val, color='k', linestyle=':', alpha=0.2)
             axs[0].axhline(val, color='k', linestyle=':', alpha=0.2)
 
-        # Scatter plot colored by Torque
+        # Manifold scatter
         sc1 = axs[0].scatter(q1_all, q2_all, c=u_all, cmap='coolwarm', s=15, alpha=0.8)
         
+        # --- Highlight Eq Pairs (Plot 1) ---
+        axs[0].scatter(x_eq1[0], x_eq1[1], color='red', marker='*', s=200, edgecolors='black', label='Eq Pair 1', zorder=10)
+        axs[0].scatter(x_eq2[0], x_eq2[1], color='cyan', marker='*', s=200, edgecolors='black', label='Eq Pair 2', zorder=10)
+        axs[0].legend()
+
         cbar = plt.colorbar(sc1, ax=axs[0])
         cbar.set_label('Torque $u$ [Nm]')
         axs[0].grid(True, alpha=0.3)
@@ -470,10 +483,15 @@ def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: boo
         axs[1].set_title(r'Torque Profile vs $q_1$', fontsize=12)
         axs[1].set_xlabel(r'$q_1$ [rad]')
         axs[1].set_ylabel(r'$u$ [Nm]')
-        axs[1].axhline(0, color='k', linewidth=1, alpha=0.5) # Zero torque line
+        axs[1].axhline(0, color='k', linewidth=1, alpha=0.5) 
         
-        # Scatter only
+        # Manifold scatter
         axs[1].scatter(q1_all, u_all, c=u_all, cmap='coolwarm', s=10, alpha=0.6)
+
+        # --- Highlight Eq Pairs (Plot 2) ---
+        axs[1].scatter(x_eq1[0], u_eq1, color='red', marker='*', s=200, edgecolors='black', zorder=10)
+        axs[1].scatter(x_eq2[0], u_eq2, color='cyan', marker='*', s=200, edgecolors='black', zorder=10)
+
         axs[1].grid(True, alpha=0.3)
 
         # --- Plot 3: Torque Profile (u vs q2) ---
@@ -482,19 +500,29 @@ def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: boo
         axs[2].set_ylabel(r'$u$ [Nm]')
         axs[2].axhline(0, color='k', linewidth=1, alpha=0.5)
 
-        # Scatter only
+        # Manifold scatter
         axs[2].scatter(q2_all, u_all, c=u_all, cmap='coolwarm', s=10, alpha=0.6)
+
+        # --- Highlight Eq Pairs (Plot 3) ---
+        axs[2].scatter(x_eq1[1], u_eq1, color='red', marker='*', s=200, edgecolors='black', zorder=10)
+        axs[2].scatter(x_eq2[1], u_eq2, color='cyan', marker='*', s=200, edgecolors='black', zorder=10)
+
         axs[2].grid(True, alpha=0.3)
 
-        plt.tight_layout()
+        
 
     if plot_3d:
         fig3d = plt.figure(figsize=(10, 8))
         ax = fig3d.add_subplot(111, projection='3d')
 
-        # 3D Scatter
-        sc_3d = ax.scatter(q1_all, q2_all, u_all, c=u_all, cmap='coolwarm', s=20, alpha=0.9)
+        # 3D Manifold Scatter
+        sc_3d = ax.scatter(q1_all, q2_all, u_all, c=u_all, cmap='coolwarm', s=20, alpha=0.5)
         
+        # --- Highlight Eq Pairs (3D) ---
+        ax.scatter(x_eq1[0], x_eq1[1], u_eq1, color='red', marker='*', s=300, edgecolors='black', label='Eq Pair 1', depthshade=False)
+        ax.scatter(x_eq2[0], x_eq2[1], u_eq2, color='cyan', marker='*', s=300, edgecolors='black', label='Eq Pair 2', depthshade=False)
+        ax.legend()
+
         ax.set_xlabel(r'$q_1$ [rad]', fontsize=11, labelpad=8)
         ax.set_ylabel(r'$q_2$ [rad]', fontsize=11, labelpad=8)
         ax.set_zlabel(r'Torque $u$ [Nm]', fontsize=11, labelpad=8)
@@ -516,17 +544,16 @@ def equilibrium_manifold(manifold_data: dict, plot_2d: bool = True, plot_3d: boo
         
     # Display results text
     if print_results:
+        print(f"\nHighlighting Equilibrium 1: q1={x_eq1[0]:.3f}, q2={x_eq1[1]:.3f}, u={u_eq1:.3f}")
+        print(f"Highlighting Equilibrium 2: q1={x_eq2[0]:.3f}, q2={x_eq2[1]:.3f}, u={u_eq2:.3f}")
+
         for key in manifold_data:
-            # Get the data for the current key
             data = manifold_data[key]
             if len(data) == 0:
                 print(f"\nNo equilibria found for sweep: {key}")
                 continue
             
             print(f"\nEquilibria computed for {key}: {len(data)} state/input pairs found.")
-            print("=============== Sampled equilibria (q1, q2, u) ===============")
-            
-            # Limit print output if too large (optional, remove slicing [:10] if you want all)
             limit = 10 
             print(f"Showing first {limit} samples:")
             
@@ -597,7 +624,7 @@ def descent_direction(descent: np.ndarray, iters: int) -> None:
     plt.title('Descent', fontsize=16)
     plt.yscale('log')
     plt.grid(alpha=0.4)
-    plt.tight_layout()
+    
     plt.show(block=False)
 
 def cost(JJ: np.ndarray, iters: int) -> None:
@@ -618,7 +645,7 @@ def cost(JJ: np.ndarray, iters: int) -> None:
     plt.title('Cost Function', fontsize=16)
     plt.yscale('log')
     plt.grid(alpha=0.4)
-    plt.tight_layout()
+    
     plt.show(block=False)
 
 def set_animation_figure(ax: plt.Axes, lim_size: float) -> None:
@@ -674,3 +701,25 @@ def draw_pendulum_configuration(ax: plt.Axes, p1: np.ndarray, p2: np.ndarray, pc
     ax.scatter(p1[0], p1[1], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 2
     ax.scatter(pc1[0], pc1[1], color=colors['red'], s=40, zorder=5, alpha=alpha)   # CM1
     ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5, alpha=alpha) # CM2
+
+
+
+def gradient_error(grad_errors: np.ndarray, iters: int) -> None:
+    """
+    Plots the gradient error over iterations.
+
+    Parameters
+    ----------
+    grad_errors : np.ndarray
+        Array containing the gradient error values.
+    iters : int
+        Number of iterations to plot.
+    """
+    plt.figure('gradient error', figsize=(10, 6))
+    plt.plot(np.arange(iters), grad_errors[:iters], linewidth=2, color=colors['purple'])
+    plt.xlabel('Iteration $k$', fontsize=14)
+    plt.ylabel(r'Gradient Error', fontsize=14)
+    plt.title('Gradient Error over Iterations', fontsize=16)
+    plt.grid(alpha=0.4)
+    
+    plt.show(block=False)

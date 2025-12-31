@@ -24,11 +24,12 @@ from model import DoublePendulumFlexible, PARAM_SET_2
 
 model = DoublePendulumFlexible(**PARAM_SET_2)
 
+# TODO: sistemare U-D e U-D
 configurations = {
     'D-D': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=False), 
     'D-U': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=True),
-    'U-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=False),
-    'U-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=True),
+    'U-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=False), 
+    'U-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=True),
     'R-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=False),
     'R-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=True),
     'L-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/2, up=False),
@@ -44,18 +45,105 @@ configurations = {
 }
 
 tasks = {
-    'elbow_up': {'start': configurations['D-D'], 'end': configurations['D-U']},
-    'swing_up': {'start': configurations['D-D'], 'end': configurations['U-D']},
-    'half_swing':{'start': configurations['D-D'], 'end': configurations['U-D']},
-    'top_to_elbow_up': {'start': configurations['U-U'], 'end': configurations['R-U']},
-    'top_to_elbow_down': {'start': configurations['U-U'], 'end': configurations['L-D']},
-    'inverted_hand_off': {'start': configurations['D-U'], 'end': configurations['U-D']},
-    'topside_pump': {'start': configurations['U-D'], 'end': configurations['U-U']},
-    'lateral_swing': {'start': configurations['L-U'], 'end': configurations['R-U']},
-    'diagonal_swing': {'start': configurations['LD-D'], 'end': configurations['RU-U']},
-    'the_dive': {'start': configurations['U-U'], 'end': configurations['D-D']},
-    'overhead_wipe': {'start': configurations['LU-U'], 'end': configurations['RU-U']},
-    'low_diagonal_hold': {'start': configurations['D-D'], 'end': configurations['RD-D']},
+    'elbow_up': {
+        'start': configurations['D-D'],
+        'end': configurations['R-U'],
+        'time': 4.0,
+        'angle_mult': 1,
+        'vel_mult': 1
+    },
+    'swing_up': {
+        'start': configurations['D-D'],
+        'end': configurations['U-U'],
+        'time': 4.0,
+        'angle_mult': 1e-1,
+        'vel_mult': 1e-1,
+    },
+    'half_swing':{
+        'start': configurations['D-D'],
+        'end': configurations['U-D'],
+        'time': 4.0,
+        'angle_mult': 10,
+        'vel_mult': 1
+    },
+    'top_to_elbow_up': { # difficult
+        'start': configurations['U-U'],
+        'end': configurations['R-U'],
+        'time': 10.0,
+        'angle_mult': 1,
+        'vel_mult': 10
+    },
+    'top_to_elbow_down': { # difficult
+        'start': configurations['U-U'],
+        'end': configurations['L-D'],
+        'time': 5.0,
+        'angle_mult': 1,
+        'vel_mult': 10
+    },
+    'inverted_hand_off': {
+        'start': configurations['D-U'],
+        'end': configurations['U-D'],
+        'time': 4.0,
+        'angle_mult': 10,
+        'vel_mult': 100
+    },
+    'topside_pump': {
+        'start': configurations['U-D'],
+        'end': configurations['U-U'],
+        'time': 4.0,
+        'angle_mult': 1,
+        'vel_mult': 1
+    },
+    'lateral_swing': {
+        'start': configurations['L-U'],
+        'end': configurations['R-U'],
+        'time': 4.0,
+        'angle_mult': 1,
+        'vel_mult': 1
+    },
+    'diagonal_swing': {
+        'start': configurations['LD-D'],
+        'end': configurations['RU-U'],
+        'time': 6.0,
+        'angle_mult': 1e-1,
+        'vel_mult': 1
+    },
+    'the_dive': { # difficult
+        'start': configurations['U-U'],
+        'end': configurations['D-D'],
+        'time': 6.0,
+        'angle_mult': 1,
+        'vel_mult': 1
+    },
+    'overhead_wipe': {
+        'start': configurations['LU-U'],
+        'end': configurations['RU-U'],
+        'time': 4.0,
+        'angle_mult': 1,
+        'vel_mult': 1
+    },
+    'low_diagonal_hold': {
+        'start': configurations['D-D'],
+        'end': configurations['RD-D'],
+        'time': 6.0,
+        'angle_mult': 100,
+        'vel_mult': 100
+    },
+    'half_dive': { # difficult
+        'start': configurations['U-U'],
+        'end': configurations['U-D'],
+        'time': 4.0,
+        'angle_mult': 1,
+        'vel_mult': 1
+    },
+    'half_middle_dive': { #difficult
+        'start': configurations['RU-U'],
+        'end': configurations['R-U'],
+        'time': 4,
+        'angle_mult': 1,
+        'vel_mult': 1
+    },
+    
 }
 
 
