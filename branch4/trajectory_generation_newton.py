@@ -109,8 +109,8 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     #######################################
 
     T0 = 0.0        # Initial absolute time
-    ti = 0.2        # Start time for trajectory segment (relative)
-    tf = 0.8        # End time for trajectory segment (relative)
+    ti = 0.05        # Start time for trajectory segment (relative)
+    tf = 0.96        # End time for trajectory segment (relative)
     dt = model.dt   # Time step
     t = np.arange(T0, Tend, dt) # Time vector
     TT = len(t)                 # Number of time steps
@@ -389,6 +389,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
 
 
 if __name__ == "__main__":
-    generate_optimal_trajectory('half_dive', max_iters=300, n_mid=20, method='poly5', plot_results=True, plot_armijo=False, debug_print=True)
+    generate_optimal_trajectory('topside_pump', max_iters=300, n_mid=20, method='poly5', plot_results=True, plot_armijo=False, debug_print=True)
 
 

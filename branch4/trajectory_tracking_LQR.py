@@ -148,13 +148,13 @@ def trajectory_tracking_LQR(eq_pair1, eq_pair2, xx_star, uu_star, time, runs = 1
 
 if __name__ == "__main__":
     # Generate optimal trajectory
-    xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory('swing_up', max_iters=300, n_mid=20, method='poly5', plot_results=False, plot_armijo=False, debug_print=False)
+    xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory('the_dive', max_iters=300, n_mid=20, method='poly5', plot_results=False, plot_armijo=False, debug_print=False)
 
     # Trajectory tracking via LQR
     trajectory_tracking_LQR(eq_pair1, eq_pair2, xx_star, uu_star, time, runs=5, perturb=True, perturbation_scale=2, plot_results=True, debug_print=True)
 
     #topside_pump robust
-    #half_dive bad
-    #the_dive bad
+    #half_dive mhh
+    #the_dive robust
     #half_swing robust
-    #top to_elbow_down bad
+    #top_to_elbow_down mhh

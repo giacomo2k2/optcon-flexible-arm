@@ -222,4 +222,4 @@ if __name__ == "__main__":
     xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory('topside_pump', max_iters=300, n_mid=20, method='poly5', plot_results=False, plot_armijo=False, debug_print=False)
 
     # Trajectory tracking via MPC
-    trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax=45, umin=-45, T_pred=150, runs=3, perturb=True, perturbation_scale=2, plot_results=True, print_debug=True)
+    trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax=100, umin=-100, T_pred=100, runs=3, perturb=True, perturbation_scale=2, plot_results=True, print_debug=True)
