@@ -41,7 +41,7 @@ colors = {
 # Functions
 #######################################
 
-def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1: tuple, eq_pair2: tuple, title: str) -> None:
+def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1: tuple, eq_pair2: tuple, title: str, plot_flag: bool = True, folder=None) -> None:
     """
     Plots the reference trajectory for a Double Pendulum system.
 
@@ -123,7 +123,11 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
 
     plt.subplots_adjust(hspace=0.5)
     
-    plt.show()
+    if plot_flag:
+        plt.show()
+
+    if folder is not None:
+        fig.savefig(f"{folder}/reference_trajectory.png", dpi=300, bbox_inches='tight')
 
 def trajectory_comparison(
     time: np.ndarray,
@@ -131,7 +135,9 @@ def trajectory_comparison(
     u_ref: np.ndarray,
     x_track: np.ndarray,
     u_track: np.ndarray,
-    title: str
+    title: str,
+    plot_flag: bool = True,
+    folder = None
 ) -> None:
     """
     Plots the comparison between reference and multiple tracked trajectories for different perturbed intial conditions.
@@ -220,7 +226,12 @@ def trajectory_comparison(
             
     plt.subplots_adjust(hspace=0.5)
     
-    plt.show()
+    if plot_flag:
+        plt.show()
+
+    if folder is not None:
+        # substitute spaces in title with underscores for filename
+        fig.savefig(f"{folder}/trajectory_comparison_{'_'.join(title.split())}.png", dpi=300, bbox_inches='tight')
 
 def tracking_error(
     time: np.ndarray,
@@ -228,7 +239,9 @@ def tracking_error(
     u_ref: np.ndarray,
     x_track: np.ndarray,
     u_track: np.ndarray,
-    title: str
+    title: str,
+    plot_flag: bool = True,
+    folder = None,
 ) -> None:
     """
     Plots the tracking error between reference and multiple tracked trajectories for different perturbed intial conditions.
@@ -317,8 +330,9 @@ def tracking_error(
                   title="Perturbed Initial Conditions ($\\epsilon$)")
 
     plt.subplots_adjust(hspace=0.5)
-   
-    plt.show()
+    
+    if plot_flag:
+        plt.show()
 
 def trajectory_comparison_mid(
     time: np.ndarray,
@@ -326,7 +340,9 @@ def trajectory_comparison_mid(
     u_total: np.ndarray,
     n_mid: int,
     max_iters: int, 
-    title: str
+    title: str,
+    plot_flag: bool = True,
+    folder = None,
 ) -> None:
     """
     Plots the comparison between initial guess, in-mid optimized trajectory, and final optimal trajectory.
@@ -413,16 +429,15 @@ def trajectory_comparison_mid(
     # Position the legend at the center of the sixth cell
     ax_leg.legend(handles, labels, loc='center', fontsize=10, 
                   title="Trajectory Evolution", title_fontsize=12, frameon=True, ncol=3)
-
     
     plt.subplots_adjust(hspace=2)
-    plt.show()
-    
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+    if plot_flag:
+        plt.show()
 
-def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
+    if folder is not None:
+        fig.savefig(f"{folder}/trajectory_comparison_mid.png", dpi=300, bbox_inches='tight')
+
+def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True, plot_flag: bool = True, folder = None) -> None:
     """
     Plot the equilibrium manifold using scatter plots with torque-based coloring,
     highlighting two specific equilibrium pairs.
@@ -469,11 +484,6 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
 
         # Manifold scatter
         sc1 = axs[0].scatter(q1_all, q2_all, c=u_all, cmap='coolwarm', s=15, alpha=0.8)
-        
-        # --- Highlight Eq Pairs (Plot 1) ---
-        axs[0].scatter(x_eq1[0], x_eq1[1], color='red', marker='*', s=200, edgecolors='black', label='Eq Pair 1', zorder=10)
-        axs[0].scatter(x_eq2[0], x_eq2[1], color='cyan', marker='*', s=200, edgecolors='black', label='Eq Pair 2', zorder=10)
-        axs[0].legend()
 
         cbar = plt.colorbar(sc1, ax=axs[0])
         cbar.set_label('Torque $u$ [Nm]')
@@ -509,6 +519,14 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
 
         axs[2].grid(True, alpha=0.3)
 
+        # --- Highlight Eq Pairs (Plot 1) ---
+        axs[0].scatter(x_eq1[0], x_eq1[1], color='red', marker='*', s=200, edgecolors='black', label='Eq Pair 1', zorder=10)
+        axs[0].scatter(x_eq2[0], x_eq2[1], color='cyan', marker='*', s=200, edgecolors='black', label='Eq Pair 2', zorder=10)
+        axs[0].legend()
+
+        # save figure
+        if folder is not None:
+            fig2d.savefig(f"{folder}/equilibrium_manifold_2d.png", dpi=300, bbox_inches='tight')
         
 
     if plot_3d:
@@ -517,11 +535,6 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
 
         # 3D Manifold Scatter
         sc_3d = ax.scatter(q1_all, q2_all, u_all, c=u_all, cmap='coolwarm', s=20, alpha=0.5)
-        
-        # --- Highlight Eq Pairs (3D) ---
-        ax.scatter(x_eq1[0], x_eq1[1], u_eq1, color='red', marker='*', s=300, edgecolors='black', label='Eq Pair 1', depthshade=False)
-        ax.scatter(x_eq2[0], x_eq2[1], u_eq2, color='cyan', marker='*', s=300, edgecolors='black', label='Eq Pair 2', depthshade=False)
-        ax.legend()
 
         ax.set_xlabel(r'$q_1$ [rad]', fontsize=11, labelpad=8)
         ax.set_ylabel(r'$q_2$ [rad]', fontsize=11, labelpad=8)
@@ -537,9 +550,18 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
         cbar3d = fig3d.colorbar(sc_3d, ax=ax, pad=0.1)
         cbar3d.set_label('Torque $u$ [Nm]')
 
+        # --- Highlight Eq Pairs (3D) ---
+        ax.scatter(x_eq1[0], x_eq1[1], u_eq1, color='red', marker='*', s=300, edgecolors='black', label='Eq Pair 1', depthshade=False)
+        ax.scatter(x_eq2[0], x_eq2[1], u_eq2, color='cyan', marker='*', s=300, edgecolors='black', label='Eq Pair 2', depthshade=False)
+        ax.legend()
+
         ax.view_init(elev=25, azim=-60)
+
+        # save figure
+        if folder is not None:
+            fig3d.savefig(f"{folder}/equilibrium_manifold_3d.png", dpi=300, bbox_inches='tight')
         
-    if plot_2d or plot_3d:
+    if (plot_2d or plot_3d) and plot_flag:
         plt.show()
         
     # Display results text
@@ -563,7 +585,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
             if len(data) > limit:
                 print(f"... and {len(data) - limit} more.")
 
-def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int) -> None:
+def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int, plot_flag: bool = True, folder=None) -> None:
     """
     Plots the Armijo descent direction and the costs associated with different stepsizes.
 
@@ -602,11 +624,16 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     plt.xlabel('stepsize ($\\gamma$)')
     plt.title(f'Armijo stepsize selection - Iteration {kk}')
     plt.legend()
-    plt.draw()  
+
+    if plot_flag:
+        plt.draw()  
+    
+    if folder is not None:
+        plt.savefig(f"{folder}/armijo_iteration_{kk}.png", dpi=300, bbox_inches='tight')
     
     plt.pause(0.01)
     
-def descent_direction(descent: np.ndarray, iters: int) -> None:
+def descent_direction(descent: np.ndarray, iters: int, plot_flag: bool = True, folder=None) -> None:
     """
     Plots the descent direction norm over iterations.
 
@@ -625,9 +652,12 @@ def descent_direction(descent: np.ndarray, iters: int) -> None:
     plt.yscale('log')
     plt.grid(alpha=0.4)
     
-    plt.show(block=False)
+    if plot_flag:
+        plt.show(block = False)
+    if folder is not None:
+        plt.savefig(f"{folder}/descent_direction.png", dpi=300, bbox_inches='tight')
 
-def cost(JJ: np.ndarray, iters: int) -> None:
+def cost(JJ: np.ndarray, iters: int, folder=None, plot_flag: bool = True) -> None:
     """
     Plots the cost function over iterations.
 
@@ -646,7 +676,10 @@ def cost(JJ: np.ndarray, iters: int) -> None:
     plt.yscale('log')
     plt.grid(alpha=0.4)
     
-    plt.show(block=False)
+    if plot_flag:
+        plt.show(block=False)
+    if folder is not None:
+        plt.savefig(f"{folder}/cost_function.png", dpi=300, bbox_inches='tight')
 
 def set_animation_figure(ax: plt.Axes, lim_size: float) -> None:
     """
@@ -704,7 +737,7 @@ def draw_pendulum_configuration(ax: plt.Axes, p1: np.ndarray, p2: np.ndarray, pc
 
 
 
-def gradient_error(grad_errors: np.ndarray, iters: int) -> None:
+def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, folder=None) -> None:
     """
     Plots the gradient error over iterations.
 
@@ -722,25 +755,14 @@ def gradient_error(grad_errors: np.ndarray, iters: int) -> None:
     plt.title('Gradient Error over Iterations', fontsize=16)
     plt.grid(alpha=0.4)
     
-    plt.show(block=False)
+    if plot_flag:
+        plt.show()
+
+    if folder is not None:
+        plt.savefig(f"{folder}/gradient_error.png", dpi=300, bbox_inches='tight')
 
 
-def acceleration_trajectory(
-    time: np.ndarray,
-    acc: np.ndarray,
-    title: str
-) -> None: 
-    plt.figure(figsize=(10, 6))
-    plt.suptitle(f"Acceleration Trajectory: {title}", fontsize=16, fontweight='bold', ha='center', x=0.5)
-    plt.plot(time, acc[0, :], label=r'$\ddot{q}_1(t)$', color=colors['blue'], linewidth=2)
-    plt.plot(time, acc[1, :], label=r'$\ddot{q}_2(t)$', color=colors['orange'], linewidth=2)
-    plt.xlabel(r'$t \mathrm{[s]}$', fontsize=14)
-    plt.ylabel(r'Acceleration $\mathrm{[rad/s^2]}$', fontsize=14)
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.legend()
-    plt.show()
 
-    
     
 
 

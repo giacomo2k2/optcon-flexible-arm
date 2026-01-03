@@ -25,7 +25,6 @@ from model import DoublePendulumFlexible, PARAM_SET_2
 
 model = DoublePendulumFlexible(**PARAM_SET_2)
 
-# TODO: sistemare U-D e U-D
 configurations = {
     'D-D': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=False), 
     'D-U': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=True),
@@ -46,7 +45,7 @@ configurations = {
 }
 
 tasks = {
-    'elbow_up': {
+    'elbow_up': { # easy level difficulty
         'start': configurations['D-D'],
         'end': configurations['R-U'],
         'time': 4.0,
@@ -55,11 +54,11 @@ tasks = {
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'PD_gc',
+        'guess': 'zero', # Used PD_gc
         'discr_method': 'fe'
 
     },
-    'swing_up': {
+    'swing_up': { # mid level difficulty
         'start': configurations['D-D'],
         'end': configurations['U-U'],
         'time': 4.0,
@@ -68,10 +67,10 @@ tasks = {
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'PD_gc',
+        'guess': 'zero',
         'discr_method': 'fe'
     },
-    'half_swing':{ # difficult
+    'half_swing':{ # mid level difficulty
         'start': configurations['D-D'],
         'end': configurations['U-D'],
         'time': 6.5,
@@ -80,10 +79,10 @@ tasks = {
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'PD_gc',
+        'guess': 'zero',
         'discr_method': 'rk4'
     },
-    'top_to_elbow_up': {
+    'top_to_elbow_up': { # easy level difficulty
         'start': configurations['U-U'],
         'end': configurations['R-U'],
         'time': 3.0,
@@ -92,10 +91,10 @@ tasks = {
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'PD_gc',
-        'discr_method': 'fe'
+        'guess': 'zero', # Used PD_gc
+        'discr_method': 'rk4'
     },
-    'top_to_elbow_down': { # difficult
+    'top_to_elbow_down': { # high level difficulty
         'start': configurations['U-U'],
         'end': configurations['L-D'],
         'time': 8.0,
@@ -104,22 +103,22 @@ tasks = {
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'PD',
+        'guess': 'PD', # PD
         'discr_method': 'rk4'
     },
-    'inverted_hand_off': {
+    'inverted_hand_off': { # high level difficulty
         'start': configurations['D-U'],
         'end': configurations['U-D'],
-        'time': 3.0,
-        'angle1_mult': 1000,
-        'vel1_mult': 1000,
-        'angle2_mult': 1000,
-        'vel2_mult': 1000,
+        'time': 4.0,
+        'angle1_mult': 1,
+        'vel1_mult': 1,
+        'angle2_mult': 1,
+        'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'PD_gc',
+        'guess': 'zero',
         'discr_method': 'fe'
     },
-    'topside_pump': { # difficult
+    'topside_pump': { # mid level difficulty
         'start': configurations['U-D'],
         'end': configurations['U-U'],
         'time': 4.0,
@@ -128,10 +127,10 @@ tasks = {
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'D_gc',
+        'guess': 'zero',
         'discr_method': 'rk4'
     },
-    'lateral_swing': {
+    'lateral_swing': { # easy level difficulty
         'start': configurations['L-U'],
         'end': configurations['R-U'],
         'time': 4.0,
@@ -143,7 +142,7 @@ tasks = {
         'guess': 'PD_gc',
         'discr_method': 'fe'
     },
-    'diagonal_swing': {
+    'diagonal_swing': { # easy level difficulty
         'start': configurations['LD-D'],
         'end': configurations['RU-U'],
         'time': 6.0,
@@ -155,7 +154,7 @@ tasks = {
         'guess': 'PD_gc',
         'discr_method': 'fe'
     },
-    'the_dive': { # difficult
+    'the_dive': { # high level difficulty
         'start': configurations['U-U'],
         'end': configurations['D-D'],
         'time': 8.0,
@@ -256,8 +255,6 @@ tasks = {
 #time 8
 #rk4
 #1.42 e3
-
-#TODO check the regularization rho in ltv_affine_LQR_step
 }
 
 
@@ -271,8 +268,7 @@ def trajectory_generator(
     tf: float = 0.7,
     dt: float = 0.01,
     method: str = 'stepwise',
-    input_type:str = 'state',
-    q2_linear_interpolation: bool = True
+    input_type:str = 'state'
  ) -> tuple[np.ndarray, np.ndarray]:
     
     """
@@ -350,15 +346,12 @@ def trajectory_generator(
         pos_end = end
         vel_end = np.zeros(ndof)
 
-    acc_traj = np.zeros((ndof, TT))  # Shape (N/2, T) for accelerations
 
     acc_start, acc_end = np.zeros(ndof), np.zeros(ndof)
     jerk_start, jerk_end = np.zeros(ndof), np.zeros(ndof)
     
     traj[:, initial_mask] = start[:, None]
     traj[:, post_mask]    = end[:, None]
-    acc_traj[:, initial_mask] = acc_start[:, None]
-    acc_traj[:, post_mask]    = acc_end[:, None]
 
     # Stepwise Interpolation
     if method == 'stepwise':
@@ -414,13 +407,6 @@ def trajectory_generator(
 
         for i in range(ndof):
             q_traj[i, :] = np.polyval(coeffs_rev[:, i], tau)
-
-
-        if q2_linear_interpolation:
-            # apply a simple linear interpolation to theta2
-            q2_start = pos_start[1]
-            q2_end = pos_end[1]
-            q_traj[1, :] = q2_start + (q2_end - q2_start) * tau
         
 
 
@@ -432,25 +418,10 @@ def trajectory_generator(
                 # polyder computes analytical derivative of coefficients
                 der_coeffs = np.polyder(coeffs_rev[:, i])
                 dq_traj[i, :] = np.polyval(der_coeffs, tau) / DT
-        
-            #if q2_linear_interpolation:
-                #dq = (q2_end - q2_start)/DT
-                #dq_traj[1, :] = dq
-
-            #dq_traj[1, :] = np.zeros(len(tau))
-            #dq_traj[0, :] = np.zeros(len(tau))
 
 
             traj[ndof:,  transition_mask] = dq_traj
-
-        # compute acceleration
-        ddq_traj = np.zeros((ndof, len(tau)))
-        for i in range(ndof):
-            der2_coeffs = np.polyder(coeffs_rev[:, i], 2)
-            ddq_traj[i, :] = np.polyval(der2_coeffs, tau) / (DT**2)
-        
-        acc_traj[:, transition_mask] = ddq_traj
     else:
         raise ValueError(f"Method '{method}' not recognized.")
 
-    return t, traj, acc_traj
+    return t, traj

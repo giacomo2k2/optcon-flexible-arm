@@ -216,37 +216,16 @@ def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np
         Affine term of value function at time t.
     """
     rho = 0.1              # Regularization parameter
-    rho_factor = 10.0      # Factor to increase regularization
-    rho_min = 1e-6         # Minimum regularization value
-    max_reg_iters = 10     # Safety break
 
     # Ensure pptp is column vector
     if pptp.ndim == 1:
         pptp = pptp[:, None]
 
     # Compute intermediate terms
-    MMt = RRt + Bt.T @ PPtp @ Bt + rho * np.eye(Bt.shape[1]) #Regularization added here
-
-    
-
+    MMt = RRt + Bt.T @ PPtp @ Bt + rho * np.eye(Bt.shape[1]) #TODO Here's a regularization
     MMt_reg = MMt.copy()
+    MMt_inv = np.linalg.inv(MMt_reg)
 
-    for i in range(max_reg_iters):  
-        try:
-            L = np.linalg.cholesky(MMt_reg)
-            MMt_inv = np.linalg.inv(MMt_reg)
-            break
-        except np.linalg.LinAlgError:
-            if rho == 0.0:
-                rho = rho_min
-            else:
-                rho *= rho_factor
-            MMt_reg = MMt + rho * np.eye(MMt.shape[0])
-            if i == max_reg_iters - 1:
-                print(f"WARNING: Max regularization iterations reached at step.")
-
-
-    
     mmt = rt + Bt.T @ pptp
 
     # Compute feedback gain and affine term
@@ -283,7 +262,7 @@ def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarra
     PPt : np.ndarray, (ns x ns)
         Riccati matrix at time t.
     """
-    MMt_inv = np.linalg.inv(RRt + Bt.T @ PPtp @ Bt + np.eye(Bt.shape[1]))  # Regularization for numerical stability
+    MMt_inv = np.linalg.inv(RRt + Bt.T @ PPtp @ Bt + np.eye(Bt.shape[1]))  #TODO Here's a regularization
     Kt = -MMt_inv @ (Bt.T @ PPtp @ At)
     PPt = At.T @ PPtp @ At - (At.T @ PPtp @ Bt) @ MMt_inv @ (Bt.T @ PPtp @ At) + QQt
     return Kt, PPt
@@ -387,7 +366,7 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
         opti.subject_to(u_real >= umin)
         
   
-  # Terminal cost
+    # Terminal cost
     cost += ca.mtimes([dX[:, T_pred - 1].T, QQT, dX[:, T_pred - 1]])
     
     # Initial condition
@@ -515,6 +494,8 @@ def zero_controller(model, x_act, x_ref, u_ref):
     u_zero : np.ndarray
         Zero control input.
     """
+ 
+ 
     return 0.0
 
 def proportional_controller(model, x_act, x_ref, u_ref):

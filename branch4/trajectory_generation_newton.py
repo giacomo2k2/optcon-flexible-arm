@@ -19,6 +19,7 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt 
 import signal
+import os   
 
 plt.rcParams['font.family'] = 'serif'
 signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -55,7 +56,7 @@ ns = model.ns  # number of states
 ni = model.ni  # number of inputs
 
 
-def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', plot_results=True, plot_armijo=False, debug_print=True):
+def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', plot_flag=True, plot_armijo=False, debug_print=True, folder=None):
 
 
 
@@ -100,17 +101,16 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     QQt_base = np.diag([10.0, 10.0, 1.0, 1.0])
     RRt = 1e-2 * np.eye(1)
 
-    # if plot_results:
-    #     plots.equilibrium_manifold(data_dict, eq_pair1, eq_pair2, print_results=False)
-    #     model.draw_pendulums(eq_pair1, eq_pair2, task=selected_task)
+    plots.equilibrium_manifold(data_dict, eq_pair1, eq_pair2, print_results=False, plot_flag=plot_flag, folder=folder)
+    model.draw_pendulums(eq_pair1, eq_pair2, plot_flag=plot_flag, folder=folder)
 
     #######################################
     # Time parameters
     #######################################
 
     T0 = 0.0        # Initial absolute time
-    ti = 0.05        # Start time for trajectory segment (relative)
-    tf = 0.96        # End time for trajectory segment (relative)
+    ti = 0.3        # Start time for trajectory segment (relative)
+    tf = 0.7        # End time for trajectory segment (relative)
     dt = model.dt   # Time step
     t = np.arange(T0, Tend, dt) # Time vector
     TT = len(t)                 # Number of time steps
@@ -120,15 +120,12 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     ######################################
 
     # Generate reference trajectory for states and inputs
-    time, xx_ref, _ = traj.trajectory_generator(start = x_eq1, end = x_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='state', q2_linear_interpolation=False)
-    time, uu_ref, _ = traj.trajectory_generator(start = u_eq1, end = u_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='input', q2_linear_interpolation=False)
+    time, xx_ref= traj.trajectory_generator(start = x_eq1, end = x_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='state')
+    time, uu_ref= traj.trajectory_generator(start = u_eq1, end = u_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='input')
     
    
-
     # Plot reference trajectory
-    if plot_results:
-        plots.show_traj(time, xx_ref, uu_ref, eq_pair1, eq_pair2, "Reference " + method)
-        #plots.acceleration_trajectory(time, ddx, title="Reference Acceleration Trajectory")
+    plots.show_traj(time, xx_ref, uu_ref, eq_pair1, eq_pair2, "Reference " + method, plot_flag=plot_flag, folder=folder)
 
     #############################################
     # Compute QQT as solution of the DARE
@@ -213,9 +210,7 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
 
     uu_init[:,-1] = uu_init[:,-2]
 
-
-    if plot_results:
-        plots.trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference")
+    plots.trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference", plot_flag=plot_flag, folder=folder)
 
 
     xx[:,:,0] = xx_init
@@ -292,7 +287,7 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
         stepsize, grad_error_temp = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
                                             ss[:,:,kk], KK[:,:,:,kk], xx_ref, uu_ref, 
                                             x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
-                                            QQt, RRt, QQT, kk, plot=plot_armijo)
+                                            QQt, RRt, QQT, kk, plot=plot_armijo, folder=folder)
         
         gradient_error[kk] = grad_error_temp
 
@@ -355,40 +350,57 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
         
 
     ##################################
-    # Results
+    # Results and Plots
     ##################################
     xx_star = xx[:,:,max_iters-1]
     uu_star = uu[:,:,max_iters-1]
     uu_star[:,-1] = uu_star[:,-2] 
     descent[max_iters-1] = descent[ max_iters-2]
 
+    # Descent Direction
+    plots.descent_direction(descent, max_iters, plot_flag=plot_flag, folder=folder)
 
-    if plot_results:
-        # Descent Direction
-        plots.descent_direction(descent, max_iters)
+    # Cost
+    plots.cost(JJ, max_iters, plot_flag=plot_flag, folder=folder)
 
-        # Cost
-        plots.cost(JJ, max_iters)
+    # Optimal vs Reference Trajectories
+    plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference", plot_flag=plot_flag, folder=folder)
 
-        # Optimal vs Reference Trajectories
-        plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference")
+    # Intermediate Trajectories
+    plots.trajectory_comparison_mid(time, xx, uu, n_mid, max_iters, title="Trajectory Comparison with Intermediate Trajectories", plot_flag=plot_flag, folder=folder)
 
-        # Intermediate Trajectories
-        plots.trajectory_comparison_mid(time, xx, uu, n_mid, max_iters, title="Trajectory Comparison with Intermediate Trajectories")
-
-        # Gradient error
-        plots.gradient_error(gradient_error, max_iters)
-
+    # Gradient error
+    plots.gradient_error(gradient_error, max_iters, plot_flag=plot_flag, folder=folder)
 
     # Animation of the optimal trajectory
-    if plot_results:
-        anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), target_fps=30)
+    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, plot_flag=plot_flag, folder=folder)
 
     return xx_star, uu_star, eq_pair1, eq_pair2, time
 
 
 
 if __name__ == "__main__":
-    generate_optimal_trajectory('topside_pump', max_iters=300, n_mid=20, method='poly5', plot_results=True, plot_armijo=False, debug_print=True)
+
+    # overhead_wipe, low_diagonal_hold, half_dive, half_middle_dive
+    task = 'half_middle_dive'  # choose from keys of equilibrium_traj
+    try:
+        if task not in traj.tasks:
+            raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
+    except ValueError as e:
+        print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
+        exit(1)
+    
+    folder = f'report/figs/traj_gen_newton/{task}/'
+    plot_flag = True
+
+    # create folder if it does not exist
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
 
+    generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', plot_flag=plot_flag, plot_armijo=False, debug_print=True, folder=folder)
+
+
+    # Easy trajectories: lateral_swing, diagonal_swing, overhead_wipe, half_middle_dive
+    # Mid trajectories: swing_up, topside_pump, half_swing
+    # Hard trajectories: the_dive, half_dive

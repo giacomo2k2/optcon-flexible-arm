@@ -25,7 +25,7 @@ import plots as plots
 def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                            ss_k: np.ndarray, KK_k: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray, 
                            xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                           kk: int, plot: bool = False):
+                           kk: int, plot: bool = False, folder=None, save_ieration = 10):
     """
     Select the stepsize using the Armijo rule for the Newton method.
 
@@ -170,7 +170,12 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
             JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT) 
             costs[ii] = JJ_temp
 
+        if folder is not None:
+            save = kk % save_ieration == 0
+        else:
+            save = False
 
-        plots.armijo_descent(steps, costs, JJ, descent_arm, c, stepsizes, costs_armijo, kk)        
+        plots.armijo_descent(steps, costs, JJ, descent_arm, c, stepsizes, costs_armijo, kk, folder=folder, save=save)
+
 
     return stepsize, gradient_error

@@ -420,47 +420,6 @@ class DoublePendulumFlexible:
         else:
             return p1, p2
         
-    def inverse_dynamics(self, x: np.ndarray, x_ddot: np.ndarray) -> np.ndarray:
-        """
-        Compute the inverse dynamics of the Double Pendulum.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            State vector [q1, q2, q1_dot, q2_dot].
-        x_ddot : np.ndarray
-            State acceleration vector [q1_ddot, q2_ddot].
-
-        Returns
-        -------
-        u : np.ndarray
-            Required input vector.
-        """
-        # Angular velocities
-        q1_dot = x[2]
-        q2_dot = x[3]
-
-        # Angular velocity vector
-        q_dot = np.array([
-                            [q1_dot],
-                            [q2_dot]
-                         ])
-
-        # Extract dynamic model matrices
-        M, M_inv, C, G, F = self.dynamic_model(x)
-
-        # Angular accelerations
-        q_ddot = np.array([
-                            [x_ddot[0]],
-                            [x_ddot[1]]
-                         ])
-
-        # Compute required torque
-        T = M @ q_ddot + F @ q_dot + C @ q_dot + G
-
-        return T[0, 0]  # Return only the torque for the first joint
-
-        
     def find_equilibrium(self, fix_type, value_fixed=0.0, right=True, up=True):
     
         def error_func(guess):
@@ -595,7 +554,7 @@ class DoublePendulumFlexible:
         return res
     
     
-    def draw_pendulums(self, eq_pair1: tuple, eq_pair2: tuple, task: str = "") -> None:
+    def draw_pendulums(self, eq_pair1: tuple, eq_pair2: tuple, plot_flag: bool = True, folder = None) -> None:
         """
         Visualize the double pendulum at the equilibrium point.
         
@@ -619,10 +578,14 @@ class DoublePendulumFlexible:
         ax[1].set_title(f"u = {u_eq2[0]:.2f} Nm, q1 = {x_eq2[0]:.2f} rad, q2 = {x_eq2[1]:.2f} rad")
         
         # title for the two subplots
-        if task:
-            fig.suptitle(f"Double Pendulum Equilibria - {task}", fontsize=16)
+    
+        fig.suptitle(f"Double Pendulum Equilibria", fontsize=16)
 
-        plt.show()
+        if plot_flag:
+            plt.show()
+
+        if folder is not None:
+            fig.savefig(f"{folder}/double_pendulum_equilibria.png", dpi=300)
         
     
 
