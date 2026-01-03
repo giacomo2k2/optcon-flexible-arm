@@ -55,12 +55,37 @@ ns = model.ns  # number of states
 ni = model.ni  # number of inputs
 
 
-def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', discr_method='fe', plot_results=True, plot_armijo=False, debug_print=True):
+def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', discr_method='fe', plot_results=True, plot_armijo=False, debug_print=True, initial_as_PDg=False) -> tuple[np.ndarray, np.ndarray, tuple, tuple, np.ndarray]:
+    """
+    Generate optimal trajectory using Newton method.
 
-
+    Parameters
+    ----------
+    task : str
+        Task to perform (choose from keys of traj.tasks).
+    max_iters : int, optional
+        Maximum number of iterations for the Newton method (default is 300).
+    n_mid : int, optional
+        Number of intermediate trajectories to plot (default is 20).
+    method : str, optional
+        Trajectory generation method ('poly5', 'poly7', 'stepwise') (default is 'poly5').
+    discr_method : str, optional
+        Discretization method ('fe' for Forward Euler, 'be' for Backward Euler, 'tr' for Trapezoidal) (default is 'fe').
+    plot_results : bool, optional
+        Whether to plot the results (default is True).
+    plot_armijo : bool, optional
+        Whether to plot the Armijo line search results (default is False).
+    debug_print : bool, optional
+        Whether to print debug information (default is True).
+    initial_as_PDg : bool, optional
+        Whether to use initial trajectory as PD+g controller (default is False).
+    """
     #######################################
     # Algorithm parameters
     #######################################
+
+    # General parameters
+    term_cond = 1e-6
     
     # Amijo parameters
     stepsize_0=1.0
@@ -74,7 +99,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
     # Base Cost matrix
     QQt_base = np.diag([10.0, 10.0, 1e-1, 1e-1])    # State cost
     RRt = 1e-2 * np.eye(1)                          # Input cost
-
 
     #######################################
     # Task and Equilibrium points
@@ -97,8 +121,8 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
     if plot_results:
         plots.equilibrium_manifold(data_dict, eq_pair1, eq_pair2, print_results=False)
 
-        x_eq = np.array([x_eq1, x_eq2])
-        u_eq = np.array([u_eq1, u_eq2])
+        x_eq = np.array([x_eq1, x_eq2]) # Equilibrium states (2,4)
+        u_eq = np.array([u_eq1, u_eq2]) # Equilibrium inputs (2,)
         model.draw_pendulums(x_eq, u_eq, task=selected_task)
 
 
@@ -170,10 +194,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
     BB = np.zeros((ns, ni, TT, max_iters))
     deltax = np.zeros((ns, TT, max_iters))
 
-    xx_total = np.zeros((ns, TT, max_iters))    # all state trajectories
-    uu_total = np.zeros((ni, TT, max_iters))    # all input trajectories
-
-
     ######################################
     # Initial Trajectory Guess via PD controller + gravity compensation
     ######################################
@@ -183,12 +203,13 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
     uu_init = np.zeros((ni, TT))
     xx_init = np.zeros((ns, TT))
 
-    xx_init[:, 0] = x0
-
-
-    for tt in range(TT-1):
-        uu_init[:, tt] = solver.PD_controller_gravity_comp(model, xx_init[:, tt], xx_ref[:, tt], uu_ref[0, tt])
-        xx_init[:, tt+1] = model.discrete_dynamics(xx_init[:, tt], uu_init[:, tt])
+    if initial_as_PDg: 
+        xx_init[:, 0] = x0
+        for tt in range(TT-1):
+            uu_init[:, tt] = solver.PD_controller_gravity_comp(model, xx_init[:, tt], xx_ref[:, tt], uu_ref[0, tt])
+            xx_init[:, tt+1] = model.discrete_dynamics(xx_init[:, tt], uu_init[:, tt])
+    else:
+        pass
 
     uu_init[:,-1] = uu_init[:,-2]
 
@@ -271,24 +292,9 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
                                             QQt, RRt, QQT, kk, plot=plot_armijo)
         
         gradient_error[kk] = grad_error_temp
-
-
+     
         ############################
-        # 3. Termination condition
-        ############################
-
-        if stepsize == 0.0:
-            print(f"\n\nConvergence reached at iteration {kk}!")
-            max_iters = kk
-            break
-
-        if np.isnan(descent[kk]) or np.isnan(descent_arm[kk]):
-            print(f"\n\nNaN detected at iteration {kk}, time {tt}! Stopping computation.")
-            max_iters = kk
-            break
-                
-        ############################
-        # 4. Forward closed-loop integration
+        # 3. Forward closed-loop integration
         ############################
         
         xx_temp = np.zeros((ns,TT))
@@ -305,15 +311,12 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
         uu_temp[:,-1] = uu_temp[:,-2]
 
         # Store trajectories
-        xx_total[:,:,kk+1] = xx_temp.copy()
-        uu_total[:,:,kk+1] = uu_temp.copy()
-
         xx[:,:,kk+1] = xx_temp.copy()
         uu[:,:,kk+1] = uu_temp.copy()
 
         
         ############################
-        # 5. Visualization
+        # 4. Visualization
         ############################
         
         if debug_print:
@@ -328,7 +331,19 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
             dots = "." * (kk % 4)
             print(f"\rComputing optimal trajectory{dots:3}", end="", flush=True)
 
-        
+        ############################
+        # 5. Termination condition
+        ############################
+
+        if descent[kk] < term_cond:
+            print(f"\n\nConvergence reached at iteration {kk}!")
+            max_iters = kk
+            break
+
+        if np.isnan(descent[kk]) or np.isnan(descent_arm[kk]):
+            print(f"\n\nNaN detected at iteration {kk}, time {tt}! Stopping computation.")
+            max_iters = kk
+            break
 
     ##################################
     # Results
@@ -337,7 +352,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
     uu_star = uu[:,:,max_iters-1]
     uu_star[:,-1] = uu_star[:,-2] 
     descent[max_iters-1] = descent[ max_iters-2]
-
 
     if plot_results:
         # Descent Direction
@@ -355,7 +369,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
         # Gradient error
         plots.gradient_error(gradient_error, max_iters)
 
-
     # Animation of the optimal trajectory
     if plot_results:
         anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), target_fps=30)
@@ -365,4 +378,4 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', d
 
 
 if __name__ == "__main__":
-    generate_optimal_trajectory('swing_up', max_iters=300, n_mid=20, method='stepwise', discr_method='fe', plot_results=True, plot_armijo=False, debug_print=True)
+    generate_optimal_trajectory('swing_up', max_iters=300, n_mid=20, method='stepwise', discr_method='fe', plot_results=True, plot_armijo=False, debug_print=True, initial_as_PDg=True)

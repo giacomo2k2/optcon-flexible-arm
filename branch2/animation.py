@@ -3,7 +3,7 @@
 # Optimal Control of a Flexible Robotic Link
 #
 # File:         animation.py
-# Description:  Animation helper functions.
+# Description:  Animation helper functions for real-time rendering of the double pendulum.
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
@@ -13,16 +13,21 @@
 #######################################
 # Imports
 #######################################
+
+# Python libraries
 import matplotlib.pyplot as plt
 import time
 import numpy as np
-from model import DoublePendulumFlexible
 
 plt.rcParams['font.family'] = 'serif'
+
+# Model
+from model import DoublePendulumFlexible
 
 #######################################
 # Functions
 #######################################
+
 def animate(model: DoublePendulumFlexible, x_traj: np.ndarray, target_fps: int = 30) -> None:
     """
     Helper function to animate the model along a given trajectory in real-time.
@@ -37,6 +42,8 @@ def animate(model: DoublePendulumFlexible, x_traj: np.ndarray, target_fps: int =
         Target frames per second for rendering, by default 30.
     """
     fig, ax = plt.subplots()
+
+    # Enable interactive mode
     plt.ion()
     plt.show()
 

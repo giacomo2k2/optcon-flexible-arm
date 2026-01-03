@@ -79,6 +79,7 @@ PARAM_SET_3 = {
 #######################################
 # Model Class
 #######################################
+
 class DoublePendulumFlexible:
     """
     Class representing a flexible double pendulum system.
@@ -91,29 +92,29 @@ class DoublePendulumFlexible:
         Parameters
         ----------
         m1 : float
-            Mass of link 1 [kg]
+            Mass of link 1 [kg].
         m2 : float
-            Mass of link 2 [kg]
+            Mass of link 2 [kg].
         l1 : float
-            Length of link 1 [m]
+            Length of link 1 [m].
         l2 : float
-            Length of link 2 [m]
+            Length of link 2 [m].
         lc1 : float
-            Center of mass of link 1 [m]
+            Center of mass of link 1 [m].
         lc2 : float
-            Center of mass of link 2 [m]
+            Center of mass of link 2 [m].
         I1 : float
-            Inertia of link 1 [kg*m^2]
+            Inertia of link 1 [kg*m^2].
         I2 : float
-            Inertia of link 2 [kg*m^2]
+            Inertia of link 2 [kg*m^2].
         g : float
-            Gravity acceleration [m/s^2]
+            Gravity acceleration [m/s^2].
         f1 : float
-            Friction coefficient link 1 [N*m*s/rad]
+            Friction coefficient link 1 [N*m*s/rad].
         f2 : float
-            Friction coefficient link 2 [N*m*s/rad]
+            Friction coefficient link 2 [N*m*s/rad].
         k : float
-            Flexibility coefficient [N*m/rad]
+            Flexibility coefficient [N*m/rad].
         """
         self.m1 = m1
         self.m2 = m2
@@ -139,8 +140,8 @@ class DoublePendulumFlexible:
 
         Returns
         -------
-            q_init : np.ndarray
-                     Random initial state [q1, q2, q1_dot, q2_dot]
+        q_init : np.ndarray
+            Random initial state [q1, q2, q1_dot, q2_dot].
         """
         q1 = np.random.uniform(-np.pi, np.pi)
         q2 = np.random.uniform(-np.pi, np.pi)
@@ -384,7 +385,6 @@ class DoublePendulumFlexible:
 
         return A, B
     
-
     def _get_forward_kinematics(self, x:np.ndarray, com:bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the forward kinematics of the double pendulum.
@@ -407,12 +407,15 @@ class DoublePendulumFlexible:
         pc2 : np.ndarray, optional
             Position of the center of mass of link 2 [xc2, yc2] (returned if com=True).
         """
+        # Extract joint angles
         q1 = x[0]
         q2 = x[1]
 
+        # Compute cartesian positions
         p1 = np.array([self.l1 * np.sin(q1), -self.l1 * np.cos(q1)])
         p2 = p1 + np.array([self.l2 * np.sin(q1 + q2), -self.l2 * np.cos(q1 + q2)])
 
+        # Compute centers of mass positions if requested
         if com:
             pc1 = np.array([self.lc1 * np.sin(q1), -self.lc1 * np.cos(q1)])
             pc2 = np.array([self.l1 * np.sin(q1) + self.lc2 * np.sin(q1 + q2), -self.l1 * np.cos(q1) - self.lc2 * np.cos(q1 + q2)])
@@ -420,9 +423,28 @@ class DoublePendulumFlexible:
         else:
             return p1, p2
 
-        
-    def find_equilibrium(self, fix_type, value_fixed=0.0, right=True, up=True):
-    
+    def find_equilibrium(self, fix_type: str, value_fixed: float = 0.0, right: bool = True, up: bool = True) -> tuple[np.ndarray, float]:
+        """
+        Find the equilibrium state and input fixing one of the joint. Geometrical configuration may be express by the 'right' and 'up' boolean flags.
+
+        Parameters
+        ----------
+        fix_type : str
+            Type of joint to fix ('q1' or 'q2').
+        value_fixed : float, optional
+            Value to fix the joint at (default is 0.0).
+        right : bool, optional
+            If True, search for configurations with q1 >= 0 (only for fix_type='q2') (default is True).
+        up : bool, optional
+            If True, search for configurations with q2 >= 0 (only for fix_type='q1') (default is True).
+
+        Returns
+        -------
+        x_eq : np.ndarray
+            Equilibrium state [q1, q2, 0, 0].
+        u_eq : float
+            Equilibrium input torque.
+        """
         def error_func(guess):
             if fix_type == 'q1':
                 x_test = np.array([value_fixed, float(guess), 0.0, 0.0])
@@ -433,17 +455,20 @@ class DoublePendulumFlexible:
             return G[1, 0] 
 
     
-        # Search full circle
+        # Full circle search
         guesses = [0.0, np.pi, -np.pi, np.pi/2, -np.pi/2, 0.5, -0.5]
         valid_solutions = []
         seen_vals = []
 
-
+        # Loop over possible guesses
         for guess in guesses:
+            # Solve for equilibrium
             sol, info, ier, msg = fsolve(error_func, guess, full_output=True)
             
-
+            # Check convergence
             current_error = np.abs(info['fvec'])
+
+            # If converged, store solution
             if ier == 1 or current_error < 1e-6:
                 # Normalize to [-pi, pi]
                 val = np.arctan2(np.sin(sol[0]), np.cos(sol[0]))
@@ -464,7 +489,9 @@ class DoublePendulumFlexible:
                         x_final = np.array([val, value_fixed, 0.0, 0.0])
 
                     _, _, _, G_final, _ = self.dynamic_model(x_final)
-                    u_calc = G_final[0, 0]
+                    u_calc = G_final[0, 0] # Required torque to maintain equilibrium
+
+                    # Store valid solution
                     if fix_type == 'q1':
                         valid_solutions.append({'q1': value_fixed, 'q2': val, 'u': u_calc})
                     else:
@@ -472,8 +499,10 @@ class DoublePendulumFlexible:
                     seen_vals.append(val)
 
 
+        # Select solution based on geometry requirements
         index = 0    
         if fix_type == 'q1':
+            # Select "Up" vs "Down" configuration based on the sign of q2
             for i, sol in enumerate(valid_solutions):
                 q2 = sol['q2']
                 if up:
@@ -482,10 +511,9 @@ class DoublePendulumFlexible:
                 if not up:
                     if value_fixed >= 0 and q2 <= 0 or value_fixed < 0 and q2 >= 0:
                         index = i
-
-        else:            
+        else:
+            # Select "Right" vs "Left" configuration based on the sign of q1
             for i, sol in enumerate(valid_solutions):
-                
                 q1 = sol['q1']
                 if right:
                     if q1 >= 0: 
@@ -494,12 +522,8 @@ class DoublePendulumFlexible:
                     if q1 < 0:
                         index = i
 
-
         return (np.array([valid_solutions[index]['q1'], valid_solutions[index]['q2'], 0.0, 0.0]), valid_solutions[index]['u'])
 
-
-        
-        
     def compute_equilibrium_manifold(self, n_points: int = 50, q_max: float = np.pi) -> dict:
         """
         Compute the equilibrium manifold by fixing q1 and q2 over specified ranges.
@@ -557,30 +581,27 @@ class DoublePendulumFlexible:
     
     def draw_pendulums(self, x_eq: np.ndarray, u_eq: np.ndarray, task: str = "") -> None:
         """
-        Visualize the double pendulum at the equilibrium point.
+        Visualize the double pendulum at the equilibrium point in grid layout.
         
         Parameters
         ----------
         x_eq : np.ndarray
-            Equilibrium state [q1, q2, 0, 0].
+            Equilibrium state (n_points, 4).
         u_eq : float
-            Equilibrium input torque.
-        title : str, optional
-            Title for the plot (default is empty string).
+            Equilibrium input torque (n_points,).
+        task : str, optional
+            Task description for the plot title (default is empty string).
         """
-
         fig, ax = plt.subplots(1, x_eq.shape[0], figsize=(12, 6))
         for i in range(x_eq.shape[0]):
             self.draw_frame(x_eq[i, :], ax[i])
             ax[i].set_title(f"u = {u_eq[i]:.2f} Nm, q1 = {x_eq[i][0]:.2f} rad, q2 = {x_eq[i][1]:.2f} rad")
         
-        # title for the two subplots
+        # Title for the two subplots
         if task:
-            fig.suptitle(f"Double Pendulum Equilibria - {task}", fontsize=16)
+            fig.suptitle(f"Double Pendulum Equilibria - {task}", fontsize=16, x=0.5, ha='center', fontweight='bold')
 
         plt.show()
-        
-    
 
     def draw_frame(self, x: np.ndarray, ax: plt.Axes) -> None:
         """
@@ -593,10 +614,9 @@ class DoublePendulumFlexible:
         ax : plt.Axes
             Matplotlib Axes to draw on.
         """
-
+        # Get coordinates
         p1, p2, pc1, pc2 = self._get_forward_kinematics(x, com=True)
         
-
         # Limit for total pendolum length
         lim_size = (self.l1 + self.l2) * 1.5
 

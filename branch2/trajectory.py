@@ -15,6 +15,8 @@
 #######################################
 import numpy as np
 from scipy.interpolate import CubicSpline
+
+# Model
 from model import DoublePendulumFlexible, PARAM_SET_2
 
 #######################################

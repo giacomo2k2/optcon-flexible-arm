@@ -60,7 +60,6 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
     title : str
         Title for the plots.
     """
-
     # Labels based on title content
     if "ref" in title.lower():
         lbl_q1, lbl_q2 = r'$q_1^\text{ref}(t)$', r'$q_2^\text{ref}(t)$'
@@ -81,12 +80,12 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
     }
 
     # Figure setup
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure('Trajectory evolution', figsize=(8, 6))
     fig.suptitle(f"{title}", fontsize=14, fontweight='bold', ha='center', x=0.5)
     gs = gridspec.GridSpec(3, 2, figure=fig, height_ratios=[1, 1, 1])
 
-    # 3. Definition of axes based on desired position
-    # ROW 1: q1 and q2q
+    # Definition of axes based on desired position
+    # ROW 1: q1 and q2
     ax_q1     = fig.add_subplot(gs[0, 0])
     ax_q2     = fig.add_subplot(gs[0, 1])
     # ROW 2: q1_dot and q2_dot
@@ -106,6 +105,7 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
     for key, ax in axes_map.items():
         data, label, unit, idx = config[key]
 
+        # Equilibrium lines
         for i, eq_pair in enumerate([eq_pair1, eq_pair2]):
             x_eq, u_eq = eq_pair
             val = u_eq if key == "input" else x_eq[idx]
@@ -116,11 +116,12 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
         ax.set_title(label, fontsize=12, fontweight='bold')
         ax.plot(time, data, linewidth=2, label=label, linestyle='-', color=colors["blue"])
         ax.set_ylabel(unit)
-        if key == "input":
-            ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle='--', alpha=0.5)
         ax.legend()
 
+    axes_map["input"].set_xlabel(r'$t \mathrm{[s]}$')
+
+    # Layout adjustment
     plt.subplots_adjust(hspace=0.5)
     
     plt.show()
@@ -154,14 +155,10 @@ def trajectory_comparison(
 
     # Ensure x_track and u_track have 3 dimensions
     if x_track.ndim < 3:
-        #print(f"before: {x_track.ndim}")
         x_track = x_track.reshape(x_track.shape[0], x_track.shape[1], 1)
-        #print(f"after: {x_track.ndim}")
     
     if u_track.ndim < 3:
-        #print(f"before: {u_track.ndim}")
         u_track = u_track.reshape(u_track.shape[0], u_track.shape[1], 1)
-        #print(f"after: {u_track.ndim}")
 
     # Extract dimensions
     num_runs = x_track.shape[2]
@@ -252,13 +249,13 @@ def tracking_error(
     cmap = plt.get_cmap('tab10')
     run_colors = [cmap(i) for i in range(num_runs)]
 
-    fig = plt.figure(figsize=(14, 12))
+    fig = plt.figure('Tracking Error Analysis', figsize=(14, 12))
     fig.suptitle(f"Tracking Error Analysis: {title}", fontsize=16, fontweight='bold', x=0.5, ha='center')
 
     # 3x2 layout: row1(q1,q2), row2(velocities), row3(u, legend)
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.35, wspace=0.25)
 
-    # Assi: 6 celle
+    # Axes mapping
     axes_map = {
         "q1":      fig.add_subplot(gs[0, 0]),
         "q2":      fig.add_subplot(gs[0, 1]),
@@ -268,8 +265,7 @@ def tracking_error(
         "legend":  fig.add_subplot(gs[2, 1])
     }
 
-    # Configurazione metadati (indice_stato, label_errore, unità)
-    # Nota: l'input usa u_ref/u_track, gli altri x_ref/x_track
+    # Metadata (state_index, error_label, unit)
     config = {
         "q1":      (0, r'$e_{q_1}$', r'$\mathrm{[rad]}$'),
         "q2":      (1, r'$e_{q_2}$', r'$\mathrm{[rad]}$'),
@@ -277,16 +273,16 @@ def tracking_error(
         "q2_dot":  (3, r'$e_{\dot{q}_2}$', r'$\mathrm{[rad/s]}$'),
     }
 
-    epsilon_labels = []  # Per la legenda per-run
+    epsilon_labels = []
 
-    # Ciclo sulle RUN per raccogliere epsilon e preparare i plot
+    # Plot errors for each run
     for r in range(num_runs):
-        # Calcolo epsilon (differenza condizioni iniziali)
+        # Compute epsilon
         eps = x_track[:, 0, r] - x_ref[:, 0]
         eps_str = fr"Run {r+1}: $\varepsilon$ = [{eps[0]:.2f}, {eps[1]:.2f}, {eps[2]:.2f}, {eps[3]:.2f}]"
         epsilon_labels.append(eps_str)
 
-        # Plot degli stati
+        # Plot errors for each state
         for key, (idx, label, unit) in config.items():
             ax = axes_map[key]
             error = x_ref[idx, :] - x_track[idx, :, r]
@@ -295,7 +291,7 @@ def tracking_error(
             ax.set_ylabel(unit)
             ax.grid(True, linestyle=':', alpha=0.6)
 
-        # Plot dell'input (caso speciale) nella cella [2,0]
+        # Plot input error
         ax_u = axes_map["input"]
         error_u = u_ref[0, :] - u_track[0, :, r]
         ax_u.plot(time, error_u, color=run_colors[r], label=f"Run {r+1}", linewidth=1.5, alpha=0.8)
@@ -303,14 +299,15 @@ def tracking_error(
         ax_u.set_ylabel(r"$\mathrm{[Nm]}$")
         ax_u.grid(True, linestyle=':', alpha=0.6)
 
-    # Label asse X per la riga finale
+    # X labels
     axes_map["q2_dot"].set_xlabel(r'$t \mathrm{[s]}$')
     axes_map["input"].set_xlabel(r'$t \mathrm{[s]}$')
 
-    # Cella legenda: mostra le run con colore e epsilon
+    # Legend cell: shows runs with color and epsilon
     ax_leg = axes_map["legend"]
     ax_leg.axis('off')
-    # Crea handle fittizi per la legenda con i colori delle run
+
+    # Create dummy handles for the legend with run colors
     for r in range(num_runs):
         ax_leg.plot([], [], color=run_colors[r], label=epsilon_labels[r])
     ax_leg.legend(loc='center', ncol=1, fontsize=10, frameon=True,
@@ -352,7 +349,7 @@ def trajectory_comparison_mid(
     c_init = 'blue'
     c_final = 'orange'
 
-    fig = plt.figure(figsize=(15, 12))
+    fig = plt.figure('Trajectory Comparison', figsize=(15, 12))
     fig.suptitle(f"Newton Method Evolution: {title}", fontsize=18, fontweight='bold', ha='center', x=0.5)
     
     # Grid view
@@ -399,9 +396,11 @@ def trajectory_comparison_mid(
 
         ax.set_title(f"State {tex}" if key != "input" else "Control Input", fontsize=13)
         ax.set_ylabel(unit)
-        if key in ['q2_dot', 'input']:
-            ax.set_xlabel(r'$t \mathrm{[s]}$')
         ax.grid(True, linestyle=':', alpha=0.6)
+
+    # X labels
+    axes_map["input"].set_xlabel(r'$t \mathrm{[s]}$')
+    axes_map['q2_dot'].set_xlabel(r'$t \mathrm{[s]}$')
 
     # Legend handling
     ax_leg = axes_map["legend"]
@@ -417,10 +416,6 @@ def trajectory_comparison_mid(
     
     plt.subplots_adjust(hspace=2)
     plt.show()
-    
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True) -> None:
     """
@@ -512,7 +507,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
         
 
     if plot_3d:
-        fig3d = plt.figure(figsize=(10, 8))
+        fig3d = plt.figure('3D Equilibrium Surface', figsize=(10, 8))
         ax = fig3d.add_subplot(111, projection='3d')
 
         # 3D Manifold Scatter
@@ -586,7 +581,7 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     kk : int
         Current iteration index.
     """
-    plt.figure(1)
+    plt.figure('Armijo Descent Direction')
     
     plt.clf()
 
@@ -600,7 +595,7 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     
     plt.grid()
     plt.xlabel('stepsize ($\\gamma$)')
-    plt.title(f'Armijo stepsize selection - Iteration {kk}')
+    plt.title(f'Armijo stepsize selection - Iteration {kk} - $\\gamma$ = {stepsizes[-1]:.3f}')
     plt.legend()
     plt.draw()  
     
@@ -617,7 +612,7 @@ def descent_direction(descent: np.ndarray, iters: int) -> None:
     iters : int
         Number of iterations to plot.
     """
-    plt.figure('descent direction', figsize=(10, 6))
+    plt.figure('Descent direction', figsize=(10, 6))
     plt.plot(np.arange(iters), descent[:iters], linewidth=2, color=colors['blue'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'$\| \Delta u \| ^2$', fontsize=14)
@@ -638,7 +633,7 @@ def cost(JJ: np.ndarray, iters: int) -> None:
     max_iters : int
         Maximum number of iterations to plot.
     """
-    plt.figure('cost', figsize=(10, 6))
+    plt.figure('Cost', figsize=(10, 6))
     plt.plot(np.arange(iters-1), JJ[:iters-1], linewidth=2, color=colors['orange'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'$J(\mathbf{u}^k)$', fontsize=14)
@@ -702,8 +697,6 @@ def draw_pendulum_configuration(ax: plt.Axes, p1: np.ndarray, p2: np.ndarray, pc
     ax.scatter(pc1[0], pc1[1], color=colors['red'], s=40, zorder=5, alpha=alpha)   # CM1
     ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5, alpha=alpha) # CM2
 
-
-
 def gradient_error(grad_errors: np.ndarray, iters: int) -> None:
     """
     Plots the gradient error over iterations.
@@ -715,7 +708,7 @@ def gradient_error(grad_errors: np.ndarray, iters: int) -> None:
     iters : int
         Number of iterations to plot.
     """
-    plt.figure('gradient error', figsize=(10, 6))
+    plt.figure('Gradient Error', figsize=(10, 6))
     plt.plot(np.arange(iters), grad_errors[:iters], linewidth=2, color=colors['purple'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'Gradient Error', fontsize=14)

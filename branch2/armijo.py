@@ -14,24 +14,32 @@
 # Imports
 #######################################
 
+# Python libraries
 import numpy as np
+
+# Model
+from model import DoublePendulumFlexible
+
+# Costs
 import costs as cst
+
+# Plots
 import plots as plots
 
 #######################################
 # Functions
 #######################################
 
-def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
+def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                            ss_k: np.ndarray, KK_k: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray, 
                            xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                           kk: int, plot: bool = False):
+                           kk: int, plot: bool = False) -> tuple[float, float]:
     """
     Select the stepsize using the Armijo rule for the Newton method.
 
     Parameters
     ----------
-    model : object
+    model : DoublePendulumFlexible
         System model.
     stepsize_0 : float
         Initial stepsize to start the Armijo search.
@@ -74,21 +82,34 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
     -------
     stepsize : float
         Selected stepsize.
+    gradient_error : float
+        Error between numeric and analytic gradient.
     """
+    # Extract dimensions
     TT = uu.shape[1]
     ns = xx_ref.shape[0]
     ni = uu.shape[0]
 
+    # Initial stepsize
     stepsize = stepsize_0
+
+    # Array to store stepsizes and costs for plotting
     stepsizes = []
     costs_armijo = []
 
+    # Positive descent check
     if descent_arm > 0:
         print("WARNING: Descent direction is positive! Regularization needed.")
 
+    #######################################
+    # Armijo backtracking line search
+    #######################################
     for ii in range(armijo_maxiters):
-        xx_temp = np.zeros((ns, TT  ))
+        # Temporary solution update
+        xx_temp = np.zeros((ns, TT))
         uu_temp = np.zeros((ni, TT))
+
+        # Initial condition for state and cost
         xx_temp[:, 0] = x0
         JJ_temp = 0
 
@@ -97,34 +118,32 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
             deltax = xx_temp[:, tt] - xx[:, tt]
             uu_temp[:, tt] = uu[:, tt] + stepsize * ss_k[:, tt] +  KK_k[:, :, tt] @ deltax
             xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])
-           
+        
+        # Compute cost
         JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT)
         
+        # For plotting purposes
         uu_temp[:, -1] = uu_temp[:, -2]
 
-        stepsizes.append(stepsize)      # save the stepsize
-        costs_armijo.append(JJ_temp)    # save the cost associated to the stepsize
+        stepsizes.append(stepsize)      # Save the stepsize
+        costs_armijo.append(JJ_temp)    # Save the cost associated to the stepsize
 
-        
+        # Check Armijo condition
         if JJ_temp > JJ + c*stepsize*descent_arm:
             stepsize = beta*stepsize
         else:
             break
-
+        
+        # Set null stepsize if no suitable stepsize was found
         if ii == armijo_maxiters -1:
-            stepsize = 0
             print("WARNING: no stepsize was found with armijo rule!")
 
-    
     ############################
     # Gradient Check
     ############################
     
-    gradient_error = 0.0
-
-   
-   
-   
+    # Initialize gradient error
+    gradient_error = 0.0   
     step = 1e-6
 
     xx_step = np.zeros((ns,TT))
@@ -152,11 +171,10 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
         steps = np.linspace(0,stepsize_0,int(20))
         costs = np.zeros(len(steps))
 
-
         for ii in range(len(steps)):
             step = steps[ii]
 
-            # temp solution update
+            # Temporary solution update
             xx_temp = np.zeros((ns,TT))
             uu_temp = np.zeros((ni,TT))
             xx_temp[:,0] = x0
@@ -170,7 +188,7 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
             JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT) 
             costs[ii] = JJ_temp
 
-
+        # Plot the descent direction
         plots.armijo_descent(steps, costs, JJ, descent_arm, c, stepsizes, costs_armijo, kk)        
 
     return stepsize, gradient_error

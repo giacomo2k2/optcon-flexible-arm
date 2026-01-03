@@ -26,14 +26,10 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 # Model
 from model import DoublePendulumFlexible, PARAM_SET_2
 
-# Costs
-import costs as cst
-
 # Armijo
 import armijo as armijo
 
 # Trajectories
-import trajectory as traj
 import trajectory_generation_newton as traj_gen_newton
 
 # Solver

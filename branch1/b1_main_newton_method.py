@@ -168,7 +168,7 @@ data_dict = model.compute_equilibrium_manifold()
 # top_to_elbow_down:
 
 
-selected_equilibrium = 'top_to_elbow_up'
+selected_equilibrium = 'elbow_up'
 eq_pair1, eq_pair2 = equilibrium_traj[selected_equilibrium]
 (x_eq1, u_eq1), (x_eq2, u_eq2) = eq_pair1, eq_pair2
 
@@ -470,3 +470,4 @@ def get_equilibrium_pairs():
         Second equilibrium pair (x_eq2, u_eq2).
     """
     return eq_pair1, eq_pair2
+
