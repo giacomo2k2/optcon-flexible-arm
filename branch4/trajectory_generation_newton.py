@@ -160,7 +160,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     T0 = 0.0                        # Initial absolute time
     ti = 0.3                        # Start time for trajectory segment (relative)
-    tf = 0.7                        # End time for trajectory segment (relative)
+    tf = 1.0                        # End time for trajectory segment (relative)
     dt = model.dt                   # Time step
     t = np.arange(T0, Tend, dt)     # Time vector
     TT = len(t)                     # Number of time steps
@@ -189,10 +189,12 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     QQt = QQt_base @ scale_QQt
 
-    QQT = termcost_mult * np.array([1e3, 0, 0, 0,
-                                0, 1e3, 0, 0,
-                                0, 0, 1e3, 0,
-                                0, 0, 0, 1e3]).reshape((ns,ns))
+    A_final, B_final = solver.jacobian_analytic(x_eq2, u_eq2, model) 
+    QQT, _, _ = ctrl.dare(A_final, B_final, QQt, RRt)
+    # QQT = termcost_mult * np.array([1e3, 0, 0, 0,
+    #                              0, 1e3, 0, 0,
+    #                              0, 0, 1e3, 0,
+    #                              0, 0, 0, 1e3]).reshape((ns,ns))
 
     ######################################
     # Arrays to store data
@@ -220,8 +222,6 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     BB = np.zeros((ns, ni, TT, max_iters))
     deltax = np.zeros((ns, TT, max_iters))
 
-    xx_total = np.zeros((ns, TT, max_iters))    # all state trajectories
-    uu_total = np.zeros((ni, TT, max_iters))    # all input trajectories
 
     ######################################
     # Initial Trajectory Guess
@@ -262,6 +262,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     # Store initial guess in iterations array
     xx[:,:,0] = xx_init
     uu[:,:,0] = uu_init
+
 
     ######################################
     # [PLOTS] Initial guess vs Reference trajectory comparison
@@ -437,7 +438,7 @@ def main():
     max_iters = 300                      # Maximum number of iterations
     n_mid = 20                           # Number of intermediate trajectories to plot
     method = 'poly5'                     # Trajectory generation method ('poly5', 'spline', ...)
-    task = 'half_middle_dive'           # Choose from keys of equilibrium_traj
+    task = 'swing_up'           # Choose from keys of equilibrium_traj
 
     ######################################
     # Algorithm flags

@@ -163,7 +163,7 @@ tasks = {
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'zero',
+        'guess': 'PD',
         'discr_method': 'rk4'
     },
     'overhead_wipe': {

@@ -98,19 +98,30 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
 
     x_eq, u_eq = eq_pair2
 
-    TT_ext = int(extend_time / dt)
+    TT_ext_traj = int(extend_time / dt)
 
-    
-    xx_eq_ext = np.tile(x_eq[:, np.newaxis], (1, TT_ext))
-    uu_eq_ext = np.tile(u_eq[:, np.newaxis], (1, TT_ext))
+    TT_blend = int(0.5*extend_time / dt)  # 10% of extend_time for blending
+    TT_ext_res = int(0.5*extend_time / dt)
 
-    xx_traj_ext = np.tile(xx_star[:, -1][:, np.newaxis], (1, TT_ext))
-    uu_traj_ext = np.tile(uu_star[:, -1][:, np.newaxis], (1, TT_ext))
+
+    xx_blend = np.zeros((ns, TT_blend))
+    uu_blend = np.zeros((ni, TT_blend))
+
+    for i in range(ns):
+        xx_blend[i, :] = np.linspace(xx_star[i, -1], x_eq[i], TT_blend)
+    for j in range(ni):
+        uu_blend[j, :] = np.linspace(uu_star[j, -1], u_eq[j], TT_blend)
+
+    xx_eq_ext = np.tile(x_eq[:, np.newaxis], (1, TT_ext_res))
+    uu_eq_ext = np.tile(u_eq[:, np.newaxis], (1, TT_ext_res))
+
+    xx_traj_ext = np.tile(xx_star[:, -1][:, np.newaxis], (1, TT_ext_traj))
+    uu_traj_ext = np.tile(uu_star[:, -1][:, np.newaxis], (1, TT_ext_traj))
 
     # Extend optimal trajectories by using final equilibrium
     
-    uu_star_eq = np.hstack((uu_star, uu_eq_ext)) # Extend input trajectory discontinuity here
-    xx_star_eq = np.hstack((xx_star, xx_eq_ext)) # Extend state trajectory no discontinuity here
+    uu_star_eq = np.hstack((uu_star, uu_blend, uu_eq_ext)) # Extend input trajectory discontinuity here
+    xx_star_eq = np.hstack((xx_star, xx_blend, xx_eq_ext)) # Extend state trajectory no discontinuity here
     
     uu_star_traj = np.hstack((uu_star, uu_traj_ext)) # Extend input trajectory discontinuity here
     xx_star_traj = np.hstack((xx_star, xx_traj_ext)) #
@@ -263,7 +274,7 @@ def main():
     ######################################
 
     trajectory_tracking_LQR(
-        eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 
+        eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=0, runs=runs, 
         perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
 
 
