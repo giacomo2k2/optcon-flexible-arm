@@ -82,6 +82,9 @@ def extend_trajectory(xx_curr, uu_curr, xx_ref, uu_ref, x_eq, u_eq, dt, extensio
     uu_pad = np.tile(u_eq[:, None], (1, n_extra))
     uu_ext = np.hstack((uu_curr, uu_pad))
 
+    T_old = xx_curr.shape[1]
+    uu_ext[:, T_old - 1] = u_eq
+
     # For State: Simulate dynamics forward from the last known state
     xx_ext = np.pad(xx_curr, ((0, 0), (0, n_extra)), mode='edge') 
     
@@ -181,7 +184,6 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     time = np.arange(T0, Tend, dt)
 
     
-
     # Generate initial Reference
     _, xx_ref = traj.trajectory_generator(start=x_eq1, end=x_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='state')
     _, uu_ref = traj.trajectory_generator(start=u_eq1, end=u_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='input')
@@ -220,7 +222,10 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     global_JJ = []
     global_descent = []
-
+    phase_iters = []
+    phase_history = []
+    gradient_error = []
+    phase_iters.append(0)  # First phase starts at iteration 0
 
     max_iters_ext = int(np.floor((max_time - Tend) / extension_duration))
 
@@ -302,25 +307,30 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
                 descent_arm[kk] += dJ[:,tt,kk].T @ deltau[:,tt,kk]  
 
             # 2. Stepsize (Armijo)
-            stepsize, _ = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
+            stepsize, grad_err = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
                                                 ss[:,:,kk], KK[:,:,:,kk], xx_ref, uu_ref, 
                                                 x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
                                                 QQt, RRt, QQT, kk, plot=plot_armijo, folder=folder)
 
             # --- SAVE METRICS TO GLOBAL HISTORY ---
             global_JJ.append(JJ[kk])
-            global_descent.append(descent[kk])
+            global_descent.append(descent[kk]) 
+            gradient_error.append(grad_err)
 
             # 3. Check Convergence
             if abs(descent[kk]) < descent_threshold or stepsize == 0.0:
                 if debug_print: print(f"\nPhase converged at iter {kk}.")
                 converged = True
                 final_kk = kk
+ 
+                phase_iters.append(phase_iters[jj]+final_kk+1)
                 break
             
             if np.isnan(descent[kk]):
                 print(f"\nNaN detected at iter {kk}. Stopping.")
                 final_kk = kk
+               
+                phase_iters.append(phase_iters[jj]+final_kk+1)
                 break
 
             # 4. Forward Update
@@ -348,6 +358,14 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
         idx_best = final_kk if converged else max_iters-1
         xx_phase_opt = xx[:, :, idx_best]
         uu_phase_opt = uu[:, :, idx_best]
+
+        phase_history.append({
+            'time': time.copy(),
+            'xx': xx[:, :, :idx_best+1].copy(),
+            'uu': uu[:, :, :idx_best+1].copy(),
+            'final_idx': idx_best,
+            'phase_idx': jj
+        })
         
         # Check Terminal Error
         term_error = np.linalg.norm(xx_phase_opt[:, -1] - x_eq2)
@@ -383,19 +401,23 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     global_descent_arr = np.array(global_descent)
     global_JJ_arr = np.array(global_JJ)
-
+    gradient_error = np.array(gradient_error)
     total_iterations = len(global_JJ_arr)
+
+    phase_iters = phase_iters[:-1]  # Remove initial 0 for plotting purposes
 
     print(f"\nTotal Iterations across all phases: {total_iterations}")
 
-    plots.descent_direction(global_descent_arr, total_iterations, plot_flag=plot_flag, folder=folder)
-    plots.cost(global_JJ_arr, total_iterations, plot_flag=plot_flag, folder=folder)
+    plots.descent_direction(global_descent_arr, total_iterations, phase_iters=phase_iters, plot_flag=plot_flag, folder=folder)
+    plots.cost(global_JJ_arr, total_iterations, phase_iters=phase_iters, plot_flag=plot_flag, folder=folder)
     
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference", plot_flag=plot_flag, folder=folder)
+    plots.trajectory_comparison_mid(phase_history, n_mid=5, title="Evolution of Trajectories over Extension Phases", plot_flag=plot_flag, folder=folder)
     
-    #print("Plotting intermediate trajectories for the FINAL phase only...")
-    #plots.trajectory_comparison_mid(time, xx, uu, n_mid, final_kk, title="Intermediate Trajectories (Final Phase)", plot_flag=plot_flag, folder=folder)
+    plots.gradient_error(gradient_error, total_iterations, plot_flag=plot_flag, folder=folder)
+
     anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt=dt, plot_flag=plot_flag, folder=folder)
+
 
     plt.close('all')
 
@@ -414,14 +436,14 @@ def main():
     max_iters = 300                      
     n_mid = 20                           
     method = 'poly5'                     
-    task = 'topside_pump'           
+            
 
     ######################################
     # Algorithm flags
     ######################################
 
     save_flag = True                       
-    plot_flag = True                        
+    plot_flag = False                        
     plot_flag_armijo = False                
     debug_flag = True                       
 
@@ -429,29 +451,35 @@ def main():
     # Environment setup
     ######################################
 
-    try:
-        if task not in traj.tasks:
-            raise ValueError(f"Task '{task}' not found.")
-    except ValueError as e:
-        print(f"\n{e}\n")
-        exit(1)
-    
-    if save_flag:
-        folder = f'report/figs/traj_gen_newton/{task}/'
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-    else:
-        folder = None
+    for task in traj.tasks:
         
-    ######################################
-    # Run
-    ######################################
+        print(f"\nSelected Task: {task}")
+        
+        try:
+            if task not in traj.tasks:
+                raise ValueError(f"Task '{task}' not found.")
+        except ValueError as e:
+            print(f"\n{e}\n")
+            exit(1)
+        
+        if save_flag:
+            folder = f'report/figs/traj_gen_newton/{task}'
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        else:
+            folder = None
+            
+        ######################################
+        # Run
+        ######################################
 
-    generate_optimal_trajectory(
-        task=task, max_iters=max_iters, n_mid=n_mid, method=method, 
-        plot_flag=plot_flag, plot_armijo=plot_flag_armijo, 
-        debug_print=debug_flag, folder=folder
-    )
+        
+
+        generate_optimal_trajectory(
+            task=task, max_iters=max_iters, n_mid=n_mid, method=method, 
+            plot_flag=plot_flag, plot_armijo=plot_flag_armijo, 
+            debug_print=debug_flag, folder=folder
+        )
 
 if __name__ == "__main__":
     main()

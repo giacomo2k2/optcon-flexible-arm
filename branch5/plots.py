@@ -17,7 +17,9 @@
 # Python libraries
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib as mpl
 import numpy as np
+import os
 
 # Matplotlib settings
 plt.rcParams['font.family'] = 'serif'
@@ -351,50 +353,25 @@ def tracking_error(
     
 
 def trajectory_comparison_mid(
-    time: np.ndarray,
-    x_total: np.ndarray,
-    u_total: np.ndarray,
+    phase_history: list,
     n_mid: int,
-    max_iters: int, 
     title: str,
     plot_flag: bool = True,
     folder: str = None,
 ) -> None:
     """
-    Plots the comparison between initial guess, in-mid optimized trajectory, and final optimal trajectory.
-
-    Parameters
-    ----------
-    time : np.ndarray
-        Array of time points.
-    x_total : np.ndarray
-        All optimized state trajectory (ns, TT, max_iters).
-    u_total : np.ndarray
-        All optimized control inputs (ni, TT, max_iters).
-    n_mid : int
-        Index of the in-mid iteration to plot.
-    title : str
-        Title for the plots.
-    plot_flag : bool, optional
-        Whether to display the plots. Default is True.
-    folder : str, optional
-        Folder to save the plots. Default is None.
+    Plots the evolution of the trajectory across dynamic horizon extensions.
+    Ensures later iterations are drawn ON TOP of previous ones.
     """
     
-    indices_to_plot = np.linspace(0, max_iters - 2, n_mid, dtype=int)
-
-    # Color palette 
-    colors_mid = plt.cm.Blues(np.linspace(0.3, 0.9, len(indices_to_plot)))
-    c_init = 'blue'
-    c_final = 'orange'
-
-    fig = plt.figure(figsize=(15, 12))
-    fig.suptitle(f"Newton Method Evolution: {title}", fontsize=18, fontweight='bold', ha='center', x=0.5)
+    num_phases = len(phase_history)
+    cmap = plt.cm.RdYlGn
     
-    # Grid view
+    fig = plt.figure(figsize=(15, 12))
+    fig.suptitle(f"{title}", fontsize=18, fontweight='bold', ha='center', x=0.5)
+    
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.25)
-
-    axes_keys = ["q1", "q2", "q1_dot", "q2_dot", "input"]
+    
     axes_map = {
         "q1":      fig.add_subplot(gs[0, 0]),
         "q2":      fig.add_subplot(gs[0, 1]),
@@ -404,7 +381,6 @@ def trajectory_comparison_mid(
         "legend":  fig.add_subplot(gs[2, 1]) 
     }
 
-    # Metadata (x_index, label_tex, unit)
     config = {
         "q1":     (0, r'$q_1$', r'$\mathrm{[rad]}$'),
         "q2":     (1, r'$q_2$', r'$\mathrm{[rad]}$'),
@@ -413,49 +389,72 @@ def trajectory_comparison_mid(
         "input":  (0, r'$u$', r'$\mathrm{[Nm]}$')
     }
 
-    for key in axes_keys:
-        ax = axes_map[key]
-        idx, tex, unit = config[key]
+    # Iterate through phases
+    for i, phase_data in enumerate(phase_history):
         
-        # Select data
-        data_init = x_total[idx, :, 0] if key != "input" else u_total[idx, :, 0]
-        data_total = x_total if key != "input" else u_total
+        t_phase = phase_data['time']
+        xx_phase = phase_data['xx']
+        uu_phase = phase_data['uu']
+        final_idx = phase_data['final_idx']
+        
+        # 1. Color Progression (Early=Purple -> Late=Yellow)
+        color_val = i / max(1, (num_phases - 1))
+        c_phase = cmap(color_val)
 
-        # 1. Plot Initial Guess
-        ax.plot(time, data_init, color=c_init, linestyle='--', linewidth=1.2, label='Initial Guess')
+        z_ord = 20 - i              
+        lw_val = 2.0 
+        alpha_val = 1.0           
 
-        # 2. Plot Intermediate Trajectories
-        for count, i in enumerate(indices_to_plot):
-            ax.plot(time, data_total[idx, :, i], color=colors_mid[count], 
-                    linewidth=1.0, alpha=0.6, label=f'Iter {i}')
+        # Determine Label for Legend
+        lbl = None
+        if i == 0: lbl = "Phase 0 (Initial - Top Layer)"
+        elif i == num_phases - 1: lbl = f"Phase {i} (Final - Bottom Layer)"
+        
+        # Plot Logic
+        for key in axes_map:
+            if key == "legend": continue
             
-        # 3. Plot Final Optimal
-        ax.plot(time, data_total[idx, :, max_iters-1], color=c_final, linewidth=2.0, 
-                label='Final Optimal')
+            ax = axes_map[key]
+            idx, _, unit = config[key]
+            
+            # Select Data
+            if key == "input":
+                data_final = uu_phase[idx, :, final_idx]
+            else:
+                data_final = xx_phase[idx, :, final_idx]
+            
+            ax.plot(t_phase, data_final, color=c_phase, 
+                    linewidth=lw_val, alpha=alpha_val, zorder=z_ord,
+                    label=lbl if key=="input" else None)
+            
+            ax.set_ylabel(unit)
+            if key in ['q2_dot', 'input']:
+                ax.set_xlabel(r'$t \mathrm{[s]}$')
+            ax.grid(True, linestyle=':', alpha=0.6)
 
-        ax.set_title(f"State {tex}" if key != "input" else "Control Input", fontsize=13)
-        ax.set_ylabel(unit)
-        if key in ['q2_dot', 'input']:
-            ax.set_xlabel(r'$t \mathrm{[s]}$')
-        ax.grid(True, linestyle=':', alpha=0.6)
+    # Titles
+    axes_map["q1"].set_title(r"State $q_1$", fontsize=13)
+    axes_map["q2"].set_title(r"State $q_2$", fontsize=13)
+    axes_map["q1_dot"].set_title(r"State $\dot{q}_1$", fontsize=13)
+    axes_map["q2_dot"].set_title(r"State $\dot{q}_2$", fontsize=13)
+    axes_map["input"].set_title(r"Control Input $u$", fontsize=13)
 
-    # Legend handling
+    # Custom Legend / Colorbar
     ax_leg = axes_map["legend"]
     ax_leg.axis('off')
     
-    # Recover handles and labels from one of the axes
-    handles, labels = axes_map["input"].get_legend_handles_labels()
     
-    # Position the legend at the center of the sixth cell
-    ax_leg.legend(handles, labels, loc='center', fontsize=10, 
-                  title="Trajectory Evolution", title_fontsize=12, frameon=True, ncol=3)
+    norm = mpl.colors.Normalize(vmin=0, vmax=num_phases-1)
+    cb = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax_leg, orientation='horizontal', fraction=0.1)
+    cb.set_label('Horizon Extension (Dark=Short $\to$ Light=Long)')
     
-    plt.subplots_adjust(hspace=2)
+    plt.subplots_adjust(hspace=0.4)
+    
     if plot_flag:
         plt.show()
 
     if folder is not None:
-        fig.savefig(f"{folder}/trajectory_comparison_mid.png", dpi=300, bbox_inches='tight')
+        fig.savefig(f"{folder}/trajectory_comparison_mid_extended.png", dpi=300, bbox_inches='tight')
 
 def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True, plot_flag: bool = True, folder: str = None) -> None:
     """
@@ -576,7 +575,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
 
         ax.set_xlabel(r'$q_1$ [rad]', fontsize=11, labelpad=8)
         ax.set_ylabel(r'$q_2$ [rad]', fontsize=11, labelpad=8)
-        ax.set_zlabel(r'Torque $u$ [Nm]', fontsize=11, labelpad=8)
+        ax.set_zlabel(r'$u$ [Nm]', fontsize=11, labelpad=8)
         ax.set_title('3D Equilibrium Surface', fontsize=14)
         
         # Zero-torque plane reference
@@ -656,7 +655,6 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
 
     plt.plot(steps, costs, color=colors['green'], label='$J(\\mathbf{u}^k - \\gamma \\cdot d^k)$')
     plt.plot(steps, JJ + descent_arm*steps, color=colors['red'], label='$J(\\mathbf{u}^k) - \\gamma \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
-    # plt.plot(steps, JJ - descent*steps, color=colors['red'], label='$J(\\mathbf{u}^k) - stepsize*\\nabla J(\\mathbf{u}^k)^{\\top} d^k$')
     plt.plot(steps, JJ + c*descent_arm*steps, color=colors['green'], linestyle='dashed', label='$J(\\mathbf{u}^k) - \\gamma \\cdot c \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
 
     plt.scatter(stepsizes, costs_armijo, marker='*') # plot the tested stepsize
@@ -671,11 +669,14 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
         plt.draw()  
     
     if folder is not None:
-        plt.savefig(f"{folder}/armijo_iteration_{kk}.png", dpi=300, bbox_inches='tight')
+        if not os.path.exists(f"{folder}/armijo"):
+            os.makedirs(f"{folder}/armijo")
+
+        plt.savefig(f"{folder}/armijo/armijo_iteration_{kk}.png", dpi=300, bbox_inches='tight')
     
     plt.pause(0.01)
     
-def descent_direction(descent: np.ndarray, iters: int, plot_flag: bool = True, folder: str = None) -> None:
+def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plots the descent direction norm over iterations.
 
@@ -697,13 +698,20 @@ def descent_direction(descent: np.ndarray, iters: int, plot_flag: bool = True, f
     plt.title('Descent', fontsize=16)
     plt.yscale('log')
     plt.grid(alpha=0.4)
+
+    # plot phases changes if provided
+    if phase_iters is not None:
+        for phase_iter in phase_iters:
+            plt.axvline(x=phase_iter, color='grey', linestyle='--', alpha=0.7)
+            plt.text(phase_iter + 0.5, max(descent[:iters-1])/2, f'Phase {phase_iters.index(phase_iter)+1}', rotation=90, color='grey', alpha=0.7)
+    
     
     if plot_flag:
         plt.show(block = False)
     if folder is not None:
         plt.savefig(f"{folder}/descent_direction.png", dpi=300, bbox_inches='tight')
 
-def cost(JJ: np.ndarray, iters: int, plot_flag: bool = True, folder: str = None) -> None:
+def cost(JJ: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plots the cost function over iterations.
 
@@ -718,6 +726,8 @@ def cost(JJ: np.ndarray, iters: int, plot_flag: bool = True, folder: str = None)
     folder : str, optional
         Folder to save the plot. Default is None.
     """
+
+    
     plt.figure('Cost', figsize=(10, 6))
     plt.plot(np.arange(iters-1), JJ[:iters-1], linewidth=2, color=colors['orange'])
     plt.xlabel('Iteration $k$', fontsize=14)
@@ -725,6 +735,12 @@ def cost(JJ: np.ndarray, iters: int, plot_flag: bool = True, folder: str = None)
     plt.title('Cost Function', fontsize=16)
     plt.yscale('log')
     plt.grid(alpha=0.4)
+
+    # plot phases changes if provided
+    if phase_iters is not None:
+        for phase_iter in phase_iters:
+            plt.axvline(x=phase_iter, color='grey', linestyle='--', alpha=0.7)
+            plt.text(phase_iter + 0.5, max(JJ[:iters-1])/2, f'Phase {phase_iters.index(phase_iter)+1}', rotation=90, color='grey', alpha=0.7)
     
     if plot_flag:
         plt.show(block=False)

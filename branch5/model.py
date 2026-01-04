@@ -134,21 +134,7 @@ class DoublePendulumFlexible:
         self.dt = 0.01              # Discretization time step
         self.discr_method = 'rk4'   # Discretization method
 
-    def random_init(self) -> np.ndarray:
-        """
-        Generate a random initial state for the double pendulum.
-
-        Returns
-        -------
-        q_init : np.ndarray
-                    Random initial state [q1, q2, q1_dot, q2_dot]
-        """
-        q1 = np.random.uniform(-np.pi, np.pi)
-        q2 = np.random.uniform(-np.pi, np.pi)
-        q1_dot = np.random.uniform(-1.0, 1.0)
-        q2_dot = np.random.uniform(-1.0, 1.0)
-        return np.array([q1, q2, q1_dot, q2_dot])
-
+ 
     def dynamic_model(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute the dynamic model of the Double Pendulum.

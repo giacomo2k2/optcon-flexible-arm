@@ -204,7 +204,7 @@ def main():
     # Algorithm Parameters
     ######################################
 
-    task = 'swing_up'   # Choose from keys of equilibrium_traj
+    task = 'topside_pump'   # Choose from keys of equilibrium_traj
     max_iters = 300          # Max Newton iterations for trajectory generation
     n_mid = 20                # Number of mid points for trajectory generation
     method = 'poly5'         # Trajectory generation method: 'poly3' or

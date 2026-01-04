@@ -85,6 +85,10 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
     gradient_error : float
         Error between numeric and analytic gradient.
     """
+
+    
+
+ 
     TT = uu.shape[1]
     ns = xx_ref.shape[0]
     ni = uu.shape[0]
