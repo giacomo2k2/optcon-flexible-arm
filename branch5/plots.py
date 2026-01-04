@@ -699,11 +699,15 @@ def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None,
     plt.yscale('log')
     plt.grid(alpha=0.4)
 
+
+    max_val = np.max(descent[:iters])
     # plot phases changes if provided
     if phase_iters is not None:
         for phase_iter in phase_iters:
             plt.axvline(x=phase_iter, color='grey', linestyle='--', alpha=0.7)
-            plt.text(phase_iter + 0.5, max(descent[:iters-1])/2, f'Phase {phase_iters.index(phase_iter)+1}', rotation=90, color='grey', alpha=0.7)
+            plt.text(phase_iter + 0.5, max_val / 10, 
+                 f'Phase {phase_iters.index(phase_iter)+1}', 
+                 rotation=90, color='grey', alpha=0.7)
     
     
     if plot_flag:
@@ -736,11 +740,16 @@ def cost(JJ: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool =
     plt.yscale('log')
     plt.grid(alpha=0.4)
 
+    
+
     # plot phases changes if provided
+    max_val = np.max(JJ[:iters-1])
     if phase_iters is not None:
         for phase_iter in phase_iters:
             plt.axvline(x=phase_iter, color='grey', linestyle='--', alpha=0.7)
-            plt.text(phase_iter + 0.5, max(JJ[:iters-1])/2, f'Phase {phase_iters.index(phase_iter)+1}', rotation=90, color='grey', alpha=0.7)
+            plt.text(phase_iter + 0.5, max_val / 2, 
+                 f'Phase {phase_iters.index(phase_iter)+1}', 
+                 rotation=90, color='grey', alpha=0.7)
     
     if plot_flag:
         plt.show(block=False)

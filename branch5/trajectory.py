@@ -168,7 +168,7 @@ tasks = {
     'the_dive': {
         'start': configurations['U-U'],
         'end': configurations['D-D'],
-        'time': 8.0,
+        'time': 4.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
@@ -179,7 +179,7 @@ tasks = {
     'half_dive': { 
         'start': configurations['U-U'],
         'end': configurations['U-D'],
-        'time': 6.0,
+        'time': 4.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
@@ -190,7 +190,7 @@ tasks = {
     'half_middle_dive': { 
         'start': configurations['RU-U'],
         'end': configurations['R-U'],
-        'time': 6.0,
+        'time': 4.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,

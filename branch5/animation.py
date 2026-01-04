@@ -31,7 +31,7 @@ plt.rcParams['font.family'] = 'serif'
 
                 
 def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_traj2: np.ndarray,
-                       eq_pair1: tuple, eq_pair2: tuple, dt: float, plot_flag: bool = True, folder=None) -> None:
+                       eq_pair1: tuple, eq_pair2: tuple, dt: float, folder=None) -> None:
     """
     Animates the model and saves as a GIF at 30 FPS.
     Uses PillowWriter to avoid 'FFmpeg not found' errors on Windows.
@@ -93,7 +93,7 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
     anim = FuncAnimation(fig, update, frames=indices)
     
     # 3. Save Animation
-    if folder is not None and plot_flag:
+    if folder is not None:
         # Changed extension to .gif and writer to PillowWriter
         video_filename = f"{folder}/comparison_animation.gif"
         print(f"\nSaving animation to {video_filename} at {target_fps} FPS...")

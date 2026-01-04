@@ -146,7 +146,8 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
         delta_x = xx_step[:, tt] - xx[:, tt]
         uu_step[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt] 
         xx_step[:, tt+1] = model.discrete_dynamics(xx_step[:, tt], uu_step[:, tt])
-                
+    
+    uu_temp[:, -1] = uu_temp[:, -2]
     cost_step = cst.total_cost(xx_step, uu_step, xx_ref, uu_ref, QQt, RRt, QQT) 
     slope_numeric = (cost_step - JJ)/step
     slope_analytic = descent_arm
@@ -174,7 +175,7 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
                 delta_x = xx_temp[:, tt] - xx[:, tt]
                 uu_temp[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt] 
                 xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])
-                
+            uu_step[:, -1] = uu_step[:, -2]
             JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT) 
             costs[ii] = JJ_temp
 

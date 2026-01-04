@@ -416,7 +416,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     
     plots.gradient_error(gradient_error, total_iterations, plot_flag=plot_flag, folder=folder)
 
-    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt=dt, plot_flag=plot_flag, folder=folder)
+    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt=dt, folder=folder)
 
 
     plt.close('all')
@@ -443,7 +443,7 @@ def main():
     ######################################
 
     save_flag = True                       
-    plot_flag = False                        
+    plot_flag = True                        
     plot_flag_armijo = False                
     debug_flag = True                       
 
@@ -451,35 +451,39 @@ def main():
     # Environment setup
     ######################################
 
-    for task in traj.tasks:
+    # for task in traj.tasks:
         
-        print(f"\nSelected Task: {task}")
-        
-        try:
-            if task not in traj.tasks:
-                raise ValueError(f"Task '{task}' not found.")
-        except ValueError as e:
-            print(f"\n{e}\n")
-            exit(1)
-        
-        if save_flag:
-            folder = f'report/figs/traj_gen_newton/{task}'
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-        else:
-            folder = None
-            
-        ######################################
-        # Run
-        ######################################
+    task = 'half_middle_dive'
 
-        
+    print(f"\nSelected Task: {task}")
+    
+ 
 
-        generate_optimal_trajectory(
-            task=task, max_iters=max_iters, n_mid=n_mid, method=method, 
-            plot_flag=plot_flag, plot_armijo=plot_flag_armijo, 
-            debug_print=debug_flag, folder=folder
-        )
+    try:
+        if task not in traj.tasks:
+            raise ValueError(f"Task '{task}' not found.")
+    except ValueError as e:
+        print(f"\n{e}\n")
+        exit(1)
+    
+    if save_flag:
+        folder = f'report/figs/traj_gen_newton/{task}'
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    else:
+        folder = None
+        
+    ######################################
+    # Run
+    ######################################
+
+    
+
+    generate_optimal_trajectory(
+        task=task, max_iters=max_iters, n_mid=n_mid, method=method, 
+        plot_flag=plot_flag, plot_armijo=plot_flag_armijo, 
+        debug_print=debug_flag, folder=folder
+    )
 
 if __name__ == "__main__":
     main()
