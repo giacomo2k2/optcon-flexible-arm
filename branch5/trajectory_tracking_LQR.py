@@ -192,7 +192,7 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
     plots.tracking_error(time_ext, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Tracking Error", plot_flag=plot_flag, folder=folder)
 
     # Animation of the tracking for the first run
-    anim.animate_comparison(model, xx_lqr[:,:,0], xx_star, eq_pair1, eq_pair2, dt, plot_flag=plot_flag, folder=folder)
+    anim.animate_comparison(model, xx_lqr[:,:,0], xx_star, eq_pair1, eq_pair2, dt, plot_flag=True, folder=folder)
 
 ######################################
 # MAIN
@@ -204,7 +204,7 @@ def main():
     # Algorithm Parameters
     ######################################
 
-    task = 'topside_pump'   # Choose from keys of equilibrium_traj
+    
     max_iters = 300          # Max Newton iterations for trajectory generation
     n_mid = 20                # Number of mid points for trajectory generation
     method = 'poly5'         # Trajectory generation method: 'poly3' or
@@ -216,45 +216,47 @@ def main():
     ######################################
     
     save_flag = True            # Save flag
-    plot_flag = True            # Plot flag
+    plot_flag = False            # Plot flag
     debug_flag = True           # Debug print flag
 
     ######################################
     # Environment setup
     ######################################
-
-    # Check task name correctness 
-    try:
-        if task not in traj.tasks:
-            raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
-    except ValueError as e:
-        print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
-        exit(1)
     
-    # Create folder for plots
-    if save_flag:
-        folder = f'report/figs/traj_track_LQR/{task}/'
 
-        # Create folder if it does not exist
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-    else:
-        folder = None
+    for task in traj.tasks.keys():    
+        # Check task name correctness 
+        try:
+            if task not in traj.tasks:
+                raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
+        except ValueError as e:
+            print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
+            exit(1)
+        
+        # Create folder for plots
+        if save_flag:
+            folder = f'report/figs/traj_track_LQR/{task}/'
 
-    ######################################
-    # Generate optimal trajectory
-    ######################################
+            # Create folder if it does not exist
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        else:
+            folder = None
 
-    xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
-        task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
-    
-    ######################################
-    # Track optimal trajectory via LQR
-    ######################################
+        ######################################
+        # Generate optimal trajectory
+        ######################################
 
-    trajectory_tracking_LQR(
-        eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 
-        perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
+        xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
+            task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
+        
+        ######################################
+        # Track optimal trajectory via LQR
+        ######################################
+
+        trajectory_tracking_LQR(
+            eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 
+            perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
 
 
 if __name__ == "__main__":
