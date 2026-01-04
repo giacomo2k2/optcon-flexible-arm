@@ -15,14 +15,9 @@
 #######################################
 import numpy as np
 
-# Default cost matrices (for reference)
-# QQt = np.diag([100.0, 100.0, 10.0, 10.0]) * 1e-1
-# RRt = 0.01 * np.eye(1)
-
 #######################################
 # Functions
 #######################################
-
 
 def stagecost(x: np.ndarray, u:np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, QQt: np.ndarray, RRt: np.ndarray) -> tuple[float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -31,38 +26,38 @@ def stagecost(x: np.ndarray, u:np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray,
     Parameters
     ----------
     x : np.ndarray
-        Current state (4,)
+        Current state (4,).
     u : np.ndarray
-        Current input (1,)
+        Current input (1,).
     x_ref : np.ndarray
-        Reference state (4,)
+        Reference state (4,).
     u_ref : np.ndarray
-        Reference input (1,)
+        Reference input (1,).
     QQt : np.ndarray
-        State cost matrix (4,4)
+        State cost matrix (4,4).
     RRt : np.ndarray
-        Input cost matrix (1,1)
+        Input cost matrix (1,1).
 
     Returns
     -------
     ll : float
-        Stage cost
+        Stage cost.
     lx : np.ndarray
-        Gradient of stage cost w.r.t. state (4,1)
+        Gradient of stage cost w.r.t. state (4,1).
     lu : np.ndarray
-        Gradient of stage cost w.r.t. input (1,1)
+        Gradient of stage cost w.r.t. input (1,1).
     lxx : np.ndarray
-        Hessian of stage cost w.r.t. state (4,4)
+        Hessian of stage cost w.r.t. state (4,4).
     luu : np.ndarray
-        Hessian of stage cost w.r.t. input (1,1)
+        Hessian of stage cost w.r.t. input (1,1).
     lux : np.ndarray
-        Cross derivative of stage cost w.r.t. input and state (1,4)
+        Cross derivative of stage cost w.r.t. input and state (1,4).
     """
-    x = x[:, None] # make column vector (4,1)
-    u = u[:, None] # make column vector (1,1)
+    x = x[:, None] # Make column vector (4,1)
+    u = u[:, None] # Make column vector (1,1)
 
-    x_ref = x_ref[:, None] # make column vector (4,1)
-    u_ref = u_ref[:, None] # make column vector (1,1)
+    x_ref = x_ref[:, None] # Make column vector (4,1)
+    u_ref = u_ref[:, None] # Make column vector (1,1)
 
     # Stage cost
     ll = 0.5 * (x - x_ref).T @ QQt @ (x - x_ref) + 0.5 * (u - u_ref).T @ RRt @ (u - u_ref)
@@ -74,7 +69,7 @@ def stagecost(x: np.ndarray, u:np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray,
     # Second Derivatives
     lxx = QQt
     luu = RRt
-    lux = np.zeros((u.shape[0], x.shape[0]))  # cross term is zero
+    lux = np.zeros((u.shape[0], x.shape[0]))  # Cross term is zero
 
     return ll.squeeze(), lx, lu, lxx, luu, lux
 
@@ -85,20 +80,20 @@ def termcost(xT: np.ndarray, xT_ref: np.ndarray, QT: np.ndarray) -> tuple[float,
     Parameters
     ----------
     xT : np.ndarray
-        Terminal state (4,)
+        Terminal state (4,).
     xT_ref : np.ndarray
-        Reference terminal state (4,)
+        Reference terminal state (4,).
     QT : np.ndarray
-        Terminal state cost matrix (4,4)
+        Terminal state cost matrix (4,4).
 
     Returns
     -------
     llT : float
-        Terminal cost
+        Terminal cost.
     lTx : np.ndarray
-        Gradient of terminal cost w.r.t. terminal state (4,1)
+        Gradient of terminal cost w.r.t. terminal state (4,1).
     lTxx : np.ndarray
-        Hessian of terminal cost w.r.t. terminal state (4,4)
+        Hessian of terminal cost w.r.t. terminal state (4,4).
     """
     # Terminal cost
     llT = 0.5 * (xT - xT_ref).T @ QT @ (xT - xT_ref)
@@ -113,45 +108,41 @@ def termcost(xT: np.ndarray, xT_ref: np.ndarray, QT: np.ndarray) -> tuple[float,
 
 def total_cost(xx: np.ndarray, uu: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray,
                QQt: np.ndarray, RRt: np.ndarray, QT: np.ndarray) -> float:
-    
     """
     Computes the total cost over the trajectory.
     
     Parameters
     ----------
     xx : np.ndarray
-        State trajectory (n, T)
+        State trajectory (ns, T).
     uu : np.ndarray
-        Input trajectory (m, T)
+        Input trajectory (ni, T).
     xx_ref : np.ndarray
-        Reference state trajectory (n, T)
+        Reference state trajectory (ns, T).
     uu_ref : np.ndarray
-        Reference input trajectory (m, T)
+        Reference input trajectory (ni, T).
     QQt : np.ndarray
-        State cost matrix (n, n)
+        State cost matrix (ns, ns).
     RRt : np.ndarray
-        Input cost matrix (m, m)
+        Input cost matrix (ni, ni).
     QT : np.ndarray
-        Terminal state cost matrix (n, n)
+        Terminal state cost matrix (ns, ns).
     tf : float
         Final relative time for the trajectory segment.
 
     Returns
     -------
     total_ll : float
-        Total cost over the trajectory
+        Total cost over the trajectory.
     """
-    
     total_ll = 0.0
     TT = xx.shape[1]
-    
-    
+
     for t in range(TT-1):
         ll, _, _, _, _, _ = stagecost(xx[:, t], uu[:, t], xx_ref[:, t], uu_ref[:, t], QQt, RRt)
         total_ll += ll
-
-   
     llT, _, _ = termcost(xx[:, -1], xx_ref[:, -1], QT)
+    
     total_ll += llT
 
     return total_ll

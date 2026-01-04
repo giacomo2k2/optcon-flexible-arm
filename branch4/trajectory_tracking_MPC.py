@@ -19,6 +19,8 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt 
 import signal
+import os
+import trajectory as traj
 
 plt.rcParams['font.family'] = 'serif'
 signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -57,7 +59,7 @@ ns = model.ns  # number of states
 ni = model.ni  # number of inputs
 
 
-def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, umin, T_pred = 100, runs = 1, perturb=True, perturbation_scale=2, plot_results=True, print_debug=False):
+def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, umin, T_pred = 100, runs = 1, perturb=True, perturbation_scale=2, plot_flag=True, print_debug=False, folder=None):
     """
     Trajectory tracking via MPC.
     """
@@ -85,7 +87,7 @@ def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, um
 
     TT = len(time)
 
-    if plot_results:
+    if plot_flag:
         plots.show_traj(time, xx_star, uu_star, eq_pair1, eq_pair2, title="Optimal trajectory")
 
     ######################################
@@ -208,18 +210,70 @@ def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, um
     #######################################
 
     # Final plots
-    if plot_results:
-        plots.trajectory_comparison(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Trajectory Tracking ")
-        plots.tracking_error(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Tracking Error")
+    if plot_flag:
+        plots.trajectory_comparison(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Trajectory Tracking", plot_flag=plot_flag, folder=folder)
+        plots.tracking_error(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Tracking Error", plot_flag=plot_flag, folder=folder)
 
     # Animation of the optimal trajectory
-    if plot_results:
+    if plot_flag:
         anim.animate_comparison(model, xx_mpc[:,:,0], xx_star, eq_pair1, eq_pair2, target_fps=30)
 
 
-if __name__ == "__main__":
-    # Generate optimal trajectory
-    xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory('topside_pump', max_iters=300, n_mid=20, method='poly5', plot_results=False, plot_armijo=False, debug_print=False)
+def main():
+    ######################################
+    # Algorithm Parameters
+    ######################################
 
+    task = 'swing_up'   # Choose from keys of equilibrium_traj
+    max_iters = 300          # Max Newton iterations for trajectory generation
+    n_mid = 20                # Number of mid points for trajectory generation
+    method = 'poly5'         # Trajectory generation method: 'poly3' or
+    runs = 5                    # Number of runs with different initial perturbations
+    perturb_scale = 2          # Scale of the initial perturbation
+
+    ######################################
+    # Algorithm flags
+    ######################################
+    
+    save_flag = True            # Save flag
+    plot_flag = True            # Plot flag
+    debug_flag = True           # Debug print flag
+
+    ######################################
+    # Environment setup
+    ######################################
+
+    # Check task name correctness 
+    try:
+        if task not in traj.tasks:
+            raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
+    except ValueError as e:
+        print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
+        exit(1)
+    
+    # Create folder for plots
+    if save_flag:
+        folder = f'report/figs/traj_track_MPC/{task}/'
+
+        # Create folder if it does not exist
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    else:
+        folder = None
+
+    ######################################
+    # Generate optimal trajectory
+    ######################################
+
+    xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
+        task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
+
+    ######################################
     # Trajectory tracking via MPC
-    trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax=100, umin=-100, T_pred=100, runs=3, perturb=True, perturbation_scale=2, plot_results=True, print_debug=True)
+    ######################################
+
+    trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax=100, umin=-100, T_pred=100, runs=runs, perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, print_debug=True, folder=folder)
+
+
+if __name__ == "__main__":
+    main()

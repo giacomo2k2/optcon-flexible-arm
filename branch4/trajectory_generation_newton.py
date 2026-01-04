@@ -46,33 +46,78 @@ import plots as plots
 # Control
 import control as ctrl
 
-#######################################
+######################################
 # Model
-#######################################
+######################################
 
+# Model 
 model = DoublePendulumFlexible(**PARAM_SET_2)
 
-ns = model.ns  # number of states
-ni = model.ni  # number of inputs
+ns = model.ns  # Number of states
+ni = model.ni  # Number of inputs
 
+def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20, method: str = 'poly5', plot_flag: bool = False, plot_armijo: bool = False, debug_print: bool = True, folder: str = None) -> tuple[np.ndarray, np.ndarray, tuple, tuple, np.ndarray]:
+    """
+    Generate optimal trajectory via Newton method.
 
-def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', plot_flag=True, plot_armijo=False, debug_print=True, folder=None):
+    Parameters
+    ----------
+    task : str
+        Task name (choose from keys of traj.tasks).
+    max_iters : int, optional
+        Maximum number of iterations. Default is 300.
+    n_mid : int, optional
+        Number of intermediate trajectories to plot. Default is 20.
+    method : str, optional
+        Trajectory generation method ('poly5', 'spline', ...). Default is 'poly5'.
+    plot_flag : bool, optional
+        Flag to enable/disable plotting. Default is True.
+    plot_armijo : bool, optional
+        Flag to enable/disable Armijo stepsize plotting. Default is False.
+    debug_print : bool, optional
+        Flag to enable/disable debug printing. Default is True.
+    folder : str or None, optional
+        Folder to save plots. If None, plots are not saved. Default is None.
 
+    Returns
+    -------
+    xx_star : np.ndarray
+        Optimal state trajectory.
+    uu_star : np.ndarray
+        Optimal input trajectory.
+    eq_pair1 : tuple
+        Initial equilibrium point (x_eq1, u_eq1).
+    eq_pair2 : tuple
+        Final equilibrium point (x_eq2, u_eq2).
+    time : np.ndarray
+        Time vector.
+    """
 
+    ######################################
+    # Log header
+    ######################################
 
-    #######################################
+    print("\n" + "="*80)
+    print(f"[Trajectory Generation] - Newton Method".center(80))
+    print("="*80)
+
+    ######################################
     # Task and Equilibrium points
-    #######################################
+    ######################################
+    
+    # Choose from keys of equilibrium_traj
+    selected_task = task  
 
-    selected_task = task  # choose from keys of equilibrium_traj
-
+    # Compute equilibrium manifold
     data_dict = model.compute_equilibrium_manifold()
 
+    # Exrtact selected equilibrium
     selected_equilibrium = traj.tasks[selected_task]
     eq_pair1, eq_pair2 = selected_equilibrium['start'], selected_equilibrium['end']
     x_eq1, u_eq1 = eq_pair1
     x_eq2, u_eq2 = eq_pair2
 
+    # Extract task parameters
     Tend = selected_equilibrium['time']
     angle_mult1 = selected_equilibrium['angle1_mult']
     vel_mult1 = selected_equilibrium['vel1_mult']
@@ -82,9 +127,9 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     guess = selected_equilibrium['guess']
     discr_method = selected_equilibrium['discr_method']
 
-    #######################################
+    ######################################
     # Algorithm parameters
-    #######################################
+    ######################################
     
     # Amijo parameters
     stepsize_0=1.0
@@ -92,28 +137,33 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     beta=0.7
     armijo_maxiters=20
 
+    # Stopping criteria over descent norm
     descent_threshold = 1e-6
 
     # Discretization method
     model.discr_method = discr_method
 
-    # Base Cost matrix1
+    # Base Cost matrix
     QQt_base = np.diag([10.0, 10.0, 1.0, 1.0])
-    RRt = 1e-2 * np.eye(1)
+    RRt = 1e-2 * np.eye(ni)
+
+    ######################################
+    # [PLOTS] Equilibrium manifold and pendulum equilibria
+    ######################################
 
     plots.equilibrium_manifold(data_dict, eq_pair1, eq_pair2, print_results=False, plot_flag=plot_flag, folder=folder)
     model.draw_pendulums(eq_pair1, eq_pair2, plot_flag=plot_flag, folder=folder)
 
-    #######################################
+    ######################################
     # Time parameters
-    #######################################
+    ######################################
 
-    T0 = 0.0        # Initial absolute time
-    ti = 0.3        # Start time for trajectory segment (relative)
-    tf = 0.7        # End time for trajectory segment (relative)
-    dt = model.dt   # Time step
-    t = np.arange(T0, Tend, dt) # Time vector
-    TT = len(t)                 # Number of time steps
+    T0 = 0.0                        # Initial absolute time
+    ti = 0.3                        # Start time for trajectory segment (relative)
+    tf = 0.7                        # End time for trajectory segment (relative)
+    dt = model.dt                   # Time step
+    t = np.arange(T0, Tend, dt)     # Time vector
+    TT = len(t)                     # Number of time steps
 
     ######################################
     # Reference curve
@@ -124,22 +174,21 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     time, uu_ref= traj.trajectory_generator(start = u_eq1, end = u_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='input')
     
    
-    # Plot reference trajectory
+    ######################################
+    # [PLOTS] Reference trajectory
+    ######################################
+
     plots.show_traj(time, xx_ref, uu_ref, eq_pair1, eq_pair2, "Reference " + method, plot_flag=plot_flag, folder=folder)
 
-    #############################################
-    # Compute QQT as solution of the DARE
-    ##############################################
+    ######################################
+    # Compute weighting matrices
+    ######################################
 
-    # scale cost matrices 
+    # Scale cost matrices for the given task
     scale_QQt = np.diag([angle_mult1, angle_mult2, vel_mult1, vel_mult2])
 
     QQt = QQt_base @ scale_QQt
 
-    # Compute QQT as solution of dare
-    AA_ref, BB_ref = solver.jacobian_analytic(xx_ref[:,TT-1], uu_ref[:,TT-1], model)
-    #QQT = ctrl.dare(AA_ref, BB_ref, QQt, RRt)[0]
-    
     QQT = termcost_mult * np.array([1e3, 0, 0, 0,
                                 0, 1e3, 0, 0,
                                 0, 0, 1e3, 0,
@@ -174,60 +223,62 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     xx_total = np.zeros((ns, TT, max_iters))    # all state trajectories
     uu_total = np.zeros((ni, TT, max_iters))    # all input trajectories
 
-
     ######################################
-    # Initial Trajectory Guess via PD controller + gravity compensation
+    # Initial Trajectory Guess
     ######################################
 
-    x0 = xx_ref[:, 0]  # initial state
+    x0 = xx_ref[:, 0]                   # Initial state
 
-    uu_init = np.zeros((ni, TT))
-    xx_init = np.zeros((ns, TT))
+    uu_init = np.zeros((ni, TT))        # Initial input trajectory
+    xx_init = np.zeros((ns, TT))        # Initial state trajectory
 
-    
+
     xx_init[:, :] = x0[:, None]
 
+    # Controller for initial guess
     match (guess):
         case 'PD_gc':
-            f = solver.PD_controller_gravity_comp
+            f = solver.PD_controller_gravity_comp   # PD + gravity compensation
         case 'PD':
-            f = solver.PD_controller
+            f = solver.PD_controller                # PD only
         case 'zero':
-            f = solver.zero_controller
+            f = solver.zero_controller              # Zero input
         case 'gc':
-            f = solver.gravity_compensation_only
+            f = solver.gravity_compensation_only    # Gravity compensation only
         case 'D_gc':
-            f = solver.initial_guess_dissipative
+            f = solver.initial_guess_dissipative    # Dissipative + gravity compensation
         case 'P':
-            f = solver.proportional_controller
+            f = solver.proportional_controller      # Proportional only
         case _:
             raise ValueError("Invalid initial guess type specified.")
     
-
+    # Generate initial guess trajectory
     for tt in range(TT-1):
-        uu_init[:, tt] = f(model, xx_init[:, tt], xx_ref[:, tt], uu_ref[0, tt])
-        xx_init[:, tt+1] = model.discrete_dynamics(xx_init[:, tt], uu_init[:, tt])
+        uu_init[:, tt] = f(model, xx_init[:, tt], xx_ref[:, tt], uu_ref[0, tt])     # Compute input evolution
+        xx_init[:, tt+1] = model.discrete_dynamics(xx_init[:, tt], uu_init[:, tt])  # Compute state evolution
 
     uu_init[:,-1] = uu_init[:,-2]
 
-    plots.trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference", plot_flag=plot_flag, folder=folder)
-
-
+    # Store initial guess in iterations array
     xx[:,:,0] = xx_init
     uu[:,:,0] = uu_init
 
+    ######################################
+    # [PLOTS] Initial guess vs Reference trajectory comparison
+    ######################################
 
-    ############################
-    # Iteration loop
-    ############################
+    plots.trajectory_comparison(time, xx_ref, uu_ref, xx_init, uu_init, title="Initial Guess vs Reference", plot_flag=plot_flag, folder=folder)
+
+    ######################################
+    # [MAIN] Iteration loop
+    ######################################
 
     # Iteration counter
     kk = 0
 
+    # Loop over iterations
     for kk in range(max_iters-1):
         
-       
-
         ############################
         # 0. Compute cost
         ############################
@@ -243,14 +294,16 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
         PP[:,:,TT-1,kk] = QQT
         pp[:,TT-1,kk] = lmbd[:,TT-1,kk].squeeze()
 
+        # Backward recursion
         for tt in reversed(range(TT-1)):
             qt, rt, QQt, RRt, SSt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:]
             At, Bt = solver.jacobian_analytic(xx[:, tt, kk], uu[:, tt, kk], model)
-                
+            
+            # Discretized jacobians
             AA[:, :, tt, kk] = At
             BB[:, :, tt, kk] = Bt
 
-            
+            # Cost matrices at time k
             Qtk = QQt
             Rtk = RRt
             Stk = SSt 
@@ -258,7 +311,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
             # Costate equation
             lmbd_temp = At.T @ lmbd[:,tt+1,kk][:,None] + qt
             lmbd[:,tt,kk] = lmbd_temp.squeeze()
-
 
             # Single step LQR
             KK[:,:,tt,kk], ss[:,tt,kk], PP[:,:,tt,kk], pp[:,tt,kk] = solver.ltv_affine_LQR_step(
@@ -269,8 +321,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
             dJ_temp = rt + Bt.T @ lmbd[:,tt+1,kk][:,None]
             dJ[:,tt,kk] = dJ_temp.squeeze()
 
-        
-        
         # Compute descent direction norm after backward pass
         for tt in range(TT-1):
             deltau[:,tt,kk] = ss[:,tt,kk] +  KK[:,:,tt,kk] @  deltax[:, tt, kk]   
@@ -279,7 +329,6 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
             descent[kk] += deltau[:,tt,kk].T @ deltau[:,tt,kk]  
             descent_arm[kk] += dJ[:,tt,kk].T @ deltau[:,tt,kk]  
 
-        
         ############################
         # 2. Stepsize selection - ARMIJO
         ############################
@@ -291,12 +340,11 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
         
         gradient_error[kk] = grad_error_temp
 
-
         ############################
         # 3. Termination condition
         ############################
 
-        if stepsize == 0.0 or abs(descent[kk]) < descent_threshold:
+        if abs(descent[kk]) < descent_threshold:
             print(f"\n\nConvergence reached at iteration {kk}!")
             max_iters = kk
             break
@@ -310,27 +358,23 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
         # 4. Forward closed-loop integration
         ############################
         
+        # Temporary trajectories
         xx_temp = np.zeros((ns,TT))
         uu_temp = np.zeros((ni,TT)) 
         xx_temp[:,0] = x0
 
-        
+        # Forward closed loop integration with updated control
         for tt in range(TT-1):
             dx = xx_temp[:,tt] - xx[:,tt,kk]
             uu_temp[:,tt] = uu[:,tt,kk] + stepsize * ss[:,tt,kk] + KK[:,:,tt,kk] @ dx
             xx_temp[:,tt+1] = model.discrete_dynamics(xx_temp[:,tt], uu_temp[:,tt])
             
-            
         uu_temp[:,-1] = uu_temp[:,-2]
 
         # Store trajectories
-        xx_total[:,:,kk+1] = xx_temp.copy()
-        uu_total[:,:,kk+1] = uu_temp.copy()
-
         xx[:,:,kk+1] = xx_temp.copy()
         uu[:,:,kk+1] = uu_temp.copy()
 
-        
         ############################
         # 5. Visualization
         ############################
@@ -347,11 +391,11 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
             dots = "." * (kk % 4)
             print(f"\rComputing optimal trajectory{dots:3}", end="", flush=True)
 
-        
-
-    ##################################
-    # Results and Plots
-    ##################################
+    ######################################
+    # [RESULTS AND PLOTS] Final results and plots
+    ######################################
+    
+    # Optimal trajectories
     xx_star = xx[:,:,max_iters-1]
     uu_star = uu[:,:,max_iters-1]
     uu_star[:,-1] = uu_star[:,-2] 
@@ -375,14 +419,40 @@ def generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', p
     # Animation of the optimal trajectory
     anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, plot_flag=plot_flag, folder=folder)
 
+    # Close all plots if opened
+    plt.close('all')
+
     return xx_star, uu_star, eq_pair1, eq_pair2, time
 
+######################################
+# MAIN
+######################################
 
+def main():
 
-if __name__ == "__main__":
+    ######################################
+    # Algorithm parameters
+    ######################################
 
-    # overhead_wipe, low_diagonal_hold, half_dive, half_middle_dive
-    task = 'half_middle_dive'  # choose from keys of equilibrium_traj
+    max_iters = 300                      # Maximum number of iterations
+    n_mid = 20                           # Number of intermediate trajectories to plot
+    method = 'poly5'                     # Trajectory generation method ('poly5', 'spline', ...)
+    task = 'half_middle_dive'           # Choose from keys of equilibrium_traj
+
+    ######################################
+    # Algorithm flags
+    ######################################
+
+    save_flag = False                       # Save flag
+    plot_flag = True                        # Plot flag
+    plot_flag_armijo = False                # Plot Armijo stepsize flag
+    debug_flag = True                       # Debug print flag
+
+    ######################################
+    # Environment setup
+    ######################################
+
+    # Check task name correctness 
     try:
         if task not in traj.tasks:
             raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
@@ -390,17 +460,31 @@ if __name__ == "__main__":
         print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
         exit(1)
     
-    folder = f'report/figs/traj_gen_newton/{task}/'
-    plot_flag = True
+    # Create folder for plots
+    if save_flag:
+        folder = f'report/figs/traj_gen_newton/{task}/'
 
-    # create folder if it does not exist
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+        # Create folder if it does not exist
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    else:
+        folder = None
+        
+    ######################################
+    # Generate optimal trajectory
+    ######################################
 
+    generate_optimal_trajectory(
+        task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_flag=plot_flag, plot_armijo=plot_flag_armijo, debug_print=debug_flag, folder=folder)
 
-    generate_optimal_trajectory(task, max_iters=300, n_mid=20, method='poly5', plot_flag=plot_flag, plot_armijo=False, debug_print=True, folder=folder)
+if __name__ == "__main__":
+    main()
 
+# Easy trajectories: lateral_swing, diagonal_swing, overhead_wipe, half_middle_dive
+# Mid trajectories: swing_up, topside_pump, half_swing
+# Hard trajectories: the_dive, half_dive
 
-    # Easy trajectories: lateral_swing, diagonal_swing, overhead_wipe, half_middle_dive
-    # Mid trajectories: swing_up, topside_pump, half_swing
-    # Hard trajectories: the_dive, half_dive
+# SELECTED
+# easy: diagonal_swing, lateral_swing, half_middle_dive
+# mid: swing_up, topside_pump
+# hard: half_dive, the_dive

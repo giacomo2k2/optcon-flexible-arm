@@ -41,7 +41,7 @@ colors = {
 # Functions
 #######################################
 
-def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1: tuple, eq_pair2: tuple, title: str, plot_flag: bool = True, folder=None) -> None:
+def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1: tuple, eq_pair2: tuple, title: str, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plots the reference trajectory for a Double Pendulum system.
 
@@ -59,6 +59,10 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
         Second equilibrium pair.
     title : str
         Title for the plots.
+    plot_flag : bool, optional
+        Whether to display the plots. Default is True.
+    folder : str, optional
+        Folder to save the plots. Default is None.
     """
 
     # Labels based on title content
@@ -137,7 +141,7 @@ def trajectory_comparison(
     u_track: np.ndarray,
     title: str,
     plot_flag: bool = True,
-    folder = None
+    folder: str = None
 ) -> None:
     """
     Plots the comparison between reference and multiple tracked trajectories for different perturbed intial conditions.
@@ -156,6 +160,10 @@ def trajectory_comparison(
         Tracked control inputs (ns, TT, runs).
     title : str
         Title for the plots.
+    plot_flag : bool, optional
+        Whether to display the plots. Default is True.
+    folder : str, optional
+        Folder to save the plots. Default is None.
     """
 
     # Ensure x_track and u_track have 3 dimensions
@@ -241,7 +249,7 @@ def tracking_error(
     u_track: np.ndarray,
     title: str,
     plot_flag: bool = True,
-    folder = None,
+    folder: str = None,
 ) -> None:
     """
     Plots the tracking error between reference and multiple tracked trajectories for different perturbed intial conditions.
@@ -260,6 +268,10 @@ def tracking_error(
         Tracked control inputs (ns, TT, runs).
     title : str
         Title for the plots.
+    plot_flag : bool, optional
+        Whether to display the plots. Default is True.
+    folder : str, optional
+        Folder to save the plots. Default is None.
     """
     num_runs = x_track.shape[2]
     cmap = plt.get_cmap('tab10')
@@ -333,6 +345,10 @@ def tracking_error(
     
     if plot_flag:
         plt.show()
+        
+    if folder is not None:
+        fig.savefig(f"{folder}/tracking_error_analysis.png", dpi=300, bbox_inches='tight')
+    
 
 def trajectory_comparison_mid(
     time: np.ndarray,
@@ -342,7 +358,7 @@ def trajectory_comparison_mid(
     max_iters: int, 
     title: str,
     plot_flag: bool = True,
-    folder = None,
+    folder: str = None,
 ) -> None:
     """
     Plots the comparison between initial guess, in-mid optimized trajectory, and final optimal trajectory.
@@ -359,6 +375,10 @@ def trajectory_comparison_mid(
         Index of the in-mid iteration to plot.
     title : str
         Title for the plots.
+    plot_flag : bool, optional
+        Whether to display the plots. Default is True.
+    folder : str, optional
+        Folder to save the plots. Default is None.
     """
     
     indices_to_plot = np.linspace(0, max_iters - 2, n_mid, dtype=int)
@@ -437,10 +457,28 @@ def trajectory_comparison_mid(
     if folder is not None:
         fig.savefig(f"{folder}/trajectory_comparison_mid.png", dpi=300, bbox_inches='tight')
 
-def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True, plot_flag: bool = True, folder = None) -> None:
+def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True, plot_flag: bool = True, folder: str = None) -> None:
     """
-    Plot the equilibrium manifold using scatter plots with torque-based coloring,
-    highlighting two specific equilibrium pairs.
+    Plot the equilibrium manifold using scatter plots with torque-based coloring, highlighting two specific equilibrium pairs.
+
+    Parameters
+    ----------
+    manifold_data : dict
+        Dictionary containing manifold data with keys 'q1_fix' and 'q2_fix'.
+    eq_pair1 : tuple
+        First equilibrium pair (state and input).
+    eq_pair2 : tuple
+        Second equilibrium pair (state and input).
+    plot_2d : bool, optional
+        Whether to plot 2D scatter plots. Default is True.
+    plot_3d : bool, optional
+        Whether to plot 3D scatter plots. Default is True.
+    print_results : bool, optional
+        Whether to print results to the console. Default is True.
+    plot_flag : bool, optional
+        Whether to display the plots. Default is True.
+    folder : str, optional
+        Folder to save the plots. Default is None.
     """
 
     # Unpack equilibrium pairs
@@ -585,7 +623,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
             if len(data) > limit:
                 print(f"... and {len(data) - limit} more.")
 
-def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int, plot_flag: bool = True, folder=None) -> None:
+def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plots the Armijo descent direction and the costs associated with different stepsizes.
 
@@ -607,8 +645,12 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
         List of costs associated with the tested stepsizes.
     kk : int
         Current iteration index.
+    plot_flag : bool, optional
+        Whether to display the plot. Default is True.
+    folder : str, optional
+        Folder to save the plot. Default is None.
     """
-    plt.figure(1)
+    plt.figure("Armijo Stepsize Selection")
     
     plt.clf()
 
@@ -633,7 +675,7 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     
     plt.pause(0.01)
     
-def descent_direction(descent: np.ndarray, iters: int, plot_flag: bool = True, folder=None) -> None:
+def descent_direction(descent: np.ndarray, iters: int, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plots the descent direction norm over iterations.
 
@@ -643,8 +685,12 @@ def descent_direction(descent: np.ndarray, iters: int, plot_flag: bool = True, f
         Array containing the descent direction norms.
     iters : int
         Number of iterations to plot.
+    plot_flag : bool, optional
+        Whether to display the plot. Default is True.
+    folder : str, optional
+        Folder to save the plot. Default is None.
     """
-    plt.figure('descent direction', figsize=(10, 6))
+    plt.figure('Descent direction', figsize=(10, 6))
     plt.plot(np.arange(iters), descent[:iters], linewidth=2, color=colors['blue'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'$\| \Delta u \| ^2$', fontsize=14)
@@ -657,7 +703,7 @@ def descent_direction(descent: np.ndarray, iters: int, plot_flag: bool = True, f
     if folder is not None:
         plt.savefig(f"{folder}/descent_direction.png", dpi=300, bbox_inches='tight')
 
-def cost(JJ: np.ndarray, iters: int, folder=None, plot_flag: bool = True) -> None:
+def cost(JJ: np.ndarray, iters: int, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plots the cost function over iterations.
 
@@ -667,8 +713,12 @@ def cost(JJ: np.ndarray, iters: int, folder=None, plot_flag: bool = True) -> Non
         Array containing the cost values.
     max_iters : int
         Maximum number of iterations to plot.
+    plot_flag : bool, optional
+        Whether to display the plot. Default is True.
+    folder : str, optional
+        Folder to save the plot. Default is None.
     """
-    plt.figure('cost', figsize=(10, 6))
+    plt.figure('Cost', figsize=(10, 6))
     plt.plot(np.arange(iters-1), JJ[:iters-1], linewidth=2, color=colors['orange'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'$J(\mathbf{u}^k)$', fontsize=14)
@@ -678,6 +728,7 @@ def cost(JJ: np.ndarray, iters: int, folder=None, plot_flag: bool = True) -> Non
     
     if plot_flag:
         plt.show(block=False)
+
     if folder is not None:
         plt.savefig(f"{folder}/cost_function.png", dpi=300, bbox_inches='tight')
 
@@ -735,9 +786,7 @@ def draw_pendulum_configuration(ax: plt.Axes, p1: np.ndarray, p2: np.ndarray, pc
     ax.scatter(pc1[0], pc1[1], color=colors['red'], s=40, zorder=5, alpha=alpha)   # CM1
     ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5, alpha=alpha) # CM2
 
-
-
-def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, folder=None) -> None:
+def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plots the gradient error over iterations.
 
@@ -747,8 +796,12 @@ def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, 
         Array containing the gradient error values.
     iters : int
         Number of iterations to plot.
+    plot_flag : bool, optional
+        Whether to display the plot. Default is True.
+    folder : str, optional
+        Folder to save the plot. Default is None.
     """
-    plt.figure('gradient error', figsize=(10, 6))
+    plt.figure('Gradient Error', figsize=(10, 6))
     plt.plot(np.arange(iters), grad_errors[:iters], linewidth=2, color=colors['purple'])
     plt.xlabel('Iteration $k$', fontsize=14)
     plt.ylabel(r'Gradient Error', fontsize=14)
@@ -760,9 +813,3 @@ def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, 
 
     if folder is not None:
         plt.savefig(f"{folder}/gradient_error.png", dpi=300, bbox_inches='tight')
-
-
-
-    
-
-

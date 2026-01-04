@@ -79,6 +79,7 @@ PARAM_SET_3 = {
 #######################################
 # Model Class
 #######################################
+
 class DoublePendulumFlexible:
     """
     Class representing a flexible double pendulum system.
@@ -139,8 +140,8 @@ class DoublePendulumFlexible:
 
         Returns
         -------
-            q_init : np.ndarray
-                     Random initial state [q1, q2, q1_dot, q2_dot]
+        q_init : np.ndarray
+                    Random initial state [q1, q2, q1_dot, q2_dot]
         """
         q1 = np.random.uniform(-np.pi, np.pi)
         q2 = np.random.uniform(-np.pi, np.pi)
@@ -384,8 +385,7 @@ class DoublePendulumFlexible:
 
         return A, B
     
-
-    def _get_forward_kinematics(self, x:np.ndarray, com:bool = False) -> tuple[np.ndarray, np.ndarray]:
+    def _get_forward_kinematics(self, x: np.ndarray, com: bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the forward kinematics of the double pendulum.
 
@@ -420,8 +420,22 @@ class DoublePendulumFlexible:
         else:
             return p1, p2
         
-    def find_equilibrium(self, fix_type, value_fixed=0.0, right=True, up=True):
-    
+    def find_equilibrium(self, fix_type: str, value_fixed: float = 0.0, right: bool = True, up: bool = True) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Find an equilibrium point by fixing either q1 or q2.
+
+        Parameters
+        ----------
+        fix_type : str
+            Type of variable to fix ('q1' or 'q2').
+        value_fixed : float, optional
+            Value to fix the variable at (default is 0.0).
+        right : bool, optional
+            If fixing q2, choose the solution with q1 > 0 (default is True).
+        up: bool, optional
+            If fixing q1, choose the solution with q2 > 0 (default is True).
+        """
+        # Define the error function for fsolve
         def error_func(guess):
             if fix_type == 'q1':
                 x_test = np.array([value_fixed, float(guess), 0.0, 0.0])
@@ -431,17 +445,15 @@ class DoublePendulumFlexible:
             _, _, _, G, _ = self.dynamic_model(x_test)
             return G[1, 0] 
 
-    
         # Search full circle
         guesses = [0.0, np.pi, -np.pi, np.pi/2, -np.pi/2, 0.5, -0.5]
         valid_solutions = []
         seen_vals = []
 
-
+        # Solve for each guess
         for guess in guesses:
             sol, info, ier, msg = fsolve(error_func, guess, full_output=True)
             
-
             current_error = np.abs(info['fvec'])
             if ier == 1 or current_error < 1e-6:
                 # Normalize to [-pi, pi]
@@ -470,7 +482,6 @@ class DoublePendulumFlexible:
                         valid_solutions.append({'q1': val, 'q2': value_fixed, 'u': u_calc})
                     seen_vals.append(val)
 
-
         index = 0    
         if fix_type == 'q1':
             for i, sol in enumerate(valid_solutions):
@@ -493,11 +504,7 @@ class DoublePendulumFlexible:
                     if q1 < 0:
                         index = i
 
-
         return (np.array([valid_solutions[index]['q1'], valid_solutions[index]['q2'], 0.0, 0.0]), np.array([valid_solutions[index]['u']]))
-
-
-        
         
     def compute_equilibrium_manifold(self, n_points: int = 50, q_max: float = np.pi) -> dict:
         """
@@ -553,8 +560,7 @@ class DoublePendulumFlexible:
                 
         return res
     
-    
-    def draw_pendulums(self, eq_pair1: tuple, eq_pair2: tuple, plot_flag: bool = True, folder = None) -> None:
+    def draw_pendulums(self, eq_pair1: tuple, eq_pair2: tuple, plot_flag: bool = True, folder: str = None) -> None:
         """
         Visualize the double pendulum at the equilibrium point.
         
@@ -566,8 +572,12 @@ class DoublePendulumFlexible:
             Equilibrium input torque.
         title : str, optional
             Title for the plot (default is empty string).
+        plot_flag : bool, optional
+            If True, display the plot (default is True).
+        folder : str, optional
+            If provided, save the plot to the specified folder (default is None).
         """
-
+        # Unpack equilibrium pairs
         x_eq1, u_eq1 = eq_pair1
         x_eq2, u_eq2 = eq_pair2
 
@@ -577,8 +587,7 @@ class DoublePendulumFlexible:
         self.draw_frame(x_eq2, ax[1])
         ax[1].set_title(f"u = {u_eq2[0]:.2f} Nm, q1 = {x_eq2[0]:.2f} rad, q2 = {x_eq2[1]:.2f} rad")
         
-        # title for the two subplots
-    
+        # Title for the two subplots
         fig.suptitle(f"Double Pendulum Equilibria", fontsize=16)
 
         if plot_flag:
@@ -587,8 +596,6 @@ class DoublePendulumFlexible:
         if folder is not None:
             fig.savefig(f"{folder}/double_pendulum_equilibria.png", dpi=300)
         
-    
-
     def draw_frame(self, x: np.ndarray, ax: plt.Axes) -> None:
         """
         Create an animation frame for the double pendulum at state x.
@@ -600,9 +607,8 @@ class DoublePendulumFlexible:
         ax : plt.Axes
             Matplotlib Axes to draw on.
         """
-
+        # Get coordinates
         p1, p2, pc1, pc2 = self._get_forward_kinematics(x, com=True)
-        
 
         # Limit for total pendolum length
         lim_size = (self.l1 + self.l2) * 1.5

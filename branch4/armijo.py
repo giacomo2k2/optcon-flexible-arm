@@ -14,24 +14,32 @@
 # Imports
 #######################################
 
+# Python libraries
 import numpy as np
+
+# Model
+from model import DoublePendulumFlexible
+
+# Costs
 import costs as cst
+
+# Plots
 import plots as plots
 
 #######################################
 # Functions
 #######################################
 
-def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
+def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                            ss_k: np.ndarray, KK_k: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray, 
                            xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                           kk: int, plot: bool = False, folder=None, save_ieration = 10):
+                           kk: int, plot: bool = False, folder: str = None, save_iteration: int = 10) -> tuple[float, float]:
     """
     Select the stepsize using the Armijo rule for the Newton method.
 
     Parameters
     ----------
-    model : object
+    model : DoublePendulumFlexible
         System model.
     stepsize_0 : float
         Initial stepsize to start the Armijo search.
@@ -42,7 +50,7 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
     beta : float
         Stepsize reduction factor.
     ss_k : np.ndarray
-        Descent direction for the control inputs.
+        Sigma gain from affine LQR.
     KK_k : np.ndarray
         Feedback gain matrix.
     xx_ref : np.ndarray
@@ -74,6 +82,8 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
     -------
     stepsize : float
         Selected stepsize.
+    gradient_error : float
+        Error between numeric and analytic gradient.
     """
     TT = uu.shape[1]
     ns = xx_ref.shape[0]
@@ -97,15 +107,16 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
             deltax = xx_temp[:, tt] - xx[:, tt]
             uu_temp[:, tt] = uu[:, tt] + stepsize * ss_k[:, tt] +  KK_k[:, :, tt] @ deltax
             xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])
-           
+        
+        # Compute total cost
         JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT)
         
         uu_temp[:, -1] = uu_temp[:, -2]
 
-        stepsizes.append(stepsize)      # save the stepsize
-        costs_armijo.append(JJ_temp)    # save the cost associated to the stepsize
+        stepsizes.append(stepsize)      # Save the stepsize
+        costs_armijo.append(JJ_temp)    # Save the cost associated to the stepsize
 
-        
+        # Armijo condition
         if JJ_temp > JJ + c*stepsize*descent_arm:
             stepsize = beta*stepsize
         else:
@@ -121,10 +132,6 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
     ############################
     
     gradient_error = 0.0
-
-   
-   
-   
     step = 1e-6
 
     xx_step = np.zeros((ns,TT))
@@ -140,10 +147,8 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
     slope_numeric = (cost_step - JJ)/step
     slope_analytic = descent_arm
 
-  
     gradient_error = slope_numeric - slope_analytic
     
-
     ############################
     # Descent Plots
     ############################
@@ -152,11 +157,10 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
         steps = np.linspace(0,stepsize_0,int(20))
         costs = np.zeros(len(steps))
 
-
         for ii in range(len(steps)):
             step = steps[ii]
 
-            # temp solution update
+            # Temp solution update
             xx_temp = np.zeros((ns,TT))
             uu_temp = np.zeros((ni,TT))
             xx_temp[:,0] = x0
@@ -171,11 +175,10 @@ def select_stepsize_newton(model, stepsize_0: float, armijo_maxiters: int, c: fl
             costs[ii] = JJ_temp
 
         if folder is not None:
-            save = kk % save_ieration == 0
+            save = kk % save_iteration == 0
         else:
             save = False
 
-        plots.armijo_descent(steps, costs, JJ, descent_arm, c, stepsizes, costs_armijo, kk, folder=folder, save=save)
-
+        plots.armijo_descent(steps, costs, JJ, descent_arm, c, stepsizes, costs_armijo, kk, plot_flag=save, folder=folder)
 
     return stepsize, gradient_error

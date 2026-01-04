@@ -13,10 +13,14 @@
 #######################################
 # Imports
 #######################################
+
+# Python libraries
 import matplotlib.pyplot as plt
 import time
 import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
+
+# Model
 from model import DoublePendulumFlexible
 
 plt.rcParams['font.family'] = 'serif'
@@ -93,11 +97,30 @@ def animate(model: DoublePendulumFlexible, x_traj: np.ndarray, target_fps: int =
                 last_render_time = time.time()
 
                 
-def animate_comparison(model, x_traj1: np.ndarray, x_traj2: np.ndarray,
+def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_traj2: np.ndarray,
                        eq_pair1: tuple, eq_pair2: tuple, dt: float, plot_flag: bool = True, folder=None) -> None:
     """
     Animates the model and saves as a GIF at 30 FPS.
     Uses PillowWriter to avoid 'FFmpeg not found' errors on Windows.
+
+    Parameters
+    ----------
+    model : DoublePendulumFlexible
+        The model to animate.
+    x_traj1 : np.ndarray
+        First trajectory to compare (e.g., actual).
+    x_traj2 : np.ndarray
+        Second trajectory to compare (e.g., reference).
+    eq_pair1 : tuple
+        Initial equilibrium points.
+    eq_pair2 : tuple
+        Final equilibrium points.
+    dt : float
+        Time step between trajectory points.
+    plot_flag : bool, optional
+        Whether to save the animation, by default True.
+    folder : str, optional
+        Folder to save the animation, by default None.
     """
     
     # 1. Calculate Stride for 30 FPS
@@ -137,7 +160,7 @@ def animate_comparison(model, x_traj1: np.ndarray, x_traj2: np.ndarray,
     anim = FuncAnimation(fig, update, frames=indices)
     
     # 3. Save Animation
-    if folder is not None:
+    if folder is not None and plot_flag:
         # Changed extension to .gif and writer to PillowWriter
         video_filename = f"{folder}/comparison_animation.gif"
         print(f"\nSaving animation to {video_filename} at {target_fps} FPS...")

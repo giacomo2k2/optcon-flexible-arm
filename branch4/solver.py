@@ -222,7 +222,7 @@ def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np
         pptp = pptp[:, None]
 
     # Compute intermediate terms
-    MMt = RRt + Bt.T @ PPtp @ Bt + rho * np.eye(Bt.shape[1]) #TODO Here's a regularization
+    MMt = RRt + Bt.T @ PPtp @ Bt# + rho * np.eye(Bt.shape[1]) #TODO Here's a regularization
     MMt_reg = MMt.copy()
     MMt_inv = np.linalg.inv(MMt_reg)
 
@@ -262,7 +262,7 @@ def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarra
     PPt : np.ndarray, (ns x ns)
         Riccati matrix at time t.
     """
-    MMt_inv = np.linalg.inv(RRt + Bt.T @ PPtp @ Bt + np.eye(Bt.shape[1]))  #TODO Here's a regularization
+    MMt_inv = np.linalg.inv(RRt + Bt.T @ PPtp @ Bt)  
     Kt = -MMt_inv @ (Bt.T @ PPtp @ At)
     PPt = At.T @ PPtp @ At - (At.T @ PPtp @ Bt) @ MMt_inv @ (Bt.T @ PPtp @ At) + QQt
     return Kt, PPt
@@ -316,6 +316,8 @@ def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
 
     # Solve Riccati difference equation backward in time
     PP[:,:,TT-1] = QQT
+
+    
     for tt in reversed(range(TT-1)):
         KK[:,:,tt], PP[:,:,tt] = ltv_LQR_step(At[:,:,tt], Bt[:,:,tt], QQt, RRt, PP[:,:,tt+1])
 
