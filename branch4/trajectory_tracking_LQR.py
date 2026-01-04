@@ -94,31 +94,29 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
     #######################################
 
     # Extract time horizon
-    #TT = len(time)
+    TT = len(time)
 
     x_eq, u_eq = eq_pair2
 
-    
-    TT_blend = int(0.1*extend_time / dt)
-    
-    xx_blend = np.zeros((ns, TT_blend))
-    uu_blend = np.zeros((ni, TT_blend))
+    TT_ext = int(extend_time / dt)
 
-    for i in range(ns):
-        xx_blend[i, :] = np.linspace(xx_star[i, -1], x_eq[i], TT_blend)
-    for i in range(ni): 
-        uu_blend[i, :] = np.linspace(uu_star[i, -1], u_eq[i], TT_blend)
     
-    steps_hold = int(0.9*extend_time / dt)
+    xx_eq_ext = np.tile(x_eq[:, np.newaxis], (1, TT_ext))
+    uu_eq_ext = np.tile(u_eq[:, np.newaxis], (1, TT_ext))
 
-    xx_hold = np.tile(x_eq[:, np.newaxis], (1, steps_hold))
-    uu_hold = np.tile(u_eq[:, np.newaxis], (1, steps_hold))
+    xx_traj_ext = np.tile(xx_star[:, -1][:, np.newaxis], (1, TT_ext))
+    uu_traj_ext = np.tile(uu_star[:, -1][:, np.newaxis], (1, TT_ext))
 
     # Extend optimal trajectories by using final equilibrium
-    xx_star = np.hstack((xx_star, xx_blend, xx_hold))
-    uu_star = np.hstack((uu_star, uu_blend, uu_hold))
+    
+    uu_star_eq = np.hstack((uu_star, uu_eq_ext)) # Extend input trajectory discontinuity here
+    xx_star_eq = np.hstack((xx_star, xx_eq_ext)) # Extend state trajectory no discontinuity here
+    
+    uu_star_traj = np.hstack((uu_star, uu_traj_ext)) # Extend input trajectory discontinuity here
+    xx_star_traj = np.hstack((xx_star, xx_traj_ext)) #
 
-    TT_total = xx_star.shape[1]
+
+    TT_total = xx_star_eq.shape[1]
     
     time_ext = np.arange(0, TT_total * dt, dt)
 
@@ -126,7 +124,7 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
     # [PLOTS] Optimal trajectory
     ######################################
 
-    plots.show_traj(time_ext, xx_star, uu_star, eq_pair1, eq_pair2, title="Optimal trajectory", plot_flag=plot_flag)
+    plots.show_traj(time_ext, xx_star_eq, uu_star_eq, eq_pair1, eq_pair2, title="Optimal trajectory", plot_flag=plot_flag)
 
     ######################################
     # Arrays to store data
@@ -145,7 +143,7 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
     # Linearization along optimal trajectory
     for rr in range(runs):
         for tt in range(TT_total):
-            At[:, :, tt, rr], Bt[:, :, tt, rr] = solver.jacobian_analytic(xx_star[:,tt], uu_star[:,tt], model)
+            At[:, :, tt, rr], Bt[:, :, tt, rr] = solver.jacobian_analytic(xx_star_traj[:,tt], uu_star_traj[:,tt], model) #no jumps here 
             
 
     #######################################
@@ -158,12 +156,12 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
 
 
     # Terminal matrices
-    A_final, B_final = At[:, :, -1, 0], Bt[:, :, -1, 0]
+    A_final, B_final = solver.jacobian_analytic(x_eq, u_eq, model) #no jumps here 
 
     # Terminal cost weight matrix
     QQT,_, _ = ctrl.dare(A_final, B_final, QQt, RRt)  
     
-
+    
     
     ######################################
     # [TRACKING PROCEDURE] 3. Track the optimal trajectory with LQR controller
@@ -183,9 +181,10 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
         # Perturbation epsilon slightly increase for each run
         epsilon_scaled = epsilon * perturbation_scale * rr
 
-        x0[:,rr] = xx_star[:,0] + epsilon_scaled # Initial state
+        x0[:,rr] = xx_star_eq[:,0] + epsilon_scaled # Initial state
         
-        xx_lqr[:,:,rr], uu_lqr[:,:,rr] = solver.ltv_LQR(At[:,:,:,rr], Bt[:,:,:,rr], QQt, RRt, QQT, x0[:, rr], xx_star, uu_star, model)
+        
+        xx_lqr[:,:,rr], uu_lqr[:,:,rr] = solver.ltv_LQR(At[:,:,:,rr], Bt[:,:,:,rr], QQt, RRt, QQT, x0[:, rr], xx_star_eq, uu_star_eq, model)
 
     ######################################
     # [RESULTS AND PLOTS] Final results and plots
@@ -193,17 +192,17 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
 
     if debug_print:
         for rr in range(runs):
-            final_error = np.linalg.norm(xx_lqr[:, -1, rr] - xx_star[:, -1])
+            final_error = np.linalg.norm(xx_lqr[:, -1, rr] - xx_star_eq[:, -1])
             print(f"Final tracking error (run {rr+1}): {final_error:.4f}")
 
     # Trajectory 
-    plots.trajectory_comparison(time_ext, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Trajectory Tracking", plot_flag=plot_flag, folder=folder)
+    plots.trajectory_comparison(time_ext, xx_star_eq, uu_star_eq, xx_lqr, uu_lqr, title="LQR Trajectory Tracking", plot_flag=plot_flag, folder=folder)
 
     # Tracking comparison
-    plots.tracking_error(time_ext, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Tracking Error", plot_flag=plot_flag, folder=folder)
+    plots.tracking_error(time_ext, xx_star_eq, uu_star_eq, xx_lqr, uu_lqr, title="LQR Tracking Error", plot_flag=plot_flag, folder=folder)
 
     # Animation of the tracking for the first run
-    anim.animate_comparison(model, xx_lqr[:,:,0], xx_star, eq_pair1, eq_pair2, dt, plot_flag=plot_flag, folder=folder)
+    anim.animate_comparison(model, xx_lqr[:,:,0], xx_star_eq, eq_pair1, eq_pair2, dt, plot_flag=plot_flag, folder=folder)
 
 ######################################
 # MAIN
@@ -264,7 +263,7 @@ def main():
     ######################################
 
     trajectory_tracking_LQR(
-        eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=0, runs=runs, 
+        eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 
         perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
 
 
