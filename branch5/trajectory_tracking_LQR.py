@@ -51,7 +51,7 @@ ns = model.ns  # Number of states
 ni = model.ni  # Number of inputs
 dt = model.dt  # Time step
 
-def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarray, uu_star: np.ndarray, time: np.ndarray, extend_time: float, runs: int = 1, perturb: bool = True, perturbation_scale: float = 2, plot_flag: bool = True, debug_print: bool = False, folder: str = None):
+def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarray, uu_star: np.ndarray, time: np.ndarray, extend_time: float, runs: int = 1,  discr = 'fe', perturb: bool = True, perturbation_scale: float = 2, plot_flag: bool = True, debug_print: bool = False, folder: str = None):
     """
     Trajectory tracking via LQR.
 
@@ -94,6 +94,8 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
     #######################################
 
     # Extract time horizon
+
+    model.discr_method = discr
 
     x_eq, u_eq = eq_pair2
 
@@ -143,12 +145,12 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
 
     # Cost matrices
     QQt = np.diag([1, 1, 1, 1])
-    RRt = 1e-2 * np.eye(ni)
+    RRt = 1 * np.eye(ni)
 
 
     # Terminal matrices
     A_final, B_final = solver.jacobian_analytic(x_eq, u_eq, model) #no jumps here 
-
+    
     # Terminal cost weight matrix
     QQT, _, _ = ctrl.dare(A_final, B_final, QQt, RRt)  
     
@@ -192,7 +194,7 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
     plots.tracking_error(time_ext, xx_star, uu_star, xx_lqr, uu_lqr, title="LQR Tracking Error", plot_flag=plot_flag, folder=folder)
 
     # Animation of the tracking for the first run
-    anim.animate_comparison(model, xx_lqr[:,:,0], xx_star, eq_pair1, eq_pair2, dt, plot_flag=True, folder=folder)
+    anim.animate_comparison(model, xx_lqr[:,:,0], xx_star, eq_pair1, eq_pair2, dt, folder=folder)
 
 ######################################
 # MAIN
@@ -208,6 +210,7 @@ def main():
     max_iters = 300          # Max Newton iterations for trajectory generation
     n_mid = 20                # Number of mid points for trajectory generation
     method = 'poly5'         # Trajectory generation method: 'poly3' or
+    discr = "fe"
     runs = 5                    # Number of runs with different initial perturbations
     perturb_scale = 2          # Scale of the initial perturbation
 
@@ -232,27 +235,6 @@ def main():
         except ValueError as e:
             print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
             exit(1)
-        
-        # Create folder for plots
-        
-
-        if save_flag:
-            folder = f'report/figs/branch5/traj_gen_newton/{task}'
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-        else:
-            folder = None
-
-        ######################################
-        # Generate optimal trajectory
-        ######################################
-
-        xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
-            task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag, save_armijo=True, folder=folder)
-        
-        ######################################
-        # Track optimal trajectory via LQR
-        ######################################
 
         if save_flag:
             folder = f'report/figs/branch5/traj_track_LQR/{task}/'
@@ -262,10 +244,23 @@ def main():
                 os.makedirs(folder)
         else:
             folder = None
+        
+        # Create folder for plots
+        
+        ######################################
+        # Generate optimal trajectory
+        ######################################
 
+        xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
+            task=task, max_iters=max_iters, discr=discr, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag, save_armijo=False)
+        
+        ######################################
+        # Track optimal trajectory via LQR
+        ######################################
+        
         trajectory_tracking_LQR(
             eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 
-            perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
+            perturb=True, perturbation_scale=perturb_scale, discr=discr, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
 
 
 if __name__ == "__main__":

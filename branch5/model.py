@@ -30,7 +30,7 @@ from plots import colors
 import plots as plots
 
 
-USE_FAST_METHOD = True
+USE_FAST_METHOD = False
 
 # Parameters settings
 PARAM_SET_1 = {

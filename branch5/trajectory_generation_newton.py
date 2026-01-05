@@ -417,7 +417,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
     plots.cost(global_JJ_arr, total_iterations, phase_iters=phase_iters, plot_flag=plot_flag, folder=folder)
     
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference", plot_flag=plot_flag, folder=folder)
-    plots.trajectory_comparison_mid(phase_history, n_mid=5, title="Evolution of Trajectories over Extension Phases", plot_flag=plot_flag, folder=folder)
+    plots.trajectory_comparison_mid(phase_history, eq_pair1=eq_pair1, eq_pair2=eq_pair2, n_mid=5, title="Evolution of Trajectories over Extension Phases", plot_flag=plot_flag, folder=folder)
     
     plots.gradient_error(gradient_error, total_iterations, plot_flag=plot_flag, folder=folder)
 
@@ -473,10 +473,7 @@ def main():
 
     for task in traj.tasks:
         
-        if task == single_task or run_single==False:
-            
-            print(f"Selected Task: {task}".center(80))
-            
+        if task == single_task or run_single==False:        
     
             try:
                 if task not in traj.tasks:
@@ -496,7 +493,10 @@ def main():
             # Run
             ######################################
 
-            
+            centered_str = " "*20 + "="*40 + " "*20 
+            print(centered_str)
+            print(f"Selected Task: {task}".center(80))
+            print(centered_str)
 
             generate_optimal_trajectory(
                 task=task, max_iters=max_iters, discr=discr, method=method, 

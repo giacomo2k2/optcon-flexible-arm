@@ -141,7 +141,9 @@ def trajectory_comparison(
     u_ref: np.ndarray,
     x_track: np.ndarray,
     u_track: np.ndarray,
-    title: str,
+    u_min: float = None,
+    u_max: float = None,
+    title: str = "",
     plot_flag: bool = True,
     folder: str = None
 ) -> None:
@@ -233,6 +235,14 @@ def trajectory_comparison(
             
             ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend(loc='best', fontsize='small')
+
+            if var_idx == num_vars - 1 and u_min is not None and u_max is not None:
+                cur_ylim = ax.get_ylim()
+                ax.fill_between(time, u_min, u_max, color='tab:green', alpha=0.08, label='Input Constraints')
+                ax.fill_between(time, u_max, cur_ylim[1], color='tab:red', alpha=0.05)
+                ax.fill_between(time, cur_ylim[0], u_min, color='tab:red', alpha=0.05)
+
+                ax.set_ylim([u_min - 0.2*abs(u_min), u_max + 0.2*abs(u_max)])
             
     plt.subplots_adjust(hspace=0.5)
     
@@ -354,6 +364,8 @@ def tracking_error(
 
 def trajectory_comparison_mid(
     phase_history: list,
+    eq_pair1: tuple,
+    eq_pair2: tuple,
     n_mid: int,
     title: str,
     plot_flag: bool = True,
@@ -424,13 +436,30 @@ def trajectory_comparison_mid(
                 data_final = xx_phase[idx, :, final_idx]
             
             ax.plot(t_phase, data_final, color=c_phase, 
-                    linewidth=lw_val, alpha=alpha_val, zorder=z_ord,
-                    label=lbl if key=="input" else None)
+                    linewidth=lw_val, alpha=alpha_val, zorder=z_ord)
             
             ax.set_ylabel(unit)
             if key in ['q2_dot', 'input']:
                 ax.set_xlabel(r'$t \mathrm{[s]}$')
             ax.grid(True, linestyle=':', alpha=0.6)
+
+    for key in axes_map:
+        if key == "legend": continue
+        
+        ax = axes_map[key]
+        idx, _, unit = config[key]
+
+        for i, eq_pair in enumerate([eq_pair1, eq_pair2]):
+            x_eq, u_eq = eq_pair
+            
+            # Determina il valore costante da plottare
+            val = u_eq[0] if key == "input" else x_eq[idx]
+
+            ax.axhline(y=val, color=colors['grey'], linestyle='--', alpha=0.7, 
+                       label=f'Eq {i+1}: {val:.2f}' if i==0 else f'Eq {i+1}: {val:.2f}', 
+                       linewidth=1.5, zorder=1) # zorder basso per stare dietro alle traiettorie
+            
+            ax.legend()
 
     # Titles
     axes_map["q1"].set_title(r"State $q_1$", fontsize=13)
@@ -446,7 +475,7 @@ def trajectory_comparison_mid(
     
     norm = mpl.colors.Normalize(vmin=0, vmax=num_phases-1)
     cb = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax_leg, orientation='horizontal', fraction=0.1)
-    cb.set_label('Horizon Extension (Dark=Short $\to$ Light=Long)')
+    cb.set_label('Horizon Extension (Red=Short $\to$ Green=Long)')
     
     plt.subplots_adjust(hspace=0.4)
     

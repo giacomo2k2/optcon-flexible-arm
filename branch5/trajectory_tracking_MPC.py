@@ -64,8 +64,13 @@ def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, um
     Trajectory tracking via MPC.
     """
     
-    if print_debug:
-        print("\n--- Trajectory Tracking via MPC ---\n")
+    ######################################
+    # Log header
+    ######################################
+
+    print("\n" + "="*80)
+    print(f"[Trajectory Tracking] - MPC".center(80))
+    print("="*80)
 
 
     #######################################
@@ -209,14 +214,12 @@ def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, um
     # Results
     #######################################
 
-    # Final plots
-    if plot_flag:
-        plots.trajectory_comparison(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Trajectory Tracking", plot_flag=plot_flag, folder=folder)
-        plots.tracking_error(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Tracking Error", plot_flag=plot_flag, folder=folder)
 
-    # Animation of the optimal trajectory
-    if plot_flag:
-        anim.animate_comparison(model, xx_mpc[:,:,0], xx_star, eq_pair1, eq_pair2)
+    plots.trajectory_comparison(time, xx_star, uu_star, xx_mpc, uu_mpc, u_min=umin, u_max=umax, title="MPC Trajectory Tracking", plot_flag=plot_flag, folder=folder)
+    plots.tracking_error(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Tracking Error", plot_flag=plot_flag, folder=folder)
+
+
+    anim.animate_comparison(model, xx_mpc[:,:,0], xx_star, eq_pair1, eq_pair2, model.dt, folder=folder)
 
 
 def main():
@@ -266,10 +269,10 @@ def main():
         ######################################
 
         xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
-            task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
+            task=task, max_iters=max_iters, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
         
         #choose reasonable umax and umin based on task
-        umax = np.max(np.abs(uu_star)) * 0.95
+        umax = np.max(np.abs(uu_star))
 
         #choose reasonable T_pred based on task length
         T_pred = min(100, len(time)//2)
