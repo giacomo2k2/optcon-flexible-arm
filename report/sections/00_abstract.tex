@@ -1,0 +1,21 @@
+%----------------------------------------------------------------------------------------
+%	ABSTRACT
+%----------------------------------------------------------------------------------------
+\begin{abstract}
+
+This project addresses the optimal control and trajectory tracking of a flexible robotic link, modeled as an under-actuated planar double pendulum with nonlinear joint stiffness.
+
+The goal of this work is to develop a comprehensive framework for trajectory generation and tracking control, considering the system's inherent nonlinearities and actuation constraints.
+
+The study adopts a flexible discretization framework where the integration scheme is selected based on the specific requirements of the maneuver and its required fidelity. The analytic Jacobians are derived directly from the chosen discrete-time mapping, ensuring that the gradients remain consistent with the state-transition dynamics.
+
+We analyze the system's equilibrium manifold to identify stable and unstable configurations. 
+
+Trajectory generation is performed using a Newton-based approach.  Moreover, a novel Dynamic Horizon Extension strategy is proposed to enhance the convergence of trajectory optimization algorithms in the presence of complex dynamics.
+
+Finally, we implement and compare two tracking controllers: a Linear Time-Varying Linear Quadratic Regulator (LTV-LQR) for unconstrained stabilization, and a Model Predictive Control (MPC) scheme to handle actuator saturation. 
+
+Simulation results demonstrate the efficacy of the proposed extension strategy in generating feasible trajectories and highlight the superior performance of MPC in tracking under input constraints.
+
+\end{abstract}
+\newpage

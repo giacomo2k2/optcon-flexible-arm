@@ -1,0 +1,66 @@
+%----------------------------------------------------------------------------------------
+%	SECTION 4: TRAJECTORY TRACKING VIA LQR
+%----------------------------------------------------------------------------------------
+
+
+% (section 4) task 3 - Trajectory tracking with LQR:
+%     - perturbation epsilon 
+%     - cost function
+%     - final extension of time + dare
+
+\section{Task 3: Trajectory Tracking via LQR}
+
+Once an optimal trajectory $(x^*, u^*)$ is generated, we designed a \textbf{Linear Quadratic Regulator} (LQR) to stabilize the system around this trajectory in the presence of \textbf{disturbances}.\\
+The main objective is to \textbf{minimize deviations} from the reference while ensuring \textbf{smooth control actions}, also ensuring stability at the end of the maneuver is \textbf{maintained or recovered}.
+
+\subsection{Linear Time-Varying (LTV) LQR}
+Since the reference trajectory is not a static point, we linearized the system dynamics along the trajectory, resulting in time-varying matrices $A_t$ and $B_t$:
+\begin{equation}
+\delta x_{t+1} = A_t \delta x_t + B_t \delta u_t
+\end{equation}
+The feedback law is computed as $u_t = u^*_t - K_t (x_t - x^*_t)$, where $K_t$ is obtained by solving the Riccati equation backward in time.
+The input is therefore composed of the nominal \textbf{feedforward} term $u^*_t$ and a \textbf{feedback} correction based on the state deviation.
+
+\subsection{Implementation Details}
+\begin{itemize}
+\item \textbf{Perturbations:} To evaluate the controller's basin of \textbf{attraction}, we initialized the system with stochastic perturbations ($\epsilon \sim U[-0.05, 0.05]$) and then, for each run, we decided to apply the following initial disturbance: 
+\begin{equation}
+    x_0 = x^*_0 + \epsilon \cdot p_\text{scale} \cdot rr 
+\end{equation}
+Where $rr$ is the specific run, and $p_\text{scale}$ is a scaling factor. By scaling these perturbations across multiple runs, we observed the LQR's ability to recover the nominal path even when the initial state deviated significantly from the optimal starting point.
+\item \textbf{Horizon Extension and Terminal Stability:} 
+To ensure consistent behavior between the trajectory generation and tracking phases, the terminal cost matrix $Q_T$ was defined as the \textbf{solution to the Discrete Algebraic Riccati Equation} (DARE) computed at the final equilibrium point. \\
+This choice effectively incorporates an infinite-horizon cost-to-go into the finite-horizon LQR framework, allowing the controller to \textbf{transition from a trajectory tracker into a steady-state regulator}. \\
+As shown in the extended simulations, the LQR continues to operate beyond the nominal time $T$ to demonstrate the \textit{asymptotic stability} of the closed-loop system. \\
+It is important to note that the validity of this terminal regulation relies on the \textbf{final trajectory state being a true equilibrium point}. \\
+This ensures that the linearized dynamics used for the DARE remain a faithful approximation of the nonlinear system, allowing the LQR to stabilize the robot within the neighborhood of the target pose even in the presence of residual perturbations.
+\item \textbf{Cost Function:} The weighting matrices $Q$, $R$, and $Q_T$ were chosen to \textbf{balance state deviation penalties and control effort}, tuned through simulations to achieve desired performance.\\
+In this case, differently from the trajectory generation phase, we opted for a higher weight on the control effort (R matrix) to \textbf{avoid aggressive maneuvers} during tracking.\\
+Furthermore, given the flexible nature of the robot, high-gain tracking ($Q \gg R$) could \textbf{excite high-frequency oscillations} or lead to saturation in a real-world scenario.
+\end{itemize}
+
+\subsection{Simulation Results}
+The results (see Figure \ref{fig:placeholder4}, \ref{fig:placeholder5}, \ref{fig:placeholder6}) demonstrate that the LTV-LQR effectively rejects initial disturbances and tracks the complex optimal maneuver.
+
+\begin{figure}[]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{Your descriptive caption goes here.}
+    \label{fig:placeholder4}
+\end{figure}
+
+\begin{figure}[]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{Your descriptive caption goes here.}
+    \label{fig:placeholder5}
+\end{figure}
+
+\begin{figure}[]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{Your descriptive caption goes here.}
+    \label{fig:placeholder6}
+\end{figure}
+
+\newpage

@@ -1,0 +1,184 @@
+%----------------------------------------------------------------------------------------
+%	APPENDIX
+%----------------------------------------------------------------------------------------
+\section{Appendix}
+
+\subsection{Apprendix A: Analytical Derivation of the Jacobian}
+\label{app:appendixA}
+
+This appendix details the analytical computation of the Jacobian matrices $A$ and $B$ used in the linearization of the flexible double pendulum dynamics.
+
+\subsubsection{State-Space Formulation}
+Let the state vector be $x = [q_1, q_2, \dot{q}_1, \dot{q}_2]^\top \in \mathbb{R}^4$ and the input be $u \in \mathbb{R}$. The equations of motion in standard robotic form are:
+\begin{equation}
+    M(q)\ddot{q} + C(q, \dot{q})\dot{q} + G(q) + F\dot{q} = \tau
+\end{equation}
+where $\tau = [u, 0]^\top$. By isolating angular accelerations, we obtain the state-space dynamics $\dot{x} = f(x, u)$:
+\begin{equation}
+    \dot{x} = 
+    \begin{bmatrix}
+        \dot{q} \\
+        \ddot{q}
+    \end{bmatrix} = 
+    \begin{bmatrix}
+        \dot{q} \\
+        M(q)^{-1} \left( \tau - C(q, \dot{q})\dot{q} - G(q) - F\dot{q} \right)
+    \end{bmatrix}
+\end{equation}
+To linearize the system about a point $(x, u)$, we compute the Jacobians $A = \frac{\partial f}{\partial x}$ and $B = \frac{\partial f}{\partial u}$.
+
+\subsubsection{Jacobian Matrix A}
+The state Jacobian $A \in \mathbb{R}^{4 \times 4}$ has the following block structure:
+\begin{equation}
+    A = 
+    \begin{bmatrix}
+        \frac{\partial \dot{q}}{\partial q} & \frac{\partial \dot{q}}{\partial \dot{q}} \\
+        \frac{\partial \ddot{q}}{\partial q} & \frac{\partial \ddot{q}}{\partial \dot{q}}
+    \end{bmatrix}
+    =
+    \begin{bmatrix}
+        0_{2 \times 2} & I_{2 \times 2} \\
+        A_{21} & A_{22}
+    \end{bmatrix}
+\end{equation}
+
+\subsubsection{Block \texorpdfstring{$A_{22}$}{A22}: Partial Derivative w.r.t. Velocities}
+Let $\eta = \tau - C(q, \dot{q})\dot{q} - G(q) - F\dot{q}$ be the net torque. Then $\ddot{q} = M^{-1}\eta$. Since $M$ and $G$ depend only on positions $q$, the derivative with respect to $\dot{q}$ is:
+\begin{equation}
+    A_{22} = \frac{\partial \ddot{q}}{\partial \dot{q}} = M^{-1} \left( - \frac{\partial (C(q, \dot{q})\dot{q})}{\partial \dot{q}} - F \right)
+\end{equation}
+
+
+\subsubsection{Block \texorpdfstring{$A_{21}$}{A21}: Partial Derivative w.r.t. Positions}
+The derivative with respect to $q$ involves the chain rule on both the inverse mass matrix and the force vector $\eta$:
+\begin{equation}
+    A_{21} = \frac{\partial \ddot{q}}{\partial q} = \underbrace{\frac{\partial (M^{-1})}{\partial q} \eta}_{\text{term 1}} + \underbrace{M^{-1} \frac{\partial \eta}{\partial q}}_{\text{term 2}}
+\end{equation}
+
+\paragraph{Term 1: Derivative of Inverse Mass Matrix}
+Using the identity $\frac{\partial M^{-1}}{\partial \alpha} = -M^{-1} \frac{\partial M}{\partial \alpha} M^{-1}$, the first term is computed column-wise for $q_1$ and $q_2$:
+\begin{equation}
+    \frac{\partial (M^{-1})}{\partial q_i} \eta = -M^{-1} \frac{\partial M}{\partial q_i} M^{-1} \eta = -M^{-1} \frac{\partial M}{\partial q_i} \ddot{q}
+\end{equation}
+
+
+\paragraph{Term 2: Derivative of Forces}
+The derivative of the net torque $\eta$ with respect to $q$ is:
+\begin{equation}
+    \frac{\partial \eta}{\partial q} = - \frac{\partial (C(q, \dot{q})\dot{q})}{\partial q} - \frac{\partial G}{\partial q}
+\end{equation}
+
+
+\subsubsection{Jacobian Matrix B}
+The input Jacobian $B \in \mathbb{R}^{4 \times 1}$ is straightforward, as only the torque $\tau$ depends on $u$:
+\begin{equation}
+    B = 
+    \begin{bmatrix}
+        \frac{\partial \dot{q}}{\partial u} \\
+        \frac{\partial \ddot{q}}{\partial u}
+    \end{bmatrix}
+    =
+    \begin{bmatrix}
+        0_{2 \times 1} \\
+        M^{-1} \frac{\partial \tau}{\partial u}
+    \end{bmatrix}
+\end{equation}
+Since $\tau = [u, 0]^\top$, $\frac{\partial \tau}{\partial u} = [1, 0]^\top$. Thus, the bottom block of $B$ is simply the first column of $M^{-1}$.
+
+\subsubsection{Explicit Derivative Matrices}
+For completeness, the non-zero partial derivatives implemented in the code are listed below. Let $s_i = \sin(q_i)$, $c_i = \cos(q_i)$, and $s_{12} = \sin(q_1+q_2)$.
+
+\paragraph{Gravity Gradient}
+\begin{equation}
+    \frac{\partial G}{\partial q} = 
+    \begin{bmatrix}
+        g(m_1 l_{c1} + m_2 l_1)c_1 + m_2 g l_{c2} c_{12} & m_2 g l_{c2} c_{12} \\
+        m_2 g l_{c2} c_{12} & m_2 g l_{c2} c_{12} + 3k(c_2^2 - 2s_2^2)c_2
+    \end{bmatrix}
+\end{equation}
+
+\paragraph{Coriolis Velocity Gradient}
+\begin{equation}
+    \frac{\partial (C\dot{q})}{\partial \dot{q}} = 
+    2 m_2 l_1 l_{c2} s_2
+    \begin{bmatrix}
+        -\dot{q}_2 & -(\dot{q}_1 + \dot{q}_2) \\
+        \dot{q}_1 & 0
+    \end{bmatrix}
+\end{equation}
+
+\paragraph{Mass Matrix Gradient}
+\begin{equation}
+    \frac{\partial M}{\partial q_2} = 
+    - m_2 l_1 l_{c2} s_2
+    \begin{bmatrix}
+        2 & 1 \\
+        1 & 0
+    \end{bmatrix}
+\end{equation}
+
+\subsection{Appendix B: Derivation of Discrete-Time Jacobians}
+\label{app:appendixB}
+
+This appendix details the linearization of the discrete-time dynamics obtained via numerical integration. Let the continuous-time dynamics be $\dot{x} = f(x, u)$, and let the discrete-time system be denoted by:
+\begin{equation}
+    x_{k+1} = F(x_k, u_k)
+\end{equation}
+where $F$ is the numerical integration map over a time step $\Delta t$. We seek the discrete-time state Jacobian $A_d$ and input Jacobian $B_d$:
+\begin{equation}
+    A_d = \frac{\partial F}{\partial x}\bigg|_{x_k, u_k}, \quad B_d = \frac{\partial F}{\partial u}\bigg|_{x_k, u_k}
+\end{equation}
+Let the continuous-time Jacobians evaluated at a specific state $x$ and input $u$ be denoted as $A_c(x,u) = \nabla_x f(x,u)$ and $B_c(x,u) = \nabla_u f(x,u)$.
+
+\subsection{Forward Euler Discretization}
+The Forward Euler method approximates the dynamics as:
+\begin{equation}
+    x_{k+1} = x_k + \Delta t f(x_k, u_k)
+\end{equation}
+Differentiating with respect to $x_k$ and $u_k$ yields the standard first-order approximation:
+\begin{align}
+    A_d &= I + \Delta t A_c(x_k, u_k) \\
+    B_d &= \Delta t B_c(x_k, u_k)
+\end{align}
+
+\subsection{Runge-Kutta 4 (RK4) Discretization}
+The explicit RK4 integration scheme is defined by:
+\begin{equation}
+    x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
+\end{equation}
+where the intermediate slopes $k_i$ are:
+\begin{align*}
+    k_1 &= f(x_k, u_k) \\
+    k_2 &= f(x_k + 0.5 \Delta t k_1, u_k) \\
+    k_3 &= f(x_k + 0.5 \Delta t k_2, u_k) \\
+    k_4 &= f(x_k + \Delta t k_3, u_k)
+\end{align*}
+To find $A_d$ and $B_d$, we apply the chain rule recursively to the slopes $k_i$.
+
+\subsubsection{State Jacobian \texorpdfstring{$A_d$}{Ad}}
+Differentiating the update equation with respect to $x_k$:
+\begin{equation}
+    A_d = I + \frac{\Delta t}{6} \left( \frac{\partial k_1}{\partial x} + 2\frac{\partial k_2}{\partial x} + 2\frac{\partial k_3}{\partial x} + \frac{\partial k_4}{\partial x} \right)
+\end{equation}
+Let $x^{(i)}$ denote the argument of $f$ for the calculation of $k_i$. The gradients are derived recursively:
+\begin{align}
+    \frac{\partial k_1}{\partial x} &= A_c(x_k, u_k) \label{eq:dk1_dx} \\
+    \frac{\partial k_2}{\partial x} &= A_c(x^{(2)}, u_k) \left( I + 0.5 \Delta t \frac{\partial k_1}{\partial x} \right) \\
+    \frac{\partial k_3}{\partial x} &= A_c(x^{(3)}, u_k) \left( I + 0.5 \Delta t \frac{\partial k_2}{\partial x} \right) \\
+    \frac{\partial k_4}{\partial x} &= A_c(x^{(4)}, u_k) \left( I + \Delta t \frac{\partial k_3}{\partial x} \right)
+\end{align}
+
+\subsubsection{Input Jacobian \texorpdfstring{$B_d$}{Bd}}
+Differentiating the update equation with respect to $u_k$:
+\begin{equation}
+    B_d = \frac{\Delta t}{6} \left( \frac{\partial k_1}{\partial u} + 2\frac{\partial k_2}{\partial u} + 2\frac{\partial k_3}{\partial u} + \frac{\partial k_4}{\partial u} \right)
+\end{equation}
+Note that $u_k$ appears both directly in $f$ and indirectly through the state perturbation in the intermediate steps. The recursive gradients are:
+\begin{align}
+    \frac{\partial k_1}{\partial u} &= B_c(x_k, u_k) \\
+    \frac{\partial k_2}{\partial u} &= A_c(x^{(2)}, u_k) \left( 0.5 \Delta t \frac{\partial k_1}{\partial u} \right) + B_c(x^{(2)}, u_k) \\
+    \frac{\partial k_3}{\partial u} &= A_c(x^{(3)}, u_k) \left( 0.5 \Delta t \frac{\partial k_2}{\partial u} \right) + B_c(x^{(3)}, u_k) \\
+    \frac{\partial k_4}{\partial u} &= A_c(x^{(4)}, u_k) \left( \Delta t \frac{\partial k_3}{\partial u} \right) + B_c(x^{(4)}, u_k)
+\end{align}
+This exact linearization of the RK4 integrator ensures that the discrete-time Jacobians accurately reflect the curvature of the numerical integration path, which is critical for the stability of Newton-based optimal control solvers.
+

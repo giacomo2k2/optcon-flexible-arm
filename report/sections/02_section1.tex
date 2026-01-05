@@ -1,0 +1,30 @@
+%----------------------------------------------------------------------------------------
+%	SECTION 1: MODEL DISCRETIZATION
+%----------------------------------------------------------------------------------------
+
+
+\section{Task 0: Problem Setup and Discretization}
+
+The continuous-time dynamics of the double pendulum are governed by the equation:
+\begin{equation}
+M(q)\ddot{q} + C(q, \dot{q})\dot{q} + F\dot{q} + G(q) = \begin{bmatrix} \tau \\ 0 \end{bmatrix}
+\end{equation}
+where $q = [\theta_1, \theta_2]^\top$. To utilize numerical optimal control techniques, these dynamics must be discretized.
+
+\subsection{Discretization Methods}
+We implemented two discretization schemes in `solver.py` to transition from continuous time $\dot{x} = f(x, u)$ to discrete time $x_{k+1} = f_d(x_k, u_k)$:
+\begin{enumerate}
+\item \textbf{Forward Euler (FE):} $x_{k+1} = x_k + \Delta t f(x_k, u_k)$. While simple, this method is numerically unstable for stiff systems or large time steps.
+\item \textbf{Runge-Kutta 4th Order (RK4):} This method computes the state update using a weighted average of four slopes:
+\begin{equation}
+      x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
+\end{equation}
+RK4 was selected as the primary method for the project due to its superior accuracy and stability preservation, which is critical for the long-horizon optimizations performed in Task 2.
+\end{enumerate}
+
+\subsection{Analytic Jacobian Computation}
+For the Newton-based optimal control algorithm, accurate gradients of the dynamics are required. Relying on finite differences can introduce numerical noise, while symbolic differentiation (via SymPy) proved too slow for iterative solving.
+
+Therefore, we implemented an \textbf{analytic Jacobian} computation in `model.py`. The Jacobians $A = \frac{\partial f}{\partial x}$ and $B = \frac{\partial f}{\partial u}$ were derived manually and implemented using optimized NumPy operations (and Numba JIT compilation for speed). This approach ensures that the linearization required for the Backward Pass in Newton's method is both precise and computationally efficient.
+
+\newpage

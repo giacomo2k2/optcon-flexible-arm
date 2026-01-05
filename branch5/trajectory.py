@@ -56,26 +56,26 @@ tasks = {
         'end': configurations['U-U'],
         'time': 2.0,
     },
-    'overhead_wipe': {
-        'start': configurations['LU-U'],
-        'end': configurations['RU-U'],
-        'time': 2.0,
-    },
-    'diagonal_swing': { 
-        'start': configurations['LD-D'],
-        'end': configurations['RU-U'],
-        'time': 2.0,
-    },
+    #'overhead_wipe': {
+    #    'start': configurations['LU-U'],
+    #    'end': configurations['RU-U'],
+    #    'time': 2.0,
+    #},
+    #'diagonal_swing': { 
+    #    'start': configurations['LD-D'],
+    #    'end': configurations['RU-U'],
+    #    'time': 2.0,
+    #},
     'elbow_up': { 
         'start': configurations['D-D'],
         'end': configurations['R-U'],
         'time': 2.0,
     },
-    'top_to_elbow_up': { 
-        'start': configurations['U-U'],
-        'end': configurations['R-U'],
-        'time': 2.0,
-    },
+    #'top_to_elbow_up': { 
+    #    'start': configurations['U-U'],
+    #    'end': configurations['R-U'],
+    #    'time': 2.0,
+    #},
     'low_diagonal_hold': {
         'start': configurations['D-D'],
         'end': configurations['RD-D'],
@@ -86,11 +86,11 @@ tasks = {
         'end': configurations['R-U'],
         'time': 2.0,
     },
-    'half_swing':{ 
-        'start': configurations['D-D'],
-        'end': configurations['U-D'],
-        'time': 4.0,
-    },
+    #'half_swing':{ 
+    #    'start': configurations['D-D'],
+    #    'end': configurations['U-D'],
+    #    'time': 4.0,
+    #},
     'inverted_hand_off': { 
         'start': configurations['D-U'],
         'end': configurations['U-D'],
@@ -101,51 +101,51 @@ tasks = {
         'end': configurations['D-D'],
         'time': 4.0,
     },
-    'half_dive': { 
-        'start': configurations['U-U'],
-        'end': configurations['U-D'],
-        'time': 4.0,
-    },
-    'top_to_elbow_down': { 
-        'start': configurations['U-U'],
-        'end': configurations['R-D'],
-        'time': 4.0,
-    },
-    'custom1': { 
-        'start': configurations['LD-U'],
-        'end': configurations['RU-U'],
-        'time': 2.0,
-    },
-    'custom2': { 
-        'start': configurations['RU-U'],
-        'end': configurations['LD-U'],
-        'time': 2.0,
-    },
-    'custom3': { 
-        'start': configurations['RU-D'],
-        'end': configurations['LD-U'],
-        'time': 2.0,
-    },
-    'custom4': { 
-        'start': configurations['RU-U'],
-        'end': configurations['D-U'],
-        'time': 2.0,
-    },
+    #'half_dive': { 
+    #    'start': configurations['U-U'],
+    #    'end': configurations['U-D'],
+    #    'time': 4.0,
+    #},
+    #'top_to_elbow_down': { 
+    #    'start': configurations['U-U'],
+    #    'end': configurations['R-D'],
+    #    'time': 4.0,
+    #},
+    #'custom1': { 
+    #    'start': configurations['LD-U'],
+    #    'end': configurations['RU-U'],
+    #    'time': 2.0,
+    #},
+    #'custom2': { 
+    #    'start': configurations['RU-U'],
+    #    'end': configurations['LD-U'],
+    #    'time': 2.0,
+    #},
+    #'custom3': { 
+    #    'start': configurations['RU-D'],
+    #    'end': configurations['LD-U'],
+    #    'time': 2.0,
+    #},
+    #'custom4': { 
+    #    'start': configurations['RU-U'],
+    #    'end': configurations['D-U'],
+    #    'time': 2.0,
+    #},
     'custom5': { 
         'start': configurations['R-D'],
         'end': configurations['D-U'],
         'time': 2.0,
     },
-    'custom6': { 
-        'start': configurations['R-D'],
-        'end': configurations['L-U'],
-        'time': 2.0,
-    },
-    'custom7': { 
-        'start': configurations['R-D'],
-        'end': configurations['R-U'],
-        'time': 4.0,
-    },
+    #'custom6': { 
+    #    'start': configurations['R-D'],
+    #    'end': configurations['L-U'],
+    #    'time': 2.0,
+    #},
+    #'custom7': { 
+    #    'start': configurations['R-D'],
+    #    'end': configurations['R-U'],
+    #    'time': 4.0,
+    #},
 }
 
 

@@ -1,0 +1,62 @@
+%----------------------------------------------------------------------------------------
+%	SECTION 5: TRAJECTORY TRACKING VIA MPC
+%----------------------------------------------------------------------------------------
+
+
+
+% (section 5) task 4 - Trajectory tracking with MPC:
+%     - prediction horizon
+%     - perturbation
+%     - constraint u (max u)    
+%
+\section{Task 4: Trajectory Tracking via MPC}
+
+While LQR is effective for unconstrained tracking, it \textbf{cannot explicitly handle actuator saturation}. We implemented a linear \textbf{Model Predictive Control} (MPC) scheme to address this.
+
+\subsection{MPC Formulation}
+At each time step $t$, we solve a finite-horizon optimization problem:
+\begin{align*}
+\min_{\Delta u} \quad & \sum_{t=0}^{T_{pred}-1} \left( \|\Delta x_t\|_{Q}^2 + \|\Delta u_t\|_{R}^2 \right) + \|\Delta x_{T_{pred}}\|_{Q_T}^2 \\
+\text{s.t.} \quad & \Delta x_{k+1} = A_{t+k} \Delta x_k + B_{t+k} \Delta u_k \\
+& u_{min} \leq u^*_{t+k} + \Delta u_k \leq u_{max}
+\end{align*}
+where $T_{pred}$ is the prediction horizon.
+
+\subsection{Key Features}
+\begin{itemize}
+\item \textbf{Constraints:} We imposed hard constraints on the input torque ($u \in [u_{min}, u_{max}]$) to \textbf{respect physical motor limits}, which LQR ignores. \\
+In particular, we set $u_{max} = \max(|u^*|)$ and $u_{min} = -u_{max}$, so as \textbf{not to exceed the torque needed to complete the nominal trajectory} with no disturbances; managing \\
+to find a way through thanks to the prediction window and the optimization.
+\item \textbf{Receding Horizon:} Only the first control input is applied, and the optimization is repeated at the next step. Furthermore we opted for a prediction horizon $T_{pred}$\\
+that could serve as a \textbf{good compromise between performance and computational load}. In particular, we set $T_{pred} = \min(100, \frac{\text{len}(time)}{2})$.
+\item \textbf{Perturbations:} Similar to the LQR case, we introduced random initial state perturbations to evaluate robustness. We opted for bigger values, about $1.5$ times those used in the LQR case.
+\item \textbf{Solver:} We utilized CasADi with IPOPT to solve the constrained QP/NLP at each step.
+\end{itemize}
+
+\subsection{Simulation Results}
+The MPC controller showed superior performance in scenarios where large perturbations would cause an LQR controller to request infeasible torques.\\
+Moreover, the ability to handle constraints makes MPC a versatile choice.\\
+Down below some results are shown (see Figure \ref{fig:placeholder1}, \ref{fig:placeholder2}, \ref{fig:placeholder3}).
+
+\begin{figure}[]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{Your descriptive caption goes here.}
+    \label{fig:placeholder1}
+\end{figure}
+
+\begin{figure}[]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{Your descriptive caption goes here.}
+    \label{fig:placeholder2}
+\end{figure}
+
+\begin{figure}[]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{Your descriptive caption goes here.}
+    \label{fig:placeholder3}
+\end{figure}
+
+\newpage

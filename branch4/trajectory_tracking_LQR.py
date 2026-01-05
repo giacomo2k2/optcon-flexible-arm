@@ -254,7 +254,7 @@ def main():
     
     # Create folder for plots
     if save_flag:
-        folder = f'report/figs/traj_track_LQR/{task}/'
+        folder = f'report/figs/branch4/traj_track_LQR/{task}/'
 
         # Create folder if it does not exist
         if not os.path.exists(folder):

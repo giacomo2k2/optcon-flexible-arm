@@ -1,16 +1,14 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % OPTCON-RL 2025/2026 - Course Project #2
 % Optimal Control of a Flexible Robotic Link
 %
 % File:         OPTCON_report_template_.tex
-% Description:  LaTeX template for the OPTCON-RL course project report
+% Description:  LaTeX template for the OPTCON-RL course project report.
 %
 % Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 % Affiliation:  Alma Mater Studiorum Università di Bologna
 % Date:         December 2025
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %----------------------------------------------------------------------------------------
 %	DOCUMENT CLASS
@@ -20,29 +18,30 @@
 %----------------------------------------------------------------------------------------
 %	PACKAGES
 %----------------------------------------------------------------------------------------
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{amsmath, amssymb, amsthm}
-\usepackage{graphicx}
-\usepackage{geometry}
-\usepackage{float}
-\usepackage{subcaption}
-\usepackage{listings}
-\usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{booktabs}
-\usepackage{siunitx}
+\usepackage[utf8]{inputenc}                     % UTF-8 encoding
+\usepackage[T1]{fontenc}                        % Font encoding
+\usepackage{amsmath, amssymb, amsthm}           % For mathematical symbols and environments
+\usepackage{graphicx}                           % Essential for inserting images/figures
+\usepackage{geometry}                           % For setting page dimensions and margins
+\usepackage{float}                              % Improved interface for floating objects
+\usepackage{subcaption}                         % For subfigures
+\usepackage{listings}                           % For including code snippets
+\usepackage{xcolor}                             % For defining colors
+\usepackage{hyperref}                           % For hyperlinks in the document
+\usepackage{booktabs}                           % For professional looking tables
+\usepackage{siunitx}                            % For typesetting units and quantities
 \usepackage[english]{babel}                     % Sets language rules for hyphenation and titles
 \usepackage{color}                              % Allows the use of colored text/boxes
 \usepackage{cite}                               % Manages bibliographic citations in the text
 \usepackage{graphicx}                           % Essential for inserting images/figures
 \usepackage{float}                              % Improved interface for floating objects 
 \usepackage{bm}                                 % For bold mathematical symbols (useful for vectors)
+\usepackage{multicol}                           % For multiple columns layout
+\usepackage{abstract}                           % For customizing the abstract section
 
 %----------------------------------------------------------------------------------------
 %     DOCUMENT SETTINGS
 %----------------------------------------------------------------------------------------
-
 % Margins
 \geometry{
       left=25mm,
@@ -79,6 +78,9 @@
 
 \lstset{style=mystyle}
 
+%----------------------------------------------------------------------------------------
+%	BEGIN DOCUMENT
+%----------------------------------------------------------------------------------------
 \begin{document}
 
 %----------------------------------------------------------------------------------------
@@ -121,8 +123,8 @@
 \vfill
       {\large Academic year \@2025/2026} \\
 \end{center}
-\end{titlepage}
-\newpage
+\end{titlepage}   
+
 %----------------------------------------------------------------------------------------
 %	TABLE OF CONTENTS
 %----------------------------------------------------------------------------------------
@@ -136,253 +138,20 @@
 \newpage
 
 %----------------------------------------------------------------------------------------
-%	ABSTRACT
+%	MAIN CONTENT
 %----------------------------------------------------------------------------------------
-\section{Abstract}
-\newpage
-%----------------------------------------------------------------------------------------
-%	INTRODUCTION
-%----------------------------------------------------------------------------------------
-\section*{Introduction}
-
-
-
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder}
-\end{figure}
-
-This report presents the design and implementation of optimal control strategies for a flexible robotic link. The system is modeled as a planar double pendulum where the first joint is actuated, while the second joint is passive and exhibits nonlinear elastic behavior. This structure introduces significant control challenges, specifically:
-\begin{itemize}
-\item \textbf{Under-actuation:} The system has two degrees of freedom (DoF) but only one control input (torque at the base).
-\item \textbf{Nonlinear Elasticity:} The stiffness between the links depends nonlinearly on the relative angle $\theta_2$, complicating the dynamics compared to standard linear springs.
-\item \textbf{Non-controllability:} The system is not fully feedback linearizable, and maintaining equilibrium requires precise balancing of gravitational and elastic forces.
-\item \textbf{Low Friction:} The provided parameters (Set 2) involve relatively low friction coefficients, making the system prone to oscillations and sensitive to disturbances.
-\end{itemize}
-
-The project addresses the discretization of dynamics, equilibrium analysis, optimal trajectory generation using a Newton-based method, and trajectory tracking using both Linear Quadratic Regulator (LQR) and Model Predictive Control (MPC).
-
-\newpage
+\input{sections/00_abstract.tex}                % Abstract
+\input{sections/01_introduction.tex}            % Introduction
+\input{sections/02_section1.tex}                % Task 0 - Problem setup
+\input{sections/03_section2.tex}                % Task 1 - Equilibria analysis
+\input{sections/04_section3.tex}                % Task 2 - Trajectory generation
+\input{sections/05_section4.tex}                % Task 3 - Trajectory tracking via LQR
+\input{sections/06_section5.tex}                % Task 4 - Trajectory tracking via MPC
+\input{sections/07_section6.tex}                % Task 5 - Animation
+\input{sections/08_conclusion.tex}              % Conclusion
+\input{sections/09_appendix.tex}                % Appendix
 
 %----------------------------------------------------------------------------------------
-%	SECTION 1: MODEL DISCRETIZATION
+%	END DOCUMENT
 %----------------------------------------------------------------------------------------
-\section{Task 0: Problem Setup and Discretization}
-
-The continuous-time dynamics of the double pendulum are governed by the equation:
-\begin{equation}
-M(q)\ddot{q} + C(q, \dot{q})\dot{q} + F\dot{q} + G(q) = \begin{bmatrix} \tau \\ 0 \end{bmatrix}
-\end{equation}
-where $q = [\theta_1, \theta_2]^\top$. To utilize numerical optimal control techniques, these dynamics must be discretized.
-
-\subsection{Discretization Methods}
-We implemented two discretization schemes in `solver.py` to transition from continuous time $\dot{x} = f(x, u)$ to discrete time $x_{k+1} = f_d(x_k, u_k)$:
-\begin{enumerate}
-\item \textbf{Forward Euler (FE):} $x_{k+1} = x_k + \Delta t f(x_k, u_k)$. While simple, this method is numerically unstable for stiff systems or large time steps.
-\item \textbf{Runge-Kutta 4th Order (RK4):} This method computes the state update using a weighted average of four slopes:
-\begin{equation}
-      x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
-\end{equation}
-RK4 was selected as the primary method for the project due to its superior accuracy and stability preservation, which is critical for the long-horizon optimizations performed in Task 2.
-\end{enumerate}
-
-\subsection{Analytic Jacobian Computation}
-For the Newton-based optimal control algorithm, accurate gradients of the dynamics are required. Relying on finite differences can introduce numerical noise, while symbolic differentiation (via SymPy) proved too slow for iterative solving.
-
-Therefore, we implemented an \textbf{analytic Jacobian} computation in `model.py`. The Jacobians $A = \frac{\partial f}{\partial x}$ and $B = \frac{\partial f}{\partial u}$ were derived manually and implemented using optimized NumPy operations (and Numba JIT compilation for speed). This approach ensures that the linearization required for the Backward Pass in Newton's method is both precise and computationally efficient.
-
-\newpage
-%----------------------------------------------------------------------------------------
-%	SECTION 2: EQUILIBRIA ANALYSIS
-%----------------------------------------------------------------------------------------
-\section{Task 1: Equilibria and Terminal Cost}
-
-\subsection{Equilibrium Manifold}
-The system's equilibria are defined by states where $\dot{q} = \ddot{q} = 0$. This implies the gravity and stiffness torques must be balanced by the input $\tau$.
-We analyzed the equilibrium manifold by fixing one generalized coordinate ($\theta_1$ or $\theta_2$) and solving for the other.
-\begin{itemize}
-\item \textbf{Elbow-Up vs. Elbow-Down:} We identified distinct configurations such as "Elbow-Up" (unstable) and "Elbow-Down" (stable).
-\item \textbf{Input Requirements:} Due to the passive spring, maintaining certain angles $\theta_2$ requires a non-zero steady-state torque $\tau_{eq}$ to counteract the spring force $k(\theta_2)$.
-\end{itemize}
-
-Our analysis, visualized via the compute-equilibrium-manifold function, shows the relationship between the link configuration and the required holding torque.
-
-\subsection{Cost Function}
-For the optimal control problem, we defined the quadratic cost function:
-\begin{equation}
-J = \sum_{t=0}^{T-1} \left( \frac{1}{2} \Delta x_t^\top Q \Delta x_t + \frac{1}{2} \Delta u_t^\top R \Delta u_t \right) + \frac{1}{2} \Delta x_T^\top Q_T \Delta x_T
-\end{equation}
-where $\Delta x = x - x_{ref}$ and $\Delta u = u - u_{ref}$. We selected $Q = \text{diag}(1, 1, 1, 1)$ and $R = 10^{-3}I$ to penalize state deviation while allowing for aggressive control actions.
-
-\subsection{Terminal Cost via DARE}
-A critical aspect of the finite-horizon optimization is the terminal cost $Q_T$. Simply setting $Q_T = Q$ often fails to stabilize the system at the end of the horizon, especially for short durations.
-
-We computed $Q_T$ by solving the \textbf{Discrete Algebraic Riccati Equation (DARE)} based on the linearization at the final target equilibrium $(x_{eq}, u_{eq})$.
-\begin{equation}
-P_{\infty} = A^\top P_{\infty} A - (A^\top P_{\infty} B)(R + B^\top P_{\infty} B)^{-1} (B^\top P_{\infty} A) + Q
-\end{equation}
-Setting $Q_T = P_{\infty}$ provides an approximation of the infinite-horizon cost-to-go. This essentially informs the solver that the trajectory continues optimally after time $T$, significantly improving convergence and stability for tasks like the "Swing Up".
-
-\subsection{Step Size Selection (Armijo Rule)}
-To ensure global convergence of the Newton method, we implemented a line search using the Armijo rule. The step size $\alpha$ is reduced ($\alpha \leftarrow \beta \alpha$) until the actual cost reduction is a sufficient fraction of the predicted reduction (based on the gradient). This prevents the solver from taking overly aggressive steps that could destabilize the trajectory.
-
-\newpage
-
-%----------------------------------------------------------------------------------------
-%	SECTION 3: TRAJECTORY GENERATION
-%----------------------------------------------------------------------------------------
-
-% (section 3) task 2 - Trajectory generation with Newton's method:
-%     - stepwise examples and problems 
-%     - poly / spline (pos + velocity)
-%     - how we build refrence trajectories
-%     - newton examples and problems 
-%           - initial guess e cost function (local minimum trap)
-%           - controllability assumptions
-%           - dare (tf = 0.7) and long times + proof 
-%           - LQR 
-%     - dare works with tf = 1.0
-%     - newton extented
-%           - algorithm + extension
-%           - initial guess + escape from local minima + easier to solve simpler problems (cost function + descent + mid trajectories) + stabilizability
-%           - speed in convergence
-\section{Task 2: Trajectory Generation (Newton's Method)}
-
-We employed a Newton-type method for optimal control (Differential Dynamic Programming approach) to generate trajectories transitioning between equilibria.
-
-\subsection{Reference Generation}
-The non-convex nature of the problem requires a reasonable initialization. We explored two reference generation methods:
-\begin{enumerate}
-\item \textbf{Stepwise:} A naive instantaneous switch from start to goal. This often results in poor convergence due to the large discontinuity.
-\item \textbf{Polynomial Interpolation (Poly5):} We generated smooth references for positions, velocities, and accelerations using 5th-order polynomials. This provided a kinematic guide that respects boundary conditions, significantly aiding the solver.
-\end{enumerate}
-
-\subsection{Challenges with Standard Newton Method}
-Applying the standard Newton method directly to complex maneuvers (e.g., full swing-up over long horizons) revealed several issues:
-\begin{itemize}
-\item \textbf{Local Minima:} The solver often became trapped in local minima where the robot performs a partial swing but fails to reach the upright position.
-\item \textbf{Initialization Sensitivity:} If the initial guess is too far from a feasible solution, the quadratic approximation of the cost is inaccurate, leading to divergence.
-\end{itemize}
-
-\subsection{Dynamic Horizon Extension Strategy}
-To overcome the "local minimum trap" athe difficulty of solving long-horizon problems from scratch, we implemented a \textbf{Dynamic Horizon Extension} strategy in "trajectory generation newton.py".
-
-\textbf{The Algorithm:}
-\begin{enumerate}
-\item \textbf{Start Small:} Solve the optimal control problem for a short time horizon (e.g., $T_{curr} < T_{final}$) where the goal is reachable or the DARE terminal cost effectively guides the system.
-\item \textbf{Converge:} Run the Newton solver until convergence for this sub-problem.
-\item \textbf{Extend:} Use the solution $x^*(t)$ from the current phase as the initial guess for an extended horizon $T_{curr} + \Delta T$. The new tail of the guess is padded with the target equilibrium.
-\item \textbf{Repeat:} Iterate this process until the full task duration is covered and the terminal error is below a tolerance ($\|x_T - x_{target}\| < \epsilon$).
-\end{enumerate}
-
-\textbf{Results:} This approach proved robust. By incrementally solving the problem, the solver is always "warm-started" with a feasible trajectory. Tasks that failed with a direct solve (like the "Topside Pump") converged reliably using this extension scheme.
-
-\newpage
-
-%----------------------------------------------------------------------------------------
-%	SECTION 4: TRAJECTORY TRACKING VIA LQR
-%----------------------------------------------------------------------------------------
-\section{Task 3: Trajectory Tracking via LQR}
-
-Once an optimal trajectory $(x^*, u^*)$ is generated, we designed a Linear Quadratic Regulator (LQR) to stabilize the system around this trajectory in the presence of disturbances.
-
-\subsection{Linear Time-Varying (LTV) LQR}
-Since the reference trajectory is not a static point, we linearized the system dynamics along the trajectory, resulting in time-varying matrices $A_t$ and $B_t$:
-\begin{equation}
-\delta x_{t+1} = A_t \delta x_t + B_t \delta u_t
-\end{equation}
-The feedback law is computed as $u_t = u^*_t - K_t (x_t - x^*_t)$, where $K_t$ is obtained by solving the Riccati equation backward in time.
-
-\subsection{Implementation Details}
-\begin{itemize}
-\item \textbf{Perturbations:} We tested robustness by initializing the system with random state perturbations ($\epsilon \sim U[-0.05, 0.05]$).
-\item \textbf{Horizon Extension:} To keep the robot at the goal after the maneuver ends, we extended the LQR controller horizon beyond the trajectory end time, using the steady-state LQR gain for the final equilibrium.
-\end{itemize}
-The results (see Figure \ref{fig:placeholder}) demonstrate that the LTV-LQR effectively rejects initial disturbances and tracks the complex optimal maneuver.
-
-\newpage
-%----------------------------------------------------------------------------------------
-%	SECTION 5: TRAJECTORY TRACKING VIA MPC
-%----------------------------------------------------------------------------------------
-\section{Task 4: Trajectory Tracking via MPC}
-
-While LQR is effective for unconstrained tracking, it cannot explicitly handle actuator saturation. We implemented a linear Model Predictive Control (MPC) scheme to address this.
-
-\subsection{MPC Formulation}
-At each time step $t$, we solve a finite-horizon optimization problem:
-\begin{align*}
-\min_{\Delta u} \quad & \sum_{k=0}^{T_{pred}-1} \left( \|\Delta x_k\|_{Q} + \|\Delta u_k\|_{R} \right) + \|\Delta x_{T_{pred}}\|_{Q_T} \\
-\text{s.t.} \quad & \Delta x_{k+1} = A_{t+k} \Delta x_k + B_{t+k} \Delta u_k \\
-& u_{min} \leq u^*_{t+k} + \Delta u_k \leq u_{max}
-\end{align*}
-where $T_{pred}$ is the prediction horizon (set to 50 steps).
-
-\subsection{Key Features}
-\begin{itemize}
-\item \textbf{Constraints:} We imposed hard constraints on the input torque ($u \in [u_{min}, u_{max}]$) to respect physical motor limits, which LQR ignores.
-\item \textbf{Receding Horizon:} Only the first control input is applied, and the optimization is repeated at the next step.
-\item \textbf{Solver:} We utilized CasADi with IPOPT to solve the constrained QP/NLP at each step.
-\end{itemize}
-The MPC controller showed superior performance in scenarios where large perturbations would cause an LQR controller to request infeasible torques.
-
-\newpage
-%----------------------------------------------------------------------------------------
-%	SECTION 6: CONCLUSION & ANIMATION
-%----------------------------------------------------------------------------------------
-\section{Task 5: Animation}
-
-\subsection{Visualization}
-An animation suite was developed (`animation.py`) to visualize the results. It displays the double pendulum link, the reference trajectory (ghost), and the actual tracked path. This visual verification was crucial for debugging the "elbow-flip" behaviors inherent in the nonlinear stiffness model.
-
-\newpage
-%----------------------------------------------------------------------------------------
-%	SECTION 6: CONCLUSION
-%----------------------------------------------------------------------------------------
-\section{Conclusion}
-This project successfully demonstrated the control of a flexible under-actuated link.
-\begin{itemize}
-\item The **analytic Jacobian** and **RK4 discretization** provided the necessary precision for optimization.
-\item The **DARE-based terminal cost** significantly improved the stability of finite-horizon approximations.
-\item The **Dynamic Horizon Extension** strategy was the key enabler for generating complex trajectories, effectively bypassing local minima issues common in nonlinear optimization.
-\item Finally, **LQR and MPC** proved effective for tracking, with MPC offering the critical advantage of handling actuator constraints.
-\end{itemize}
-
-%----------------------------------------------------------------------------------------
-%	SECTION 7: APPENDIX
-%----------------------------------------------------------------------------------------
-\section{Appendix}
-
-
-
-
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % Bibliography
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% \bibliography{bibfile}{}
-% \bibliographystyle{plain}
-% \addcontentsline{toc}{section}{Bibliography}
-
-
 \end{document}
-
-
-
-
-
-
-
-% (section 4) task 3 - Trajectory tracking with LQR:
-%     - perturbation epsilon 
-%     - cost function
-%     - final extension of time + dare
-
-% (section 5) task 4 - Trajectory tracking with MPC:
-%     - prediction horizon
-%     - perturbation
-%     - constraint u (max u)    
-%
-% (section 6) task 5 - Animation of various cases
-%
-%

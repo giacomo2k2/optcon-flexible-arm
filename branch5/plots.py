@@ -232,17 +232,27 @@ def trajectory_comparison(
             ax.set_ylabel(unit, fontsize=8)
             if var_idx == num_vars - 1: # Only last row has X label
                 ax.set_xlabel(r'$t \mathrm{[s]}$', fontsize=8)
-            
-            ax.grid(True, linestyle=':', alpha=0.6)
-            ax.legend(loc='best', fontsize='small')
 
             if var_idx == num_vars - 1 and u_min is not None and u_max is not None:
-                cur_ylim = ax.get_ylim()
-                ax.fill_between(time, u_min, u_max, color='tab:green', alpha=0.08, label='Input Constraints')
-                ax.fill_between(time, u_max, cur_ylim[1], color='tab:red', alpha=0.05)
-                ax.fill_between(time, cur_ylim[0], u_min, color='tab:red', alpha=0.05)
+                # Augment Ylimits
+                y_bot, y_top = ax.get_ylim()
+                margin = (y_top - y_bot) * 0.25 # Aggiungi un 25% di margine
+                new_ylim = (y_bot - margin, y_top + margin)
 
-                ax.set_ylim([u_min - 0.2*abs(u_min), u_max + 0.2*abs(u_max)])
+                # Fill areas
+                ax.fill_between(time, u_max, new_ylim[1], color='tab:red', alpha=0.1)
+                ax.fill_between(time, u_min, u_max, color='tab:green', alpha=0.1)
+                ax.fill_between(time, new_ylim[0], u_min, color='tab:red', alpha=0.1)
+
+                # Draw limit lines
+                ax.axhline(u_max, color=colors['red'], linestyle='--', linewidth=1.0, label='Input Limits')
+                ax.axhline(u_min, color=colors['red'], linestyle='--', linewidth=1.0)
+
+                # Apply new limits
+                ax.set_ylim(new_ylim)
+
+            ax.grid(True, linestyle=':', alpha=0.6)
+            ax.legend(loc='best', fontsize='small')
             
     plt.subplots_adjust(hspace=0.5)
     

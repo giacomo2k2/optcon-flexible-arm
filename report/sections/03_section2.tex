@@ -1,0 +1,37 @@
+%----------------------------------------------------------------------------------------
+%	SECTION 2: EQUILIBRIA ANALYSIS
+%----------------------------------------------------------------------------------------
+
+
+\section{Task 1: Equilibria and Terminal Cost}
+
+\subsection{Equilibrium Manifold}
+The system's equilibria are defined by states where $\dot{q} = \ddot{q} = 0$. This implies the gravity and stiffness torques must be balanced by the input $\tau$.
+We analyzed the equilibrium manifold by fixing one generalized coordinate ($\theta_1$ or $\theta_2$) and solving for the other.
+\begin{itemize}
+\item \textbf{Elbow-Up vs. Elbow-Down:} We identified distinct configurations such as "Elbow-Up" (unstable) and "Elbow-Down" (stable).
+\item \textbf{Input Requirements:} Due to the passive spring, maintaining certain angles $\theta_2$ requires a non-zero steady-state torque $\tau_{eq}$ to counteract the spring force $k(\theta_2)$.
+\end{itemize}
+
+Our analysis, visualized via the compute-equilibrium-manifold function, shows the relationship between the link configuration and the required holding torque.
+
+\subsection{Cost Function}
+For the optimal control problem, we defined the quadratic cost function:
+\begin{equation}
+J = \sum_{t=0}^{T-1} \left( \frac{1}{2} \Delta x_t^\top Q \Delta x_t + \frac{1}{2} \Delta u_t^\top R \Delta u_t \right) + \frac{1}{2} \Delta x_T^\top Q_T \Delta x_T
+\end{equation}
+where $\Delta x = x - x_{ref}$ and $\Delta u = u - u_{ref}$. We selected $Q = \text{diag}(1, 1, 1, 1)$ and $R = 10^{-3}I$ to penalize state deviation while allowing for aggressive control actions.
+
+\subsection{Terminal Cost via DARE}
+A critical aspect of the finite-horizon optimization is the terminal cost $Q_T$. Simply setting $Q_T = Q$ often fails to stabilize the system at the end of the horizon, especially for short durations.
+
+We computed $Q_T$ by solving the \textbf{Discrete Algebraic Riccati Equation (DARE)} based on the linearization at the final target equilibrium $(x_{eq}, u_{eq})$.
+\begin{equation}
+P_{\infty} = A^\top P_{\infty} A - (A^\top P_{\infty} B)(R + B^\top P_{\infty} B)^{-1} (B^\top P_{\infty} A) + Q
+\end{equation}
+Setting $Q_T = P_{\infty}$ provides an approximation of the infinite-horizon cost-to-go. This essentially informs the solver that the trajectory continues optimally after time $T$, significantly improving convergence and stability for tasks like the "Swing Up".
+
+\subsection{Step Size Selection (Armijo Rule)}
+To ensure global convergence of the Newton method, we implemented a line search using the Armijo rule. The step size $\alpha$ is reduced ($\alpha \leftarrow \beta \alpha$) until the actual cost reduction is a sufficient fraction of the predicted reduction (based on the gradient). This prevents the solver from taking overly aggressive steps that could destabilize the trajectory.
+
+\newpage
