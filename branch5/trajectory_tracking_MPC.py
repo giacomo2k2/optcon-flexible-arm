@@ -253,7 +253,7 @@ def main():
         
         # Create folder for plots
         if save_flag:
-            folder = f'report/figs/traj_track_MPC/{task}/'
+            folder = f'report/figs/branch5/traj_track_MPC/{task}/'
 
             # Create folder if it does not exist
             if not os.path.exists(folder):

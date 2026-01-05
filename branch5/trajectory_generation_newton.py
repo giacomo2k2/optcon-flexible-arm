@@ -66,32 +66,32 @@ def extend_trajectory(xx_curr, uu_curr, xx_ref, uu_ref, x_eq, u_eq, dt, extensio
     Extends trajectory arrays (solution and reference) by a specified time duration.
     Used for Dynamic Horizon Extension.
     """
-    n_extra = int(np.ceil(extension_time / dt))
+    tt_extra = int(np.ceil(extension_time / dt))
     
-    if n_extra <= 0:
+    if tt_extra <= 0:
         return xx_curr, uu_curr, xx_ref, uu_ref
 
     # 1. Extend Reference (Pad with final equilibrium)
-    xx_ref_ext = np.pad(xx_ref, ((0, 0), (0, n_extra)), mode='edge')
-    xx_ref_ext[:, -n_extra:] = x_eq[:, None]
+    xx_ref_ext = np.pad(xx_ref, ((0, 0), (0, tt_extra)), mode='edge')
+    xx_ref_ext[:, -tt_extra:] = x_eq[:, None]
 
-    uu_ref_ext = np.pad(uu_ref, ((0, 0), (0, n_extra)), mode='edge')
-    uu_ref_ext[:, -n_extra:] = u_eq[:, None]
+    uu_ref_ext = np.pad(uu_ref, ((0, 0), (0, tt_extra)), mode='edge')
+    uu_ref_ext[:, -tt_extra:] = u_eq[:, None]
 
     # 2. Extend Current Solution (Warm Start for next iteration)
-    uu_pad = np.tile(u_eq[:, None], (1, n_extra))
-    uu_ext = np.hstack((uu_curr, uu_pad))
+    uu_pad = np.tile(u_eq[:, None], (1, tt_extra))
+    uu_ext = np.hstack((uu_curr, uu_pad)) # This introduces a step at the junction
 
     T_old = xx_curr.shape[1]
     uu_ext[:, T_old - 1] = u_eq
 
     # For State: Simulate dynamics forward from the last known state
-    xx_ext = np.pad(xx_curr, ((0, 0), (0, n_extra)), mode='edge') 
+    xx_ext = np.pad(xx_curr, ((0, 0), (0, tt_extra)), mode='edge') 
     
     curr_x = xx_curr[:, -1]
-    for k in range(n_extra):
+    for k in range(tt_extra):
         curr_x = model.discrete_dynamics(curr_x, u_eq)
-        xx_ext[:, -(n_extra) + k] = curr_x
+        xx_ext[:, -tt_extra + k] = curr_x
 
     return xx_ext, uu_ext, xx_ref_ext, uu_ref_ext
 
@@ -100,14 +100,6 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
     """
     Generate optimal trajectory via Newton method with Dynamic Horizon Extension.
     """
-
-    ######################################
-    # Log header
-    ######################################
-
-    print("\n" + "="*80)
-    print(f"[Trajectory Generation] - Newton Method (Dynamic Extension)".center(80))
-    print("="*80)
 
     ######################################
     # Task and Equilibrium points
@@ -222,12 +214,11 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
 
     max_iters_ext = int(np.floor((max_time - Tend) / extension_duration))
 
-    
-
     for jj in range(max_iters_ext):
         
         TT = len(time)
-        print(f"\n--- Extension Phase {jj} (Horizon: {time[-1]:.2f}s, Steps: {TT}) ---")
+        print('\n')
+        print(f"--- Extension Phase {jj} (Horizon: {time[-1]:.2f}s, Steps: {TT}) ---".center(80))
 
         # ------------------------------------
         # Allocate Memory for CURRENT Phase 
@@ -260,8 +251,10 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
         # ------------------------------------
         # [INNER LOOP] Newton Solver
         # ------------------------------------
+
         converged = False
-        
+        final_kk = max_iters - 2
+
         for kk in range(max_iters-1):
             
             # 0. Cost
@@ -273,6 +266,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
             PP[:,:,TT-1,kk] = QQT
             pp[:,TT-1,kk] = lmbd[:,TT-1,kk].squeeze()
 
+            #print(f"JJ[{kk}] = {JJ[kk]}, lmbd[:,{TT-1},{kk}] = {lmbd[:,TT-1,kk]}, PP[:,:,{TT-1},{kk}] = {PP[:,:,TT-1,kk]}, pp[:,{TT-1},{kk}] = {pp[:,TT-1,kk]}")
             for tt in reversed(range(TT-1)):
                 qt, rt, QQt, RRt, SSt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:]
                 At, Bt = solver.jacobian_analytic(xx[:, tt, kk], uu[:, tt, kk], model)
@@ -288,11 +282,14 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
                 KK[:,:,tt,kk], ss[:,tt,kk], PP[:,:,tt,kk], pp[:,tt,kk] = solver.ltv_affine_LQR_step(
                     At, Bt, QQt, RRt, SSt, PP[:,:,tt+1,kk], pp[:,tt+1,kk], qt, rt
                 )
+
+               
                 
                 # Gradient
                 dJ_temp = rt + Bt.T @ lmbd[:,tt+1,kk][:,None]
                 dJ[:,tt,kk] = dJ_temp.squeeze()
 
+            #print(f"PP[:,:,0,{kk}] = {PP[:,:,0,kk]}, pp[:,0,{kk}] = {pp[:,0,kk]}")
             # Descent Norm
             for tt in range(TT-1):
                 deltau[:,tt,kk] = ss[:,tt,kk] +  KK[:,:,tt,kk] @  deltax[:, tt, kk]   
@@ -306,6 +303,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
                                                 x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
                                                 QQt, RRt, QQT, kk, plot=plot_armijo, save_armijo=save_armijo, folder=folder)
 
+
             # --- SAVE METRICS TO GLOBAL HISTORY ---
             global_JJ.append(JJ[kk])
             global_descent.append(descent[kk]) 
@@ -317,14 +315,14 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
                 converged = True
                 final_kk = kk
  
-                phase_iters.append(phase_iters[jj]+final_kk+1)
+                #phase_iters.append(phase_iters[jj]+final_kk+1)
                 break
             
             if np.isnan(descent[kk]):
                 print(f"\nNaN detected at iter {kk}. Stopping.")
                 final_kk = kk
                
-                phase_iters.append(phase_iters[jj]+final_kk+1)
+                #phase_iters.append(phase_iters[jj]+final_kk+1)
                 break
 
             # 4. Forward Update
@@ -334,19 +332,32 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
 
             for tt in range(TT-1):
                 dx = xx_temp[:,tt] - xx[:,tt,kk]
+                #print(f"dx norm at iter {kk} at time {tt}: {np.linalg.norm(dx)}")
                 uu_temp[:,tt] = uu[:,tt,kk] + stepsize * ss[:,tt,kk] + KK[:,:,tt,kk] @ dx
                 xx_temp[:,tt+1] = model.discrete_dynamics(xx_temp[:,tt], uu_temp[:,tt])
             
+            
+            #print(f"uu_temp[:,{tt}] = {uu_temp[:,tt]}, xx_temp[:,{tt}] = {xx_temp[:,tt]}, kk = {kk}, sigma = {ss[:,tt,kk]}, K = {KK[:,:,tt,kk]}, dx = {dx}")
             uu_temp[:,-1] = uu_temp[:,-2]
             xx[:,:,kk+1] = xx_temp.copy()
             uu[:,:,kk+1] = uu_temp.copy()
 
             if debug_print:
-                print(f"\rIter {kk} | Cost: {JJ[kk]:.4e} | Desc: {descent[kk]:.4e}".ljust(80), end="", flush=True)
+                log_str = (f"Iter: {kk} | "
+                    f"Cost: {JJ[kk]:.6e} | "
+                    f"Stepsize: {stepsize:.3e} | "
+                    f"Descent: {descent_arm[kk]:.6e}")
+                print(f"\r{log_str}".ljust(120), end="", flush=True)
+            else:
+                dots = "." * (kk % 4)
+                print(f"\rComputing optimal trajectory{dots:3}", end="", flush=True)
 
         # ------------------------------------
         # End of Inner Loop
         # ------------------------------------
+        
+        current_total_iters = phase_iters[-1] 
+        phase_iters.append(current_total_iters + final_kk + 1)
         
         # Extract best solution from this phase
         idx_best = final_kk if converged else max_iters-1
@@ -412,7 +423,6 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
 
     anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt=dt, folder=folder)
 
-
     plt.close('all')
 
     return xx_star, uu_star, eq_pair1, eq_pair2, time
@@ -422,6 +432,14 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
 ######################################
 
 def main():
+
+    ######################################
+    # Log header
+    ######################################
+
+    print("\n" + "="*80)
+    print(f"[Trajectory Generation] - Newton Method (Dynamic Extension)".center(80))
+    print("="*80)
 
     ######################################
     # Algorithm parameters
@@ -439,8 +457,8 @@ def main():
     save_flag = True                       
     plot_flag = False                        
     plot_flag_armijo = False  
-    save_armijo = False              
-    debug_flag = True    
+    save_armijo = True              
+    debug_flag = False    
     run_single = False                   
 
     ######################################
@@ -456,8 +474,8 @@ def main():
     for task in traj.tasks:
         
         if task == single_task or run_single==False:
-
-            print(f"\nSelected Task: {task}")
+            
+            print(f"Selected Task: {task}".center(80))
             
     
             try:
@@ -468,7 +486,7 @@ def main():
                 exit(1)
             
             if save_flag:
-                folder = f'report/figs/traj_gen_newton/{task}'
+                folder = f'report/figs/branch5/traj_gen_newton/{task}'
                 if not os.path.exists(folder):
                     os.makedirs(folder)
             else:

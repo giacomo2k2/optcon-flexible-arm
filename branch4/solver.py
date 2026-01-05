@@ -215,19 +215,21 @@ def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np
     ppt : np.ndarray, (ns,)
         Affine term of value function at time t.
     """
-    rho = 0.1              # Regularization parameter
+    #rho = 1e-2              # Regularization parameter
 
     # Ensure pptp is column vector
     if pptp.ndim == 1:
         pptp = pptp[:, None]
 
     # Compute intermediate terms
-    MMt = RRt + Bt.T @ PPtp @ Bt# + rho * np.eye(Bt.shape[1]) #TODO Here's a regularization
+    MMt = RRt + Bt.T @ PPtp @ Bt #+ rho * np.eye(Bt.shape[1]) #TODO Here's a regularization
     MMt_reg = MMt.copy()
     MMt_inv = np.linalg.inv(MMt_reg)
 
     mmt = rt + Bt.T @ pptp
-
+    
+  
+        
     # Compute feedback gain and affine term
     Kt = -MMt_inv @ (Bt.T @ PPtp @ At + SSt)
     st = -MMt_inv @ mmt

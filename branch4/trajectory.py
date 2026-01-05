@@ -48,7 +48,7 @@ tasks = {
     'elbow_up': { # easy level difficulty
         'start': configurations['D-D'],
         'end': configurations['R-U'],
-        'time': 4.0,
+        'time': 10.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
@@ -61,7 +61,7 @@ tasks = {
     'swing_up': { # mid level difficulty
         'start': configurations['D-D'],
         'end': configurations['U-U'],
-        'time': 4.0,
+        'time': 10.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
@@ -73,14 +73,14 @@ tasks = {
     'half_swing':{ # mid level difficulty
         'start': configurations['D-D'],
         'end': configurations['U-D'],
-        'time': 6.5,
+        'time': 11.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
         'guess': 'zero',
-        'discr_method': 'rk4'
+        'discr_method': 'fe'
     },
     'top_to_elbow_up': { # easy level difficulty
         'start': configurations['U-U'],
@@ -212,6 +212,18 @@ tasks = {
         'vel2_mult': 1,
         'termcost_mult': 1,
         'guess': 'PD_gc',
+        'discr_method': 'fe'
+    },
+    'custom5': { 
+        'start': configurations['R-D'],
+        'end': configurations['D-U'],
+        'time': 8.0,
+        'angle1_mult': 1,
+        'vel1_mult': 1,
+        'angle2_mult': 1,
+        'vel2_mult': 1,
+        'termcost_mult': 1,
+        'guess': 'zero',
         'discr_method': 'fe'
     },
     

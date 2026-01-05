@@ -234,10 +234,10 @@ def main():
             exit(1)
         
         # Create folder for plots
-        if save_flag:
-            folder = f'report/figs/traj_track_LQR/{task}/'
+        
 
-            # Create folder if it does not exist
+        if save_flag:
+            folder = f'report/figs/branch5/traj_gen_newton/{task}'
             if not os.path.exists(folder):
                 os.makedirs(folder)
         else:
@@ -248,11 +248,20 @@ def main():
         ######################################
 
         xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
-            task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
+            task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag, save_armijo=True, folder=folder)
         
         ######################################
         # Track optimal trajectory via LQR
         ######################################
+
+        if save_flag:
+            folder = f'report/figs/branch5/traj_track_LQR/{task}/'
+
+            # Create folder if it does not exist
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        else:
+            folder = None
 
         trajectory_tracking_LQR(
             eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 

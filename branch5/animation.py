@@ -16,7 +16,6 @@
 
 # Python libraries
 import matplotlib.pyplot as plt
-import time
 import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
 
@@ -29,7 +28,6 @@ plt.rcParams['font.family'] = 'serif'
 # Functions
 #######################################
 
-                
 def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_traj2: np.ndarray,
                        eq_pair1: tuple, eq_pair2: tuple, dt: float, folder=None) -> None:
     """

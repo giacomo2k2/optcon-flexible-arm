@@ -144,8 +144,8 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     model.discr_method = discr_method
 
     # Base Cost matrix
-    QQt_base = np.diag([10.0, 10.0, 1.0, 1.0])
-    RRt = 1e-2 * np.eye(ni)
+    QQt_base = np.diag([1.0, 1.0, 1.0, 1.0])
+    RRt = 1e-3 * np.eye(ni)
 
     ######################################
     # [PLOTS] Equilibrium manifold and pendulum equilibria
@@ -159,8 +159,8 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     ######################################
 
     T0 = 0.0                        # Initial absolute time
-    ti = 0.3                        # Start time for trajectory segment (relative)
-    tf = 1.0                        # End time for trajectory segment (relative)
+    ti = 0.0                        # Start time for trajectory segment (relative)
+    tf = 0.9                   # End time for trajectory segment (relative)
     dt = model.dt                   # Time step
     t = np.arange(T0, Tend, dt)     # Time vector
     TT = len(t)                     # Number of time steps
@@ -295,6 +295,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
         PP[:,:,TT-1,kk] = QQT
         pp[:,TT-1,kk] = lmbd[:,TT-1,kk].squeeze()
 
+        #print(f"JJ[{kk}] = {JJ[kk]}, lmbd[:,{TT-1},{kk}] = {lmbd[:,TT-1,kk]}, PP[:,:,{TT-1},{kk}] = {PP[:,:,TT-1,kk]}, pp[:,{TT-1},{kk}] = {pp[:,TT-1,kk]}")
         # Backward recursion
         for tt in reversed(range(TT-1)):
             qt, rt, QQt, RRt, SSt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:]
@@ -318,10 +319,15 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
                 At, Bt, Qtk, Rtk, Stk, PP[:,:,tt+1,kk], pp[:,tt+1,kk], qt, rt
             )
 
+            
+            # if kk==26:
+            #     print(f'time {tt}, ss = {np.linalg.norm(ss[:, tt, kk])}')
+
             # Gradient of cost w.r.t. input from LQR quantities
             dJ_temp = rt + Bt.T @ lmbd[:,tt+1,kk][:,None]
             dJ[:,tt,kk] = dJ_temp.squeeze()
 
+        #print(f"PP[:,:,0,{kk}] = {PP[:,:,0,kk]}, pp[:,0,{kk}] = {pp[:,0,kk]}")
         # Compute descent direction norm after backward pass
         for tt in range(TT-1):
             deltau[:,tt,kk] = ss[:,tt,kk] +  KK[:,:,tt,kk] @  deltax[:, tt, kk]   
@@ -369,7 +375,10 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
             dx = xx_temp[:,tt] - xx[:,tt,kk]
             uu_temp[:,tt] = uu[:,tt,kk] + stepsize * ss[:,tt,kk] + KK[:,:,tt,kk] @ dx
             xx_temp[:,tt+1] = model.discrete_dynamics(xx_temp[:,tt], uu_temp[:,tt])
-            
+            #print(f"dx norm at iter {kk}, time {tt}: {np.linalg.norm(ss)}")
+        
+        #print(f"uu_temp[:,{tt}] = {uu_temp[:,tt]}, xx_temp[:,{tt}] = {xx_temp[:,tt]}, kk = {kk}, sigma = {ss[:,tt,kk]}, K = {KK[:,:,tt,kk]}, dx = {dx}")
+
         uu_temp[:,-1] = uu_temp[:,-2]
 
         # Store trajectories
@@ -438,14 +447,15 @@ def main():
     max_iters = 300                      # Maximum number of iterations
     n_mid = 20                           # Number of intermediate trajectories to plot
     method = 'poly5'                     # Trajectory generation method ('poly5', 'spline', ...)
-    task = 'swing_up'           # Choose from keys of equilibrium_traj
+    task = 'custom5'           # Choose from keys of equilibrium_traj
 
+    # elbow_up, swing_up, topside_pump, half_dive, the_dive, lateral_swing, diagonal_swing, overhead_wipe, half_middle_dive, half_swing, top_to_elbow_up, top_to_elbow_down, inverted_hand_off, low_diagonal_hold
     ######################################
     # Algorithm flags
     ######################################
 
-    save_flag = False                       # Save flag
-    plot_flag = True                        # Plot flag
+    save_flag = True                       # Save flag
+    plot_flag = False                        # Plot flag
     plot_flag_armijo = False                # Plot Armijo stepsize flag
     debug_flag = True                       # Debug print flag
 

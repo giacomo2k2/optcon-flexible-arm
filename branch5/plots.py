@@ -666,7 +666,8 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     plt.legend()
 
     if plot:
-        plt.draw()  
+        plt.draw()
+        plt.pause(0.001) #when saving it is not needed  
     
     if folder is not None and save:
         if not os.path.exists(f"{folder}/armijo"):
@@ -674,7 +675,7 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
 
         plt.savefig(f"{folder}/armijo/armijo_iteration_{kk}.png", dpi=300, bbox_inches='tight')
     
-    #plt.pause(0.01) when saving it is not needed
+    
     
 def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool = True, folder: str = None) -> None:
     """
@@ -706,7 +707,7 @@ def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None,
         for phase_iter in phase_iters:
             plt.axvline(x=phase_iter, color='grey', linestyle='--', alpha=0.7)
             plt.text(phase_iter + 0.5, max_val / 10, 
-                 f'Phase {phase_iters.index(phase_iter)+1}', 
+                 f'Phase {phase_iters.index(phase_iter)}', 
                  rotation=90, color='grey', alpha=0.7)
     
     
@@ -748,7 +749,7 @@ def cost(JJ: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool =
         for phase_iter in phase_iters:
             plt.axvline(x=phase_iter, color='grey', linestyle='--', alpha=0.7)
             plt.text(phase_iter + 0.5, max_val / 2, 
-                 f'Phase {phase_iters.index(phase_iter)+1}', 
+                 f'Phase {phase_iters.index(phase_iter)}', 
                  rotation=90, color='grey', alpha=0.7)
     
     if plot_flag:

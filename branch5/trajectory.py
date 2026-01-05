@@ -89,7 +89,7 @@ tasks = {
     'half_swing':{ 
         'start': configurations['D-D'],
         'end': configurations['U-D'],
-        'time': 8.0,
+        'time': 4.0,
     },
     'inverted_hand_off': { 
         'start': configurations['D-U'],
