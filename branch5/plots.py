@@ -622,7 +622,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
             if len(data) > limit:
                 print(f"... and {len(data) - limit} more.")
 
-def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int, plot_flag: bool = True, folder: str = None) -> None:
+def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int, plot: bool = True, save: bool = False, folder: str = None) -> None:
     """
     Plots the Armijo descent direction and the costs associated with different stepsizes.
 
@@ -665,10 +665,10 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
     plt.title(f'Armijo stepsize selection - Iteration {kk}')
     plt.legend()
 
-    if plot_flag:
+    if plot:
         plt.draw()  
     
-    if folder is not None:
+    if folder is not None and save:
         if not os.path.exists(f"{folder}/armijo"):
             os.makedirs(f"{folder}/armijo")
 

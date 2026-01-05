@@ -64,6 +64,8 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
     
     # Create indices for the frames we want to render
     indices = np.arange(0, x_traj1.shape[1], skip_steps)
+
+    
     
     fig, ax = plt.subplots()
     
@@ -90,7 +92,7 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
         ax.legend(loc='upper right')
         
     # 2. Create Animation Object
-    anim = FuncAnimation(fig, update, frames=indices)
+    anim = FuncAnimation(fig, update, frames=indices,)
     
     # 3. Save Animation
     if folder is not None:

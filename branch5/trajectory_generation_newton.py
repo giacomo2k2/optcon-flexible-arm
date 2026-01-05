@@ -96,7 +96,7 @@ def extend_trajectory(xx_curr, uu_curr, xx_ref, uu_ref, x_eq, u_eq, dt, extensio
     return xx_ext, uu_ext, xx_ref_ext, uu_ref_ext
 
 
-def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20, method: str = 'poly5', plot_flag: bool = False, plot_armijo: bool = False, debug_print: bool = True, folder: str = None) -> tuple[np.ndarray, np.ndarray, tuple, tuple, np.ndarray]:
+def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", method: str = 'poly5', plot_flag: bool = False, plot_armijo: bool = False, save_armijo: bool = False, debug_print: bool = True, folder: str = None) -> tuple[np.ndarray, np.ndarray, tuple, tuple, np.ndarray]:
     """
     Generate optimal trajectory via Newton method with Dynamic Horizon Extension.
     """
@@ -123,12 +123,6 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     # Extract task parameters
     Tend = selected_equilibrium['time'] # Base duration
-    angle_mult1 = selected_equilibrium['angle1_mult']
-    vel_mult1 = selected_equilibrium['vel1_mult']
-    angle_mult2 = selected_equilibrium['angle2_mult']
-    vel_mult2 = selected_equilibrium['vel2_mult']
-    input_mult = selected_equilibrium['input_mult']
-    discr_method = selected_equilibrium['discr_method']
 
     ######################################
     # Algorithm parameters
@@ -148,14 +142,13 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     extension_duration = 0.5    # Seconds to add per extension
     terminal_error_tol = 1e-2   # Tolerance for ||x_final - x_eq||
 
-    model.discr_method = discr_method
+    model.discr_method = discr
 
     # Cost matrices
-    QQt_base = np.diag([1.0, 1.0, 1.0, 1.0])
-    RRt = 1e-3 * np.eye(ni)*input_mult
+    QQt = np.diag([1.0, 1.0, 1.0, 1.0])
+    RRt = 1e-3 * np.eye(ni)
     
-    scale_QQt = np.diag([angle_mult1, angle_mult2, vel_mult1, vel_mult2])
-    QQt = QQt_base @ scale_QQt
+
 
     # --- TERMINAL COST (DARE) ---
     A_final, B_final = solver.jacobian_analytic(x_eq2, u_eq2, model) 
@@ -229,6 +222,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     max_iters_ext = int(np.floor((max_time - Tend) / extension_duration))
 
+    
 
     for jj in range(max_iters_ext):
         
@@ -310,7 +304,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
             stepsize, grad_err = armijo.select_stepsize_newton(model, stepsize_0, armijo_maxiters, c, beta, 
                                                 ss[:,:,kk], KK[:,:,:,kk], xx_ref, uu_ref, 
                                                 x0, xx[:,:,kk], uu[:,:,kk], JJ[kk], descent_arm[kk], 
-                                                QQt, RRt, QQT, kk, plot=plot_armijo, folder=folder)
+                                                QQt, RRt, QQT, kk, plot=plot_armijo, save_armijo=save_armijo, folder=folder)
 
             # --- SAVE METRICS TO GLOBAL HISTORY ---
             global_JJ.append(JJ[kk])
@@ -433,9 +427,9 @@ def main():
     # Algorithm parameters
     ######################################
 
-    max_iters = 300                      
-    n_mid = 20                           
+    max_iters = 300                                             
     method = 'poly5'                     
+    discr = "fe"
             
 
     ######################################
@@ -443,47 +437,54 @@ def main():
     ######################################
 
     save_flag = True                       
-    plot_flag = True                        
-    plot_flag_armijo = False                
-    debug_flag = True                       
+    plot_flag = False                        
+    plot_flag_armijo = False  
+    save_armijo = False              
+    debug_flag = True    
+    run_single = False                   
 
     ######################################
     # Environment setup
     ######################################
 
-    # for task in traj.tasks:
+    if run_single:
+        single_task = 'swing_up'
+
+    if not run_single:
+        single_task = None
+
+    for task in traj.tasks:
         
-    task = 'half_middle_dive'
+        if task == single_task or run_single==False:
 
-    print(f"\nSelected Task: {task}")
+            print(f"\nSelected Task: {task}")
+            
     
- 
+            try:
+                if task not in traj.tasks:
+                    raise ValueError(f"Task '{task}' not found.")
+            except ValueError as e:
+                print(f"\n{e}\n")
+                exit(1)
+            
+            if save_flag:
+                folder = f'report/figs/traj_gen_newton/{task}'
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+            else:
+                folder = None
+                
+            ######################################
+            # Run
+            ######################################
 
-    try:
-        if task not in traj.tasks:
-            raise ValueError(f"Task '{task}' not found.")
-    except ValueError as e:
-        print(f"\n{e}\n")
-        exit(1)
-    
-    if save_flag:
-        folder = f'report/figs/traj_gen_newton/{task}'
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-    else:
-        folder = None
-        
-    ######################################
-    # Run
-    ######################################
+            
 
-    
-
-    generate_optimal_trajectory(
-        task=task, max_iters=max_iters, n_mid=n_mid, method=method, 
-        plot_flag=plot_flag, plot_armijo=plot_flag_armijo, 
-        debug_print=debug_flag, folder=folder
-    )
+            generate_optimal_trajectory(
+                task=task, max_iters=max_iters, discr=discr, method=method, 
+                plot_flag=plot_flag, plot_armijo=plot_flag_armijo, save_armijo=save_armijo,
+                debug_print=debug_flag, folder=folder
+            )
 
 if __name__ == "__main__":
     main()

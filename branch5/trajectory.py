@@ -50,166 +50,102 @@ tasks = {
         'start': configurations['D-D'],
         'end': configurations['U-U'],
         'time': 2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
     'topside_pump': { 
         'start': configurations['U-D'],
         'end': configurations['U-U'],
         'time': 2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
-
     'overhead_wipe': {
         'start': configurations['LU-U'],
         'end': configurations['RU-U'],
         'time': 2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
-
     'diagonal_swing': { 
         'start': configurations['LD-D'],
         'end': configurations['RU-U'],
         'time': 2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
-
     'elbow_up': { 
         'start': configurations['D-D'],
         'end': configurations['R-U'],
         'time': 2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
-
     },
-
     'top_to_elbow_up': { 
         'start': configurations['U-U'],
         'end': configurations['R-U'],
         'time': 2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
-
     'low_diagonal_hold': {
         'start': configurations['D-D'],
         'end': configurations['RD-D'],
         'time':2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
-    
     'lateral_swing': {
         'start': configurations['L-U'],
         'end': configurations['R-U'],
         'time': 2.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
-    
-
     'half_swing':{ 
         'start': configurations['D-D'],
         'end': configurations['U-D'],
         'time': 8.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
     'inverted_hand_off': { 
         'start': configurations['D-U'],
         'end': configurations['U-D'],
         'time': 6.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
     'the_dive': {
         'start': configurations['U-U'],
         'end': configurations['D-D'],
         'time': 4.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
     'half_dive': { 
         'start': configurations['U-U'],
         'end': configurations['U-D'],
         'time': 4.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
-    },
-    'half_middle_dive': { 
-        'start': configurations['RU-U'],
-        'end': configurations['R-U'],
-        'time': 4.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
     'top_to_elbow_down': { 
         'start': configurations['U-U'],
-        'end': configurations['L-D'],
+        'end': configurations['R-D'],
         'time': 4.0,
-        'angle1_mult': 1,
-        'vel1_mult': 1,
-        'angle2_mult': 1,
-        'vel2_mult': 1,
-        'input_mult': 1,
-        'discr_method': 'fe'
     },
-    
+    'custom1': { 
+        'start': configurations['LD-U'],
+        'end': configurations['RU-U'],
+        'time': 2.0,
+    },
+    'custom2': { 
+        'start': configurations['RU-U'],
+        'end': configurations['LD-U'],
+        'time': 2.0,
+    },
+    'custom3': { 
+        'start': configurations['RU-D'],
+        'end': configurations['LD-U'],
+        'time': 2.0,
+    },
+    'custom4': { 
+        'start': configurations['RU-U'],
+        'end': configurations['D-U'],
+        'time': 2.0,
+    },
+    'custom5': { 
+        'start': configurations['R-D'],
+        'end': configurations['D-U'],
+        'time': 2.0,
+    },
+    'custom6': { 
+        'start': configurations['R-D'],
+        'end': configurations['L-U'],
+        'time': 2.0,
+    },
+    'custom7': { 
+        'start': configurations['R-D'],
+        'end': configurations['R-U'],
+        'time': 4.0,
+    },
 }
 
 

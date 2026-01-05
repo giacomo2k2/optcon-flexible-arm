@@ -18,6 +18,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
+from numba import njit
 
 plt.rcParams['font.family'] = 'serif'
 
@@ -26,9 +27,10 @@ import solver as solver
 
 # Color palette
 from plots import colors
-
-# Plots
 import plots as plots
+
+
+USE_FAST_METHOD = True
 
 # Parameters settings
 PARAM_SET_1 = {
@@ -79,6 +81,12 @@ PARAM_SET_3 = {
 #######################################
 # Model Class
 #######################################
+
+def get_params_tuple(model):
+    return (model.m1, model.m2, model.l1, model.l2, model.lc1, model.lc2, 
+            model.I1, model.I2, model.g, model.f1, model.f2, model.k)
+
+
 
 class DoublePendulumFlexible:
     """
@@ -221,17 +229,22 @@ class DoublePendulumFlexible:
         q1_dot = x[2]
         q2_dot = x[3]
 
+        
+        if USE_FAST_METHOD:
+            params = get_params_tuple(self)
+            M, M_inv, C, G, F = fast_dynamic_model(x, params)
+
+        else:
+            M, M_inv, C, G, F = self.dynamic_model(x)
+
+        if isinstance(u, np.ndarray):
+            u = u.item()  # Convert to scalar if u is an array
+
         # Angular velocity vector
         q_dot = np.array([
                             [q1_dot],
                             [q2_dot]
                          ])
-
-        # Extract dynamic model matrices
-        M, M_inv, C, G, F = self.dynamic_model(x)
-
-        if isinstance(u, np.ndarray):
-            u = u.item()  # Convert to scalar if u is an array
 
         # Input Torque vector
         T = np.array([
@@ -286,90 +299,96 @@ class DoublePendulumFlexible:
         B : np.ndarray
             Continuous-time input Jacobian matrix.
         """
-        a11 = np.zeros((2, 2))
-        a12 = np.eye(2)
 
-        q1 = x[0]
-        q2 = x[1]
-        q1_dot = x[2]
-        q2_dot = x[3]
+        if USE_FAST_METHOD:
+            params = get_params_tuple(self)
+            A, B = fast_jacobian(x, u.item(), params)
+            return A, B
+        else:
+            a11 = np.zeros((2, 2))
+            a12 = np.eye(2)
 
-        q_dot = np.array([
-                            [q1_dot],
-                            [q2_dot]
-                         ])
+            q1 = x[0]
+            q2 = x[1]
+            q1_dot = x[2]
+            q2_dot = x[3]
 
-        s1 = np.sin(q1)
-        c1 = np.cos(q1)
-        s2 = np.sin(q2)
-        c2 = np.cos(q2)
+            q_dot = np.array([
+                                [q1_dot],
+                                [q2_dot]
+                            ])
 
-        c12 = np.cos(q1 + q2)
-        s12 = np.sin(q1 + q2)
+            s1 = np.sin(q1)
+            c1 = np.cos(q1)
+            s2 = np.sin(q2)
+            c2 = np.cos(q2)
 
-        M, M_inv, C, G, F = self.dynamic_model(x)
+            c12 = np.cos(q1 + q2)
+            s12 = np.sin(q1 + q2)
 
-        if isinstance(u, np.ndarray):
-            u = u.item()
+            M, M_inv, C, G, F = self.dynamic_model(x)
 
-        T = np.array([
-                        np.array([u]),
-                        np.array([0.0])
-                    ]).reshape((2,1))
+            if isinstance(u, np.ndarray):
+                u = u.item()
 
-        dc_dq_dot = 2*self.l1 * self.lc2 * self.m2 * s2 * np.array([
-                                                                    [-q2_dot, -q1_dot - q2_dot],
-                                                                    [q1_dot, 0.0]
+            T = np.array([
+                            np.array([u]),
+                            np.array([0.0])
+                        ]).reshape((2,1))
+
+            dc_dq_dot = 2*self.l1 * self.lc2 * self.m2 * s2 * np.array([
+                                                                        [-q2_dot, -q1_dot - q2_dot],
+                                                                        [q1_dot, 0.0]
+                                                                    ])
+
+            a22 = M_inv @ (-F - dc_dq_dot)
+
+            dM_dq1 = np.array([
+                [0, 0],
+                [0, 0]
+            ])
+
+            dM_dq2 = np.array([
+                                [- 2 * self.l1 * self.lc2 * self.m2 * s2, - self.l1 * self.lc2 *self.m2 * s2],
+                                [- self.l1 * self.lc2 *self.m2 * s2, 0.0]
+                            ])
+            
+            tau = - F @ q_dot - C @ q_dot - G + T
+
+            dM_inv_dq_tau_1 = - M_inv @ dM_dq1 @ M_inv @ tau
+            dM_inv_dq_tau_2 = - M_inv @ dM_dq2 @ M_inv @ tau
+
+            dM_inv_dq_tau = np.array([
+                [dM_inv_dq_tau_1[0, 0], dM_inv_dq_tau_2[0, 0]],
+                [dM_inv_dq_tau_1[1, 0], dM_inv_dq_tau_2[1, 0]]
+            ])
+
+            dc_dq = self.l1 * self.lc2 * self.m2 * c2 * np.array([
+                                                                    [0.0, -2*q1_dot*q2_dot - q2_dot**2],
+                                                                    [0.0, q1_dot**2]
                                                                 ])
+            
+            dG_dq = np.array([
+                            [self.g * self.lc1 * self.m1 * c1 + self.g * self.m2 * self.l1 * c1 + self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12],
+                            [self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12 + 3 * self.k * (c2**2 - 2*s2**2) * c2]
+                            ])
+            
+            a21 = dM_inv_dq_tau + M_inv @ (- dc_dq - dG_dq)
 
-        a22 = M_inv @ (-F - dc_dq_dot)
+            A = np.block([
+                [a11, a12],
+                [a21, a22]
+            ])
 
-        dM_dq1 = np.array([
-            [0, 0],
-            [0, 0]
-        ])
+            b1 = np.zeros((2, 1))
+            b2 = M_inv @ np.array([
+                                    [1.0],
+                                    [0.0]
+                                ])
+            
+            B = np.vstack((b1, b2))
 
-        dM_dq2 = np.array([
-                            [- 2 * self.l1 * self.lc2 * self.m2 * s2, - self.l1 * self.lc2 *self.m2 * s2],
-                            [- self.l1 * self.lc2 *self.m2 * s2, 0.0]
-                        ])
-        
-        tau = - F @ q_dot - C @ q_dot - G + T
-
-        dM_inv_dq_tau_1 = - M_inv @ dM_dq1 @ M_inv @ tau
-        dM_inv_dq_tau_2 = - M_inv @ dM_dq2 @ M_inv @ tau
-
-        dM_inv_dq_tau = np.array([
-            [dM_inv_dq_tau_1[0, 0], dM_inv_dq_tau_2[0, 0]],
-            [dM_inv_dq_tau_1[1, 0], dM_inv_dq_tau_2[1, 0]]
-        ])
-
-        dc_dq = self.l1 * self.lc2 * self.m2 * c2 * np.array([
-                                                                [0.0, -2*q1_dot*q2_dot - q2_dot**2],
-                                                                [0.0, q1_dot**2]
-                                                            ])
-        
-        dG_dq = np.array([
-                           [self.g * self.lc1 * self.m1 * c1 + self.g * self.m2 * self.l1 * c1 + self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12],
-                           [self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12 + 3 * self.k * (c2**2 - 2*s2**2) * c2]
-                        ])
-        
-        a21 = dM_inv_dq_tau + M_inv @ (- dc_dq - dG_dq)
-
-        A = np.block([
-            [a11, a12],
-            [a21, a22]
-        ])
-
-        b1 = np.zeros((2, 1))
-        b2 = M_inv @ np.array([
-                                [1.0],
-                                [0.0]
-                             ])
-        
-        B = np.vstack((b1, b2))
-
-        return A, B
+            return A, B
     
     def _get_forward_kinematics(self, x: np.ndarray, com: bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -658,3 +677,147 @@ class DoublePendulumFlexible:
 
         # === Draw Current State ===
         plots.draw_pendulum_configuration(ax, p1_curr, p2_curr, pc1_curr, pc2_curr, 'Current')
+
+
+@njit(cache=True, fastmath=True)
+def fast_dynamic_model(x, params):
+    m1, m2, l1, l2, lc1, lc2, I1, I2, g, f1, f2, k = params
+    
+    q1, q2, q1_dot, q2_dot = x[0], x[1], x[2], x[3]
+    
+    c1 = np.cos(q1)
+    s1 = np.sin(q1)
+    c2 = np.cos(q2)
+    s2 = np.sin(q2)
+    s12 = np.sin(q1 + q2)
+
+    # Mass Matrix (M)
+    M = np.zeros((2, 2))
+    M[0, 0] = I1 + I2 + lc1**2 * m1 + m2 * (l1**2 + 2 * l1 * lc2 * c2 + lc2**2)
+    M[0, 1] = I2 + lc2 * m2 * (l1 * c2 + lc2)
+    M[1, 0] = M[0, 1]
+    M[1, 1] = I2 + m2 * lc2**2
+    
+    # Coriolis (C)
+    C = np.zeros((2, 2))
+    C[0, 0] = -l1 * lc2 * m2 * q2_dot * s2
+    C[0, 1] = -l1 * lc2 * m2 * (q1_dot + q2_dot) * s2
+    C[1, 0] = l1 * lc2 * m2 * q1_dot * s2
+    
+    # Gravity (G)
+    G = np.zeros((2, 1))
+    G[0, 0] = g * lc1 * m1 * s1 + g * m2 * l1 * s1 + m2 * g * lc2 * s12
+    G[1, 0] = g * m2 * lc2 * s12 + 3 * k * s2 * c2**2
+    
+    # Friction (F)
+    F = np.zeros((2, 2))
+    F[0, 0] = f1
+    F[1, 1] = f2
+
+    # Invert M manually for 2x2 to avoid overhead
+    det_M = M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0]
+    M_inv = np.zeros((2, 2))
+    M_inv[0, 0] = M[1, 1] / det_M
+    M_inv[0, 1] = -M[0, 1] / det_M
+    M_inv[1, 0] = -M[1, 0] / det_M
+    M_inv[1, 1] = M[0, 0] / det_M
+    
+    return M, M_inv, C, G, F
+
+@njit(cache=True, fastmath=True)
+def fast_jacobian(x, u_scalar, params):
+    # Unpack parameters
+    m1, m2, l1, l2, lc1, lc2, I1, I2, g, f1, f2, k = params
+    
+    q1, q2 = x[0], x[1]
+    q1_dot, q2_dot = x[2], x[3]
+
+    # Precompute trig
+    s1, c1 = np.sin(q1), np.cos(q1)
+    s2, c2 = np.sin(q2), np.cos(q2)
+    s12, c12 = np.sin(q1 + q2), np.cos(q1 + q2)
+
+    # Get Dynamics Matrices
+    _, M_inv, C, G, F = fast_dynamic_model(x, params)
+
+    # Helper vectors
+    q_dot = np.array([[q1_dot], [q2_dot]])
+    T = np.array([[u_scalar], [0.0]])
+    
+    # --- Compute a22 = M_inv @ (-F - dc_dq_dot) ---
+    # dc_dq_dot construction
+    term_common = 2 * l1 * lc2 * m2 * s2
+    dc_dq_dot = np.zeros((2, 2))
+    dc_dq_dot[0, 0] = -q2_dot * term_common
+    dc_dq_dot[0, 1] = -(q1_dot + q2_dot) * term_common
+    dc_dq_dot[1, 0] = q1_dot * term_common
+    # dc_dq_dot[1, 1] is 0.0
+
+    # Calculate inner term for a22
+    neg_F_minus_dc = -F - dc_dq_dot
+    a22 = M_inv @ neg_F_minus_dc
+
+    # --- Compute a21 term ---
+    # Calculate tau (torque balance)
+    tau = - (F @ q_dot) - (C @ q_dot) - G + T
+    
+    # dM_dq1 is zero matrix in original code, so dM_inv_dq_tau_1 is zero.
+    # dM_dq2 construction
+    dM_dq2 = np.zeros((2, 2))
+    term_M2 = -l1 * lc2 * m2 * s2
+    dM_dq2[0, 0] = 2 * term_M2
+    dM_dq2[0, 1] = term_M2
+    dM_dq2[1, 0] = term_M2
+    
+    # Calculate dM_inv/dq * tau contribution
+    # Formula: d(M_inv)/dq * tau = - M_inv * (dM/dq) * M_inv * tau
+    temp_vec = M_inv @ tau
+    vec_dq2 = dM_dq2 @ temp_vec
+    dM_inv_dq_tau_2 = - M_inv @ vec_dq2
+
+    # dM_inv_dq_tau matrix (col 1 is 0 because dM_dq1 is 0)
+    dM_inv_dq_tau = np.zeros((2, 2))
+    dM_inv_dq_tau[0, 1] = dM_inv_dq_tau_2[0, 0]
+    dM_inv_dq_tau[1, 1] = dM_inv_dq_tau_2[1, 0]
+
+    # dc_dq construction
+    dc_dq = np.zeros((2, 2))
+    term_c2 = l1 * lc2 * m2 * c2
+    dc_dq[0, 1] = (-2 * q1_dot * q2_dot - q2_dot**2) * term_c2
+    dc_dq[1, 1] = (q1_dot**2) * term_c2
+
+    # dG_dq construction
+    dG_dq = np.zeros((2, 2))
+    term_g_c1 = g * (lc1 * m1 + m2 * l1) * c1
+    term_g_c12 = m2 * g * lc2 * c12
+    
+    dG_dq[0, 0] = term_g_c1 + term_g_c12
+    dG_dq[0, 1] = term_g_c12
+    dG_dq[1, 0] = term_g_c12
+    dG_dq[1, 1] = term_g_c12 + 3 * k * (c2**2 - 2 * s2**2) * c2
+
+    # Final a21
+    inner_a21 = -dc_dq - dG_dq
+    a21 = dM_inv_dq_tau + (M_inv @ inner_a21)
+
+    # --- Assemble A (4x4) ---
+    A = np.zeros((4, 4))
+    # a11 is zeros (already done)
+    # a12 is identity
+    A[0, 2] = 1.0
+    A[1, 3] = 1.0
+    # a21
+    A[2, 0], A[2, 1] = a21[0, 0], a21[0, 1]
+    A[3, 0], A[3, 1] = a21[1, 0], a21[1, 1]
+    # a22
+    A[2, 2], A[2, 3] = a22[0, 0], a22[0, 1]
+    A[3, 2], A[3, 3] = a22[1, 0], a22[1, 1]
+
+    # --- Assemble B (4x1) ---
+    B = np.zeros((4, 1))
+    # b1 is zeros
+    # b2 is M_inv @ [1, 0]. This is effectively the first column of M_inv
+    B[2, 0] = M_inv[0, 0]
+    B[3, 0] = M_inv[1, 0]
+
+    return A, B
