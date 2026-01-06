@@ -1,30 +1,74 @@
 %----------------------------------------------------------------------------------------
 %	SECTION 1: MODEL DISCRETIZATION
 %----------------------------------------------------------------------------------------
-
-
 \section{Task 0: Problem Setup and Discretization}
+\label{sec:task0}
+The double pendulum model used in this project is reported in Figure \ref{fig:double_pendulum}.
 
-The continuous-time dynamics of the double pendulum are governed by the equation:
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.2\linewidth]{figs/placeholder.jpg}
+    \caption{Double Pendulum System with flexible link.}
+    \label{fig:double_pendulum}
+\end{figure}
+
+The configuration vector is defined as: $q = \begin{bmatrix}\theta_1 \ \theta_2\end{bmatrix}^\top \in \mathbb{R}^n$. With $n=2$ degrees of freedom. The continuous-time dynamics of the double pendulum are governed by the equation:
 \begin{equation}
-M(q)\ddot{q} + C(q, \dot{q})\dot{q} + F\dot{q} + G(q) = \begin{bmatrix} \tau \\ 0 \end{bmatrix}
+      M(q)\ddot{q} + C(q, \dot{q})\dot{q} + F\dot{q} + G(q) = \begin{bmatrix} \tau \\ 0 \end{bmatrix}
+      \label{eq:double_pendulum_model}
 \end{equation}
-where $q = [\theta_1, \theta_2]^\top$. To utilize numerical optimal control techniques, these dynamics must be discretized.
+Where\footnote{The detailed expressions for $M(q)$, $C(q, \dot{q})$, $F$, and $G(q)$ can be found in the Appendix \ref{app:Models_matrices_and_parameters}.}:
+\begin{itemize}
+      \item  $M(q) = M(q)^\top \succeq 0 \in \mathbb{R}^{n \times n}$ is the inertia matrix;
+      \item $C(q, \dot{q}) = C(q, \dot{q})^\top \succeq 0 \in \mathbb{R}^{n \times n}$ represents Coriolis and centrifugal forces;
+      \item $F = F^\top \succeq 0 \in \mathbb{R}^{n \times n}$ is the viscous friction matrix;
+      \item $G(q)$ is the gravity vector;
+      \item $\tau \in \mathbb{R}^{n_i}$ is the control torque applied at the first joint\footnote{In this tractation are not considered non-conservative forces or contact forces.} with $n_i = 1$.
+\end{itemize}
+The adopted parameters for this system are summarized in Table \ref{tab:model_parameters}.
+
+The state space vector is defined to include both positions and velocities: $x = \begin{bmatrix} \theta_1 \ \theta_2 \ \dot{\theta}_1 \ \dot{\theta}_2 \end{bmatrix}^\top \in \mathbb{R}^{n_s}$. With $n_s = 2n = 4$ states. Thus, the continuous time state-space nonlinear dynamics can be expressed as:
+\begin{equation}
+      \dot{x} = f(x, u) = \begin{bmatrix} \dot{q} \ \ddot{q} \end{bmatrix}^\top = \begin{bmatrix} \dot{\theta}_1 \ \dot{\theta}_2 \ \ddot{\theta}_1 \ \ddot{\theta}_2 \end{bmatrix}^\top.
+      \label{eq:nonlinear_dynamics}
+\end{equation}
+Where:
+\begin{itemize}
+      \item $u = \tau \in \mathbb{R}$ control input;
+      \item $f: \mathbb{R}^{n_s} \times \mathbb{R} \rightarrow \mathbb{R}^{n_s}$ is a nonlinear function representing the system dynamics.
+\end{itemize}
 
 \subsection{Discretization Methods}
-We implemented two discretization schemes in `solver.py` to transition from continuous time $\dot{x} = f(x, u)$ to discrete time $x_{k+1} = f_d(x_k, u_k)$:
+Two discretization schemes has been implemented in \texttt{solver.py}\footnote{Details in Appendix \ref{app:discretization_methods}}.
 \begin{enumerate}
-\item \textbf{Forward Euler (FE):} $x_{k+1} = x_k + \Delta t f(x_k, u_k)$. While simple, this method is numerically unstable for stiff systems or large time steps.
-\item \textbf{Runge-Kutta 4th Order (RK4):} This method computes the state update using a weighted average of four slopes:
-\begin{equation}
-      x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
-\end{equation}
-RK4 was selected as the primary method for the project due to its superior accuracy and stability preservation, which is critical for the long-horizon optimizations performed in Task 2.
+      \item \textbf{Forward Euler (FE):} 
+            \begin{equation}
+                  x_{k+1} = x_k + \Delta t f(x_k, u_k)
+            \end{equation}
+            While simple, this method is numerically unstable for stiff systems or large time steps;
+      \item \textbf{Runge-Kutta 4th Order (RK4):}
+            \begin{equation}
+                  x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
+            \end{equation}
+            This method maps all poles of the continuous-time system to within the unit circle in the discrete-time domain, ensuring stability. However, its computation time is higher that FE.
 \end{enumerate}
+Where:
+\begin{itemize}
+      \item $\Delta t$ is the discretization time step;
+      \item $x_k, u_k$ are the state and control input at time step $k$;
+      \item $k_1, k_2, k_3, k_4$ are the RK4 intermediate slopes.
+\end{itemize}
 
 \subsection{Analytic Jacobian Computation}
-For the Newton-based optimal control algorithm, accurate gradients of the dynamics are required. Relying on finite differences can introduce numerical noise, while symbolic differentiation (via SymPy) proved too slow for iterative solving.
+For the Newton-based optimal control algorithm, accurate gradients of the dynamics are required. Relying on finite differences can introduce numerical noise, while symbolic differentiation (via \texttt{SymPy}) proved too slow for iterative solving.
 
-Therefore, we implemented an \textbf{analytic Jacobian} computation in `model.py`. The Jacobians $A = \frac{\partial f}{\partial x}$ and $B = \frac{\partial f}{\partial u}$ were derived manually and implemented using optimized NumPy operations (and Numba JIT compilation for speed). This approach ensures that the linearization required for the Backward Pass in Newton's method is both precise and computationally efficient.
+Therefore, we implemented an \textbf{analytic Jacobian} computation in \texttt{model.py}. 
+\begin{itemize}
+      \item $A = \frac{\partial f(x, u)}{\partial x} = \nabla_1 f(x, u)^\top \in \mathbb{R}^{n_s \times n_s}$: State Jacobian;
+      \item $B = \frac{\partial f(x, u)}{\partial u} = \nabla_2 f(x, u)^\top \in \mathbb{R}^{n_s \times n_i}$: Input Jacobian;
+\end{itemize}
+
+The Jacobians were derived manually and implemented using optimized NumPy operations (and Numba JIT compilation for speed). This approach ensures that the linearization required for the Backward Pass in Newton's method is both precise and computationally efficient.
+The detailed derivation is reported in Appendix \ref{app:analytic_jacobian_derivation}.
 
 \newpage

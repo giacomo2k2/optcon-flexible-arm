@@ -47,9 +47,32 @@ The non-convex nature of the problem requires a reasonable reference trajectory,
 
 Swing up
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{poly 5 reference trajectory}
+    \label{fig:stepwise_newton}
+\end{figure}
+
+
 Swing down 
 
-complex
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{poly 5 reference trajectory}
+    \label{fig:stepwise_newton}
+\end{figure}
+
+
+complex manouver
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{poly 5 reference trajectory}
+    \label{fig:swingup_newton}
+\end{figure}
 
 
 
@@ -68,7 +91,7 @@ Problem of trajectory (big jump on u right at the transition)
 
 \subsection{Newton's method applied to polynomial reference trajectory}
 
-swing up
+Example of polynomial applied to swing up
 
 \begin{figure}[H]
     \centering
@@ -77,9 +100,8 @@ swing up
     \label{fig:swingup_newton}
 \end{figure}
 
-Everything here is fine
 
-swing down 
+Example of polynomial applied to swing down
 
 \begin{figure}[H]
     \centering
@@ -88,12 +110,14 @@ swing down
     \label{fig:swingdown_newton}
 \end{figure}
 
+\begin{itemize}
+    \item when doing elbow up kinematic energy gets transferred to potential energy
+    \item when doing elbow down there is no way to stop the second link using by subtracting kinetic energy 
+    \item friction is low and we cannot rely on that to dissipate energy fast enough 
+\end{itemize}
 
-- when doing elbow up kinematic energy gets transferred to potential energy
-- when doing elbow down there is no way to stop the second link using by subtracting kinetic energy 
-- friction is low and we cannot rely on that to dissipate energy fast enough 
 
-complex manouver
+Example of polynomial applied to swing down complex manouver
 
 \begin{figure}[H]
     \centering
@@ -103,12 +127,43 @@ complex manouver
 \end{figure}
 
 
-
 Applying the standard Newton method directly to complex maneuvers revealed several issues:
 \begin{itemize}
-\item \textbf{Local Minima:} The solver often became trapped in local minima where the robot performs a partial swing but fails to reach the upright position.
-\item \textbf{Initialization Sensitivity:} If the initial guess is too far from a feasible solution, the quadratic approximation of the cost is inaccurate, leading to divergence.
+\item \textbf{Local Minima:} Being the manouver complex and the time horizon large, there would be many local minimum in the Loss landscape. 
+When using an initial guess that is far off from the real trajectory, it pushes the loss far away from the local minimum that guarantees a solution. 
+Once we land inside a minimum, it is not possible to move out of it.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{poly 5 reference trajectory}
+    \label{fig:cost}
+\end{figure}
+
+Using instead a smaller time horizon, the loss landscape has few local minima, therefore is possible to find an easier solution, but it's not possible to converge exactly to the equilibrium in time. We must choose a compromise.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
+    \caption{poly 5 reference trajectory}
+    \label{fig:cost}
+\end{figure}
+
+
+\item \textbf{Assumption on controllability:} If we apply DARE to find the final cost matrix $Q_T$, we are assuming that from the last point on, the system 
+has completely converged to the equilibrium. 
+
+\item \textbf{}
 \end{itemize}
+
+
+
+1. controllability
+2. ill-conditioning 
+3. long time horizons (search tree troppo grande e tanti local local minima nel manifold)
+4. explosions nelle condizioni instabili
+
+
 
 
 \subsection{Dynamic Horizon Extension Strategy}

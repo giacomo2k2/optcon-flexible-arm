@@ -3,17 +3,64 @@
 %----------------------------------------------------------------------------------------
 \section{Appendix}
 
-\subsection{Apprendix A: Analytical Derivation of the Jacobian}
-\label{app:appendixA}
+
+
+
+
+
+%---------------------------------------
+% Models matrices and parameters
+%---------------------------------------
+\subsection{Models matrices and parameters}
+\label{app:Models_matrices_and_parameters}
+
+\begin{gather*}
+    M(q) = \begin{bmatrix}
+        I_1 + I_2 + l_{c1}^2 m_1 + m_2(l_1^2 + 2l_1 l_{c2} \cos(\theta_2) + l_{c2}^2) & I_2 + l_{c2} m_2 (l_1 \cos(\theta_2) + l_{c2}) \\ 
+        I_2 + l_{c2} m_2 (l_1 \cos(\theta_2) + l_{c2}) & I_2 + l_{c2}^2 m_2
+    \end{bmatrix} \\[15pt]
+    C(q, \dot{q}) = \begin{bmatrix}
+        -l_1 l_{c2} m_2 \dot{\theta}_2 \sin(\theta_2) & -l_1 l_{c2} m_2 (\dot{\theta}_1 + \dot{\theta}_2) \sin(\theta_2) \\ 
+        l_1 l_{c2} m_2 \dot{\theta}_1 \sin(\theta_2) & 0
+    \end{bmatrix} \\[15pt]
+    G(q) = \begin{bmatrix}
+        g l_{c1} m_1 \sin(\theta_1) + g m_2 (l_1 \sin(\theta_1) + l_{c2} \sin(\theta_1 + \theta_2)) \\ 
+        g m_2 l_{c2} \sin(\theta_1 + \theta_2) + 3k \sin(\theta_2) \cos^2(\theta_2)
+    \end{bmatrix} \\[15pt]
+    F = \begin{bmatrix}
+        f_{1} & 0 \\
+        0 & f_{2}
+    \end{bmatrix}
+\end{gather*}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{llcl}
+        \toprule
+        \textbf{Symbol} & \textbf{Description} & \textbf{Value} & \textbf{Unit} \\ \midrule
+        $m_1, m_2$ & Mass of link 1 and 2 & 2 & \unit{kg} \\
+        $l_1, l_2$ & Length of link 1 and 2 & 1.5 & \unit{m} \\
+        $r_1, r_2$ & Distance to center of mass & 0.75 & \unit{m} \\
+        $I_1, I_2$ & Moment of inertia & 1.5 & \unit{kg.m^2} \\
+        $g$        & Gravitational acceleration & 9.81 & \unit{m/s^2} \\
+        $f_1, f_2$ & Viscous friction coefficient & 1.0 & \unit{N.m.s/rad} \\
+        $k$        & Nonlinear angular stiffness & 0.6 & \unit{N.m/rad} \\ \bottomrule
+    \end{tabular}
+    \caption{Model Parameters (Set 2)}
+    \label{tab:model_parameters}
+\end{table}
+
+
+%---------------------------------------
+% Analytical Derivation of the Jacobian
+%---------------------------------------
+\subsection{Analytical Derivation of the Jacobian}
+\label{app:analytic_jacobian_derivation}
 
 This appendix details the analytical computation of the Jacobian matrices $A$ and $B$ used in the linearization of the flexible double pendulum dynamics.
 
 \subsubsection{State-Space Formulation}
-Let the state vector be $x = [q_1, q_2, \dot{q}_1, \dot{q}_2]^\top \in \mathbb{R}^4$ and the input be $u \in \mathbb{R}$. The equations of motion in standard robotic form are:
-\begin{equation}
-    M(q)\ddot{q} + C(q, \dot{q})\dot{q} + G(q) + F\dot{q} = \tau
-\end{equation}
-where $\tau = [u, 0]^\top$. By isolating angular accelerations, we obtain the state-space dynamics $\dot{x} = f(x, u)$:
+Consider the state space formulation given in Section \ref{sec:task0}.
 \begin{equation}
     \dot{x} = 
     \begin{bmatrix}
@@ -25,9 +72,16 @@ where $\tau = [u, 0]^\top$. By isolating angular accelerations, we obtain the st
         M(q)^{-1} \left( \tau - C(q, \dot{q})\dot{q} - G(q) - F\dot{q} \right)
     \end{bmatrix}
 \end{equation}
-To linearize the system about a point $(x, u)$, we compute the Jacobians $A = \frac{\partial f}{\partial x}$ and $B = \frac{\partial f}{\partial u}$.
 
-\subsubsection{Jacobian Matrix A}
+\begin{equation*}
+    \dot{x} = f(x, u)
+\end{equation*}
+
+To linearize the system about a point $(\bar{x}, \bar{u})$, we compute the State and Input Jacobians:
+\begin{equation*}
+    A = \frac{\partial f(x,u)}{\partial x}\bigg|_{\bar{x}, \bar{u}}\in \mathbb{R}^{4\times 4} \quad B = \frac{\partial f(x,u)}{\partial u}\bigg|_{\bar{x}, \bar{u}} \in \mathbb{R}^{4\times 1}
+\end{equation*}
+
 The state Jacobian $A \in \mathbb{R}^{4 \times 4}$ has the following block structure:
 \begin{equation}
     A = 
@@ -86,7 +140,7 @@ The input Jacobian $B \in \mathbb{R}^{4 \times 1}$ is straightforward, as only t
 Since $\tau = [u, 0]^\top$, $\frac{\partial \tau}{\partial u} = [1, 0]^\top$. Thus, the bottom block of $B$ is simply the first column of $M^{-1}$.
 
 \subsubsection{Explicit Derivative Matrices}
-For completeness, the non-zero partial derivatives implemented in the code are listed below. Let $s_i = \sin(q_i)$, $c_i = \cos(q_i)$, and $s_{12} = \sin(q_1+q_2)$.
+For completeness, the non-zero partial derivatives implemented in the code are listed below. Let $s_i = \sin(q_i)$, $c_i = \cos(q_i)$, $s_{ij} = \sin(q_i+q_j)$, $c_{ij} = \cos{q_i+q_j}$.
 
 \paragraph{Gravity Gradient}
 \begin{equation}
@@ -117,8 +171,11 @@ For completeness, the non-zero partial derivatives implemented in the code are l
     \end{bmatrix}
 \end{equation}
 
-\subsection{Appendix B: Derivation of Discrete-Time Jacobians}
-\label{app:appendixB}
+%---------------------------------------
+% Discrete-Time Jacobians Derivation
+%---------------------------------------
+\subsection{Derivation of Discrete-Time Jacobians}
+\label{app:discretization_methods}
 
 This appendix details the linearization of the discrete-time dynamics obtained via numerical integration. Let the continuous-time dynamics be $\dot{x} = f(x, u)$, and let the discrete-time system be denoted by:
 \begin{equation}
@@ -128,9 +185,9 @@ where $F$ is the numerical integration map over a time step $\Delta t$. We seek 
 \begin{equation}
     A_d = \frac{\partial F}{\partial x}\bigg|_{x_k, u_k}, \quad B_d = \frac{\partial F}{\partial u}\bigg|_{x_k, u_k}
 \end{equation}
-Let the continuous-time Jacobians evaluated at a specific state $x$ and input $u$ be denoted as $A_c(x,u) = \nabla_x f(x,u)$ and $B_c(x,u) = \nabla_u f(x,u)$.
+Let the continuous-time Jacobians evaluated at a specific state $x$ and input $u$ be denoted as $A_c(x,u) = \nabla_x f(x,u)^\top$ and $B_c(x,u) = \nabla_u f(x,u)^\top$.
 
-\subsection{Forward Euler Discretization}
+\subsubsection{Forward Euler Discretization}
 The Forward Euler method approximates the dynamics as:
 \begin{equation}
     x_{k+1} = x_k + \Delta t f(x_k, u_k)
@@ -141,7 +198,7 @@ Differentiating with respect to $x_k$ and $u_k$ yields the standard first-order 
     B_d &= \Delta t B_c(x_k, u_k)
 \end{align}
 
-\subsection{Runge-Kutta 4 (RK4) Discretization}
+\subsubsection{Runge-Kutta 4 (RK4) Discretization}
 The explicit RK4 integration scheme is defined by:
 \begin{equation}
     x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
@@ -155,7 +212,7 @@ where the intermediate slopes $k_i$ are:
 \end{align*}
 To find $A_d$ and $B_d$, we apply the chain rule recursively to the slopes $k_i$.
 
-\subsubsection{State Jacobian \texorpdfstring{$A_d$}{Ad}}
+\paragraph{State Jacobian \texorpdfstring{$A_d$}{Ad}}
 Differentiating the update equation with respect to $x_k$:
 \begin{equation}
     A_d = I + \frac{\Delta t}{6} \left( \frac{\partial k_1}{\partial x} + 2\frac{\partial k_2}{\partial x} + 2\frac{\partial k_3}{\partial x} + \frac{\partial k_4}{\partial x} \right)
@@ -168,7 +225,7 @@ Let $x^{(i)}$ denote the argument of $f$ for the calculation of $k_i$. The gradi
     \frac{\partial k_4}{\partial x} &= A_c(x^{(4)}, u_k) \left( I + \Delta t \frac{\partial k_3}{\partial x} \right)
 \end{align}
 
-\subsubsection{Input Jacobian \texorpdfstring{$B_d$}{Bd}}
+\paragraph{Input Jacobian \texorpdfstring{$B_d$}{Bd}}
 Differentiating the update equation with respect to $u_k$:
 \begin{equation}
     B_d = \frac{\Delta t}{6} \left( \frac{\partial k_1}{\partial u} + 2\frac{\partial k_2}{\partial u} + 2\frac{\partial k_3}{\partial u} + \frac{\partial k_4}{\partial u} \right)

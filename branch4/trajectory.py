@@ -85,14 +85,14 @@ tasks = {
     'top_to_elbow_up': { # easy level difficulty
         'start': configurations['U-U'],
         'end': configurations['R-U'],
-        'time': 3.0,
+        'time': 6.8,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
-        'guess': 'zero', # Used PD_gc
-        'discr_method': 'rk4'
+        'guess': 'PD_gc', # Used PD_gc
+        'discr_method': 'fe'
     },
     'top_to_elbow_down': { # high level difficulty
         'start': configurations['U-U'],
@@ -157,14 +157,14 @@ tasks = {
     'the_dive': { # high level difficulty
         'start': configurations['U-U'],
         'end': configurations['D-D'],
-        'time': 8.0,
+        'time': 10.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
         'guess': 'PD',
-        'discr_method': 'rk4'
+        'discr_method': 'fe'
     },
     'overhead_wipe': {
         'start': configurations['LU-U'],

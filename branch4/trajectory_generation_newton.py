@@ -160,7 +160,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     T0 = 0.0                        # Initial absolute time
     ti = 0.0                        # Start time for trajectory segment (relative)
-    tf = 0.9                   # End time for trajectory segment (relative)
+    tf = 0.7                   # End time for trajectory segment (relative)
     dt = model.dt                   # Time step
     t = np.arange(T0, Tend, dt)     # Time vector
     TT = len(t)                     # Number of time steps
@@ -447,7 +447,7 @@ def main():
     max_iters = 300                      # Maximum number of iterations
     n_mid = 20                           # Number of intermediate trajectories to plot
     method = 'poly5'                     # Trajectory generation method ('poly5', 'spline', ...)
-    task = 'custom5'           # Choose from keys of equilibrium_traj
+    task = 'swing_up'           # Choose from keys of equilibrium_traj
 
     # elbow_up, swing_up, topside_pump, half_dive, the_dive, lateral_swing, diagonal_swing, overhead_wipe, half_middle_dive, half_swing, top_to_elbow_up, top_to_elbow_down, inverted_hand_off, low_diagonal_hold
     ######################################
@@ -455,7 +455,7 @@ def main():
     ######################################
 
     save_flag = True                       # Save flag
-    plot_flag = False                        # Plot flag
+    plot_flag = True                        # Plot flag
     plot_flag_armijo = False                # Plot Armijo stepsize flag
     debug_flag = True                       # Debug print flag
 

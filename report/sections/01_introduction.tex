@@ -5,24 +5,15 @@
 
 \section*{Introduction}
 
-
-
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder}
-\end{figure}
-
 This report presents the design and implementation of optimal control strategies for a flexible robotic link.
 The system is modeled as a planar double pendulum where only the first joint is actuated, and a nonlinear elastic behavior is present at the end of the second link.
 
 This structure introduces significant control challenges, specifically:
 \begin{itemize}
-\item \textbf{Under-actuation:} The system has two degrees of freedom (DoF) but only one control input (torque at the base);
-\item \textbf{Nonlinear Elasticity:} The stiffness between the links depends nonlinearly on the relative angle $\theta_2$, complicating the dynamics compared to standard linear springs.
-\item \textbf{Non-controllability:} The system is not fully feedback linearizable, and maintaining equilibrium requires precise balancing of gravitational and elastic forces.
-\item \textbf{Low Friction:} The provided parameters (Set 2) involve relatively low friction coefficients, making the system prone to oscillations and sensitive to disturbances.
+    \item \textbf{Under-actuation:} The system has two degrees of freedom (DoF) but only one control input (torque at the base);
+    \item \textbf{Nonlinear Elasticity:} The stiffness between the links depends nonlinearly on the relative angle $\theta_2$, complicating the dynamics compared to standard linear springs;
+    \item \textbf{Non-controllability:} The system is not fully feedback linearizable, and maintaining equilibrium requires precise balancing of gravitational and elastic forces;
+    \item \textbf{Low Friction:} The provided parameters (Set 2) involve relatively low friction coefficients, making the system prone to oscillations and sensitive to disturbances.
 \end{itemize}
 
 
