@@ -73,7 +73,7 @@ tasks = {
     'half_swing':{ # mid level difficulty
         'start': configurations['D-D'],
         'end': configurations['U-D'],
-        'time': 11.0,
+        'time': 10.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
@@ -85,7 +85,7 @@ tasks = {
     'top_to_elbow_up': { # easy level difficulty
         'start': configurations['U-U'],
         'end': configurations['R-U'],
-        'time': 6.8,
+        'time': 8.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
@@ -121,14 +121,14 @@ tasks = {
     'topside_pump': { # mid level difficulty
         'start': configurations['U-D'],
         'end': configurations['U-U'],
-        'time': 4.0,
+        'time': 6.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,
         'vel2_mult': 1,
         'termcost_mult': 1,
         'guess': 'zero',
-        'discr_method': 'rk4'
+        'discr_method': 'fe'
     },
     'lateral_swing': { # easy level difficulty
         'start': configurations['L-U'],
@@ -169,7 +169,7 @@ tasks = {
     'overhead_wipe': {
         'start': configurations['LU-U'],
         'end': configurations['RU-U'],
-        'time': 4.0,
+        'time':7.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,

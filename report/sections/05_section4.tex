@@ -40,27 +40,64 @@ Furthermore, given the flexible nature of the robot, high-gain tracking ($Q \gg 
 \end{itemize}
 
 \subsection{Simulation Results}
-The results (see Figure \ref{fig:placeholder4}, \ref{fig:placeholder5}, \ref{fig:placeholder6}) demonstrate that the LTV-LQR effectively rejects initial disturbances and tracks the complex optimal maneuver.
+The results (see Figure \ref{fig:custom5_LQR_signal}, \ref{fig:swing_up_LQR_signal}, \ref{fig:low_diagonal_hold_LQR_signal}) demonstrate that the LTV-LQR effectively rejects initial disturbances and tracks the complex optimal maneuver.
+It is possible to observe how the final stabilization of the second term is left onto the first arm, which oscillates to neglect the perturbations on the second link, and only later it will stabilize.
+However, there are cases in which the initial perturbation is too large for the LQR to recover the nominal trajectory, leading to divergence (see Figure \ref{fig:elbow_up_hold_LQR_signal}).
 
-\begin{figure}[]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder4}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/custom5/trajectory_comparison_LQR_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a downward maneuver}
+    \label{fig:custom5_LQR_signal}
 \end{figure}
 
-\begin{figure}[]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder5}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/custom5/tracking_error_analysis.png}
+    \caption{Error analysis during LQR tracking of downward maneuver}
+    \label{fig:custom5_LQR_error}
 \end{figure}
 
-\begin{figure}[]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder6}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/swing_up/trajectory_comparison_LQR_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a swing-up maneuver}
+    \label{fig:swing_up_LQR_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/swing_up/tracking_error_analysis.png}
+    \caption{Error analysis during LQR tracking}
+    \label{fig:swing_up_LQR_error}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/low_diagonal_hold/trajectory_comparison_LQR_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a hold maneuver}
+    \label{fig:low_diagonal_hold_LQR_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/custom5/tracking_error_analysis.png}
+    \caption{Error analysis during LQR tracking}
+    \label{fig:low_diagonal_hold_LQR_error}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/elbow_up/trajectory_comparison_LQR_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a elbow up maneuver}
+    \label{fig:elbow_up_hold_LQR_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/elbow_up/tracking_error_analysis.png}
+    \caption{Error analysis during LQR tracking}
+    \label{fig:elbow_up_hold_LQR_error}
 \end{figure}
 
 \newpage

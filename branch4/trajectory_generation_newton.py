@@ -46,6 +46,8 @@ import plots as plots
 # Control
 import control as ctrl
 
+from scipy import linalg
+from functools import reduce
 ######################################
 # Model
 ######################################
@@ -55,6 +57,34 @@ model = DoublePendulumFlexible(**PARAM_SET_2)
 
 ns = model.ns  # Number of states
 ni = model.ni  # Number of inputs
+
+def check_pbh_stabilizability(A, B, tol=1e-5):
+    n = A.shape[0]
+    # 1. Find eigenvalues of the local A matrix
+    eigvals = linalg.eigvals(A)
+    #print(f"Eigenvalues of A: {eigvals}")
+    
+    # 2. Identify unstable eigenvalues (magnitude >= 1)
+    unstable_eigvals = [ev for ev in eigvals if np.abs(ev) >= 1.0 - tol]
+    
+    if not unstable_eigvals:
+        return True, "System is naturally stable (all eigenvalues < 1)."
+
+    # 3. Test each unstable eigenvalue
+    for lam in unstable_eigvals:
+        # Construct the PBH matrix: [lambda*I - A | B]
+        pbh_matrix = np.hstack([lam * np.eye(n) - A, B])
+        
+        # Check the rank using Singular Value Decomposition (SVD)
+        # SVD is more numerically stable than np.linalg.matrix_rank
+        s = linalg.svdvals(pbh_matrix)
+        rank = np.sum(s > tol)
+        
+        if rank < n:
+            return False, f"Non-stabilizable mode detected at lambda={lam:.4f}"
+            
+    return True, "System is locally stabilizable."
+
 
 def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20, method: str = 'poly5', plot_flag: bool = False, plot_armijo: bool = False, debug_print: bool = True, folder: str = None) -> tuple[np.ndarray, np.ndarray, tuple, tuple, np.ndarray]:
     """
@@ -222,7 +252,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     BB = np.zeros((ns, ni, TT, max_iters))
     deltax = np.zeros((ns, TT, max_iters))
 
-
+    
     ######################################
     # Initial Trajectory Guess
     ######################################
@@ -279,7 +309,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
     # Loop over iterations
     for kk in range(max_iters-1):
-        
+
         ############################
         # 0. Compute cost
         ############################
@@ -297,14 +327,26 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
 
         #print(f"JJ[{kk}] = {JJ[kk]}, lmbd[:,{TT-1},{kk}] = {lmbd[:,TT-1,kk]}, PP[:,:,{TT-1},{kk}] = {PP[:,:,TT-1,kk]}, pp[:,{TT-1},{kk}] = {pp[:,TT-1,kk]}")
         # Backward recursion
+        A_vec = []
         for tt in reversed(range(TT-1)):
             qt, rt, QQt, RRt, SSt = cst.stagecost(xx[:,tt, kk], uu[:,tt,kk], xx_ref[:,tt], uu_ref[:,tt], QQt, RRt)[1:]
             At, Bt = solver.jacobian_analytic(xx[:, tt, kk], uu[:, tt, kk], model)
+
+
             
             # Discretized jacobians
             AA[:, :, tt, kk] = At
             BB[:, :, tt, kk] = Bt
+            #A_vec.append(At)
 
+            #result, message = check_pbh_stabilizability(At, Bt)
+            #if not result:
+                #print(f"\n\n[Warning] At iteration {kk}, time {tt}: {message}. Stopping computation.")
+                #counter += 1
+                #if counter >= 50:
+                #    max_iters = kk
+                #    return xx[:,:,kk], uu[:,:,kk], eq_pair1, eq_pair2, time
+        
             # Cost matrices at time k
             Qtk = QQt
             Rtk = RRt
@@ -327,7 +369,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
             dJ_temp = rt + Bt.T @ lmbd[:,tt+1,kk][:,None]
             dJ[:,tt,kk] = dJ_temp.squeeze()
 
-        #print(f"PP[:,:,0,{kk}] = {PP[:,:,0,kk]}, pp[:,0,{kk}] = {pp[:,0,kk]}")
+        
         # Compute descent direction norm after backward pass
         for tt in range(TT-1):
             deltau[:,tt,kk] = ss[:,tt,kk] +  KK[:,:,tt,kk] @  deltax[:, tt, kk]   
@@ -427,7 +469,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     plots.gradient_error(gradient_error, max_iters, plot_flag=plot_flag, folder=folder)
 
     # Animation of the optimal trajectory
-    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, plot_flag=plot_flag, folder=folder)
+    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, plot_flag=True, folder=folder)
 
     # Close all plots if opened
     plt.close('all')
@@ -447,7 +489,7 @@ def main():
     max_iters = 300                      # Maximum number of iterations
     n_mid = 20                           # Number of intermediate trajectories to plot
     method = 'poly5'                     # Trajectory generation method ('poly5', 'spline', ...)
-    task = 'swing_up'           # Choose from keys of equilibrium_traj
+    task = 'half_swing'           # Choose from keys of equilibrium_traj
 
     # elbow_up, swing_up, topside_pump, half_dive, the_dive, lateral_swing, diagonal_swing, overhead_wipe, half_middle_dive, half_swing, top_to_elbow_up, top_to_elbow_down, inverted_hand_off, low_diagonal_hold
     ######################################
@@ -455,38 +497,39 @@ def main():
     ######################################
 
     save_flag = True                       # Save flag
-    plot_flag = True                        # Plot flag
+    plot_flag = False                        # Plot flag
     plot_flag_armijo = False                # Plot Armijo stepsize flag
     debug_flag = True                       # Debug print flag
 
     ######################################
     # Environment setup
     ######################################
-
+    tasks = ['topside_pump', 'half_dive', 'custom5', 'overhead_wipe']  # List of tasks to run
     # Check task name correctness 
-    try:
-        if task not in traj.tasks:
-            raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
-    except ValueError as e:
-        print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
-        exit(1)
-    
-    # Create folder for plots
-    if save_flag:
-        folder = f'report/figs/branch4/traj_gen_newton/{task}/'
-
-        # Create folder if it does not exist
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-    else:
-        folder = None
+    for task in tasks:
+        try:
+            if task not in traj.tasks:
+                raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
+        except ValueError as e:
+            print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
+            exit(1)
         
-    ######################################
-    # Generate optimal trajectory
-    ######################################
+        # Create folder for plots
+        if save_flag:
+            folder = f'report/figs/branch4/traj_gen_newton/{task}/'
 
-    generate_optimal_trajectory(
-        task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_flag=plot_flag, plot_armijo=plot_flag_armijo, debug_print=debug_flag, folder=folder)
+            # Create folder if it does not exist
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        else:
+            folder = None
+            
+        ######################################
+        # Generate optimal trajectory
+        ######################################
+
+        generate_optimal_trajectory(
+            task=task, max_iters=max_iters, n_mid=n_mid, method=method, plot_flag=plot_flag, plot_armijo=plot_flag_armijo, debug_print=debug_flag, folder=folder)
 
 if __name__ == "__main__":
     main()

@@ -16,9 +16,9 @@ While LQR is effective for unconstrained tracking, it \textbf{cannot explicitly 
 \subsection{MPC Formulation}
 At each time step $t$, we solve a finite-horizon optimization problem:
 \begin{align*}
-\min_{\Delta u} \quad & \sum_{t=0}^{T_{pred}-1} \left( \|\Delta x_t\|_{Q}^2 + \|\Delta u_t\|_{R}^2 \right) + \|\Delta x_{T_{pred}}\|_{Q_T}^2 \\
-\text{s.t.} \quad & \Delta x_{k+1} = A_{t+k} \Delta x_k + B_{t+k} \Delta u_k \\
-& u_{min} \leq u^*_{t+k} + \Delta u_k \leq u_{max}
+\min_{\Delta u} \quad & \sum_{t=\tau}^{\tau + T_{pred}} \left( \|\Delta x_{\tau}\|_{Q}^2 + \|\Delta u_{\tau}\|_{R}^2 \right) + \|\Delta x_{T_{pred}}\|_{Q_T}^2 \\
+\text{s.t.} \quad & \Delta x_{t+1} = A_{t} \Delta x_t + B_{t} \Delta u_t, \quad \forall t = \tau, ..., \tau + T_{pred}   \\
+& u_{min} \leq u^*_t + \Delta u_t \leq u_{max}, \quad \forall t = \tau, ..., \tau + T_{pred}   \\
 \end{align*}
 where $T_{pred}$ is the prediction horizon.
 
@@ -36,27 +36,51 @@ that could serve as a \textbf{good compromise between performance and computatio
 \subsection{Simulation Results}
 The MPC controller showed superior performance in scenarios where large perturbations would cause an LQR controller to request infeasible torques.\\
 Moreover, the ability to handle constraints makes MPC a versatile choice.\\
-Down below some results are shown (see Figure \ref{fig:placeholder1}, \ref{fig:placeholder2}, \ref{fig:placeholder3}).
+Down below some results are shown (see Figure \ref{fig:the_dive_MPC_signal}, \ref{fig:swing_up_MPC_signal}, \ref{fig:elbow_up_MPC_signal}).
+One can notice how, in some cases, the knowledge of the future helps in recovering the reference trajectory and final equilibrium, and other cases in\\
+which \textbf{the window and/or the constraints do not allow the controller to return to the nominal path} (as in Figure \ref{fig:swing_up_MPC_signal}).
+Above all, the controller \textbf{never exceeds the maximum torque defined}, showing the effectiveness of the constraints in the optimization problem.
 
-\begin{figure}[]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder1}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/trajectory_comparison_MPC_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a dive maneuver}
+    \label{fig:the_dive_MPC_signal}
 \end{figure}
 
-\begin{figure}[]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder2}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/tracking_error_analysis.png}
+    \caption{Error analysis during MPC tracking of dive maneuver}
+    \label{fig:the_dive_MPC_error}
 \end{figure}
 
-\begin{figure}[]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{Your descriptive caption goes here.}
-    \label{fig:placeholder3}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/swing_up/trajectory_comparison_MPC_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a swing up maneuver}
+    \label{fig:swing_up_MPC_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/swing_up/tracking_error_analysis.png}
+    \caption{Error analysis during MPC tracking of swing up maneuver}
+    \label{fig:swing_up_MPC_error}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/trajectory_comparison_MPC_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a elbow up maneuver}
+    \label{fig:elbow_up_MPC_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/tracking_error_analysis.png}
+    \caption{Error analysis during MPC tracking of a elbow maneuver}
+    \label{fig:elbow_up_MPC_error}
 \end{figure}
 
 \newpage
