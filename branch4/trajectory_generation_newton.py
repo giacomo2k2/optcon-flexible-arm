@@ -182,7 +182,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     ######################################
 
     plots.equilibrium_manifold(data_dict, eq_pair1, eq_pair2, print_results=False, plot_flag=plot_flag, folder=folder)
-    model.draw_pendulums(eq_pair1, eq_pair2, plot_flag=plot_flag, folder=folder)
+    model.draw_pendulums(eq_pair1, eq_pair2, title=task, plot_flag=plot_flag, folder=folder)
 
     ######################################
     # Time parameters
@@ -200,10 +200,12 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     ######################################
 
     # Generate reference trajectory for states and inputs
-    time, xx_ref= traj.trajectory_generator(start = x_eq1, end = x_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='state')
-    time, uu_ref= traj.trajectory_generator(start = u_eq1, end = u_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='input')
+    time, xx_ref = traj.trajectory_generator(start = x_eq1, end = x_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='state')
+    time, uu_ref = traj.trajectory_generator(start = u_eq1, end = u_eq2, T0=T0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='input')
     
-   
+    # Plot pendulums envelope along reference trajectory
+    model.draw_pendulum_envelope(eq_pair1, eq_pair2, xx_ref, title=task, plot_flag=plot_flag, folder=folder)
+
     ######################################
     # [PLOTS] Reference trajectory
     ######################################
@@ -463,7 +465,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300, n_mid: int = 20
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference", plot_flag=plot_flag, folder=folder)
 
     # Intermediate Trajectories
-    plots.trajectory_comparison_mid(time, xx, uu, n_mid, max_iters, title="Trajectory Comparison with Intermediate Trajectories", plot_flag=plot_flag, folder=folder)
+    plots.trajectory_comparison_mid(time, xx, uu, n_mid, max_iters=max_iters, eq_pair1=eq_pair1, eq_pair2=eq_pair2, title="Trajectory Comparison with Intermediate Trajectories", plot_flag=plot_flag, folder=folder)
 
     # Gradient error
     plots.gradient_error(gradient_error, max_iters, plot_flag=plot_flag, folder=folder)
@@ -487,24 +489,24 @@ def main():
     ######################################
 
     max_iters = 300                      # Maximum number of iterations
-    n_mid = 20                           # Number of intermediate trajectories to plot
+    n_mid = 10                           # Number of intermediate trajectories to plot
     method = 'poly5'                     # Trajectory generation method ('poly5', 'spline', ...)
-    task = 'half_swing'           # Choose from keys of equilibrium_traj
-
+    
     # elbow_up, swing_up, topside_pump, half_dive, the_dive, lateral_swing, diagonal_swing, overhead_wipe, half_middle_dive, half_swing, top_to_elbow_up, top_to_elbow_down, inverted_hand_off, low_diagonal_hold
     ######################################
     # Algorithm flags
     ######################################
 
     save_flag = True                       # Save flag
-    plot_flag = False                        # Plot flag
+    plot_flag = True                        # Plot flag
     plot_flag_armijo = False                # Plot Armijo stepsize flag
     debug_flag = True                       # Debug print flag
 
     ######################################
     # Environment setup
     ######################################
-    tasks = ['topside_pump', 'half_dive', 'custom5', 'overhead_wipe']  # List of tasks to run
+    # tasks = ['elbow_up', 'swing_up', 'the_dive', 'custom5']  # List of tasks to run
+    tasks = ['complex_maneuver']
     # Check task name correctness 
     for task in tasks:
         try:
@@ -517,7 +519,7 @@ def main():
         # Create folder for plots
         if save_flag:
             folder = f'report/figs/branch4/traj_gen_newton/{task}/'
-
+        
             # Create folder if it does not exist
             if not os.path.exists(folder):
                 os.makedirs(folder)

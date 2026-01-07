@@ -154,7 +154,7 @@ tasks = {
         'guess': 'PD_gc',
         'discr_method': 'fe'
     },
-    'the_dive': { # high level difficulty
+    'swing_down': { # high level difficulty
         'start': configurations['U-U'],
         'end': configurations['D-D'],
         'time': 10.0,
@@ -214,10 +214,10 @@ tasks = {
         'guess': 'PD_gc',
         'discr_method': 'fe'
     },
-    'custom5': { 
+    'complex_maneuver': { 
         'start': configurations['R-D'],
         'end': configurations['D-U'],
-        'time': 8.0,
+        'time': 10.0,
         'angle1_mult': 1,
         'vel1_mult': 1,
         'angle2_mult': 1,

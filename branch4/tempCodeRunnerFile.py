@@ -1,1 +1,2 @@
-xx_star, xx_blend, xx_hold
+print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
+            exit(1)

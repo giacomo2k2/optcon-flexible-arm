@@ -18,6 +18,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
+from matplotlib.lines import Line2D
 
 plt.rcParams['font.family'] = 'serif'
 
@@ -560,7 +561,7 @@ class DoublePendulumFlexible:
                 
         return res
     
-    def draw_pendulums(self, eq_pair1: tuple, eq_pair2: tuple, plot_flag: bool = True, folder: str = None) -> None:
+    def draw_pendulums(self, eq_pair1: tuple, eq_pair2: tuple, title: str = "", plot_flag: bool = True, folder: str = None) -> None:
         """
         Visualize the double pendulum at the equilibrium point.
         
@@ -588,15 +589,92 @@ class DoublePendulumFlexible:
         ax[1].set_title(f"u = {u_eq2[0]:.2f} Nm, q1 = {x_eq2[0]:.2f} rad, q2 = {x_eq2[1]:.2f} rad")
         
         # Title for the two subplots
-        fig.suptitle(f"Double Pendulum Equilibria", fontsize=16)
+        fig.suptitle(f"{title.replace('_', ' ').title()}", fontsize=16, fontweight='bold')
 
+        # Show plot if requested
         if plot_flag:
             plt.show()
 
+        # Save plot if folder is provided
         if folder is not None:
             fig.savefig(f"{folder}/double_pendulum_equilibria.png", dpi=300)
+
+    def draw_pendulum_envelope(self, eq_pair1: tuple, eq_pair2: tuple, xx_ref: np.ndarray, title: str = "", plot_flag: bool = True, folder: str = None) -> None:
+        """
+        Visualize the envelope of the double pendulum trajectory.
         
-    def draw_frame(self, x: np.ndarray, ax: plt.Axes) -> None:
+        Parameters
+        ----------
+        eq_pair1 : tuple
+            First equilibrium pair (x_eq, u_eq).
+        eq_pair2 : tuple
+            Second equilibrium pair (x_eq, u_eq).
+        xx_ref : np.ndarray
+            Reference trajectory states over time (shape: [ns, N]).
+        title : str, optional
+            Title for the plot (default is empty string).
+        plot_flag : bool, optional
+            If True, display the plot (default is True).
+        folder : str, optional
+            If provided, save the plot to the specified folder (default is None).
+        """
+        n_mid_pendulum = 15  # Increased slightly for smoother motion look
+        indices = np.linspace(0, xx_ref.shape[1]-1, n_mid_pendulum+2, dtype=int)
+
+        # Estrazione x_eq e u_eq dai pair
+        x_eq1, u_eq1 = eq_pair1
+        x_eq2, u_eq2 = eq_pair2
+
+        # Figure and Axes
+        fig = plt.figure(figsize=(10, 8))
+        ax = plt.gca()
+
+        # Draw initial equilibrium frame
+        self.draw_frame(xx_ref[:, indices[0]], ax=ax, alpha=1.0)
+        p1_s, p2_s, _, _ = self._get_forward_kinematics(xx_ref[:, indices[0]], com=True)
+        ax.text(p2_s[0], p2_s[1], "  Start", fontsize=12, fontweight='bold', color='green', verticalalignment='center')
+
+        # Draw ghost frames for the envelope
+        for idx in indices[1:-1]:
+            self.draw_frame(xx_ref[:, idx], ax=ax, alpha=0.15)
+
+        # Draw final equilibrium frame
+        self.draw_frame(xx_ref[:, indices[-1]], ax=ax, alpha=1.0)
+        p1_e, p2_e, _, _ = self._get_forward_kinematics(xx_ref[:, indices[-1]], com=True)
+        ax.text(p2_e[0], p2_e[1], "  End", fontsize=12, fontweight='bold', color='red', verticalalignment='center')
+        
+        # Title for the plot
+        plt.title(f"{title.replace('_', ' ').title()}", fontsize=16, fontweight='bold')
+
+        # Helper
+        def fmt_v(v):
+            if isinstance(v, (np.ndarray, list)):
+                return "[" + ", ".join([f"{x:.2f}" for x in v]) + "]"
+            return f"{v:.2f}"
+
+        # Labels for legend
+        label1 = rf'$x_{{eq,1}} = {fmt_v(x_eq1)}^\top$' + '\n' + rf'$u_{{eq,1}} = {fmt_v(u_eq1)}$'
+        label2 = rf'$x_{{eq,2}} = {fmt_v(x_eq2)}^\top$' + '\n' + rf'$u_{{eq,2}} = {fmt_v(u_eq2)}$'
+
+        legend_elements = [
+            Line2D([0], [0], color='green', lw=2, label=label1),
+            Line2D([0], [0], color='red', lw=2, label=label2),
+            Line2D([0], [0], color='gray', alpha=0.3, lw=1.5, label='Trajectory Envelope')
+        ]
+        
+        # Posizioniamo la legenda fuori dal grafico o in un punto meno invasivo
+        ax.legend(handles=legend_elements, loc='upper left',
+              fontsize=9, frameon=True, shadow=True, title="Equilibrium Points")
+
+        # Show plot if requested
+        if plot_flag:
+            plt.show()
+
+        # Save plot if folder is provided
+        if folder is not None:
+            fig.savefig(f"{folder}/double_pendulum_envelope.png", dpi=300)
+        
+    def draw_frame(self, x: np.ndarray, ax: plt.Axes, alpha: float = 1.0) -> None:
         """
         Create an animation frame for the double pendulum at state x.
         
@@ -606,6 +684,8 @@ class DoublePendulumFlexible:
             State vector [q1, q2, q1_dot, q2_dot].
         ax : plt.Axes
             Matplotlib Axes to draw on.
+        alpha : float, optional
+            Transparency level for the drawing (default is 1.0).
         """
         # Get coordinates
         p1, p2, pc1, pc2 = self._get_forward_kinematics(x, com=True)
@@ -624,51 +704,52 @@ class DoublePendulumFlexible:
 
         # === Draw Links and Joints ===
         # Link 1
-        ax.plot([0.0, p1[0]], [0.0, p1[1]], color=colors['grey'], linewidth=2.5, label='Link 1') # Link 1
-        ax.scatter([0.0], [0.0], color=colors['black'], s=20, zorder=5) # Joint 1
-        ax.scatter([pc1[0]], [pc1[1]], color=colors['red'], s=40, zorder=5)   # CM1
+        ax.plot([0.0, p1[0]], [0.0, p1[1]], color=colors['grey'], linewidth=2.5, label='Link 1', alpha=alpha) # Link 1
+        ax.scatter([0.0], [0.0], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 1
+        ax.scatter([pc1[0]], [pc1[1]], color=colors['red'], s=40, zorder=5, alpha=alpha)   # CM1
 
         # Link 2
-        ax.scatter(p1[0], p1[1], color=colors['black'], s=20, zorder=5) # Joint 2
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=colors['grey'], linewidth=2.5, label='Link 2') # Link 2
-        ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5) # CM2
+        ax.scatter(p1[0], p1[1], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 2
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=colors['grey'], linewidth=2.5, label='Link 2', alpha=alpha) # Link 2
+        ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5, alpha=alpha) # CM2
 
+            
     def draw_comparison_frame(self, ax: plt.Axes, x_curr: np.ndarray, x_ref: np.ndarray, x_eq1: np.ndarray, x_eq2: np.ndarray) -> None:
-        """
-        Draw a comparison frame between current state, reference state, and equilibrium.
+            """
+            Draw a comparison frame between current state, reference state, and equilibrium.
 
-        Parameters
-        ----------
-        ax : plt.Axes
-            Matplotlib Axes to draw on.
-        x_curr : np.ndarray
-            Current state vector [q1, q2, q1_dot, q2_dot].
-        x_ref : np.ndarray
-            Reference state vector [q1, q2, q1_dot, q2_dot].
-        x_eq1 : np.ndarray
-            Equilibrium state vector for current state [q1, q2, 0, 0].
-        x_eq2 : np.ndarray
-            Equilibrium state vector for reference state [q1, q2, 0, 0].
-        """
-        # Get coordinates
-        p1_eq1, p2_eq1, pc1_eq1, pc2_eq1 = self._get_forward_kinematics(x_eq1, com=True)
-        p1_eq2, p2_eq2, pc1_eq2, pc2_eq2 = self._get_forward_kinematics(x_eq2, com=True) 
-        p1_ref, p2_ref, pc1_ref, pc2_ref = self._get_forward_kinematics(x_ref, com=True)
-        p1_curr, p2_curr, pc1_curr, pc2_curr = self._get_forward_kinematics(x_curr, com=True)
+            Parameters
+            ----------
+            ax : plt.Axes
+                Matplotlib Axes to draw on.
+            x_curr : np.ndarray
+                Current state vector [q1, q2, q1_dot, q2_dot].
+            x_ref : np.ndarray
+                Reference state vector [q1, q2, q1_dot, q2_dot].
+            x_eq1 : np.ndarray
+                Equilibrium state vector for current state [q1, q2, 0, 0].
+            x_eq2 : np.ndarray
+                Equilibrium state vector for reference state [q1, q2, 0, 0].
+            """
+            # Get coordinates
+            p1_eq1, p2_eq1, pc1_eq1, pc2_eq1 = self._get_forward_kinematics(x_eq1, com=True)
+            p1_eq2, p2_eq2, pc1_eq2, pc2_eq2 = self._get_forward_kinematics(x_eq2, com=True) 
+            p1_ref, p2_ref, pc1_ref, pc2_ref = self._get_forward_kinematics(x_ref, com=True)
+            p1_curr, p2_curr, pc1_curr, pc2_curr = self._get_forward_kinematics(x_curr, com=True)
 
-        # Limit for total plot size
-        lim_size = (self.l1 + self.l2) * 1.5
+            # Limit for total plot size
+            lim_size = (self.l1 + self.l2) * 1.5
 
-        plots.set_animation_figure(ax, lim_size)
+            plots.set_animation_figure(ax, lim_size)
 
-        # === Draw Equilibrium 1 ===
-        plots.draw_pendulum_configuration(ax, p1_eq1, p2_eq1, pc1_eq1, pc2_eq1, 'Equilibrium 1')
+            # === Draw Equilibrium 1 ===
+            plots.draw_pendulum_configuration(ax, p1_eq1, p2_eq1, pc1_eq1, pc2_eq1, 'Equilibrium 1')
 
-        # === Draw Equilibrium 2 ===
-        plots.draw_pendulum_configuration(ax, p1_eq2, p2_eq2, pc1_eq2, pc2_eq2, 'Equilibrium 2')
+            # === Draw Equilibrium 2 ===
+            plots.draw_pendulum_configuration(ax, p1_eq2, p2_eq2, pc1_eq2, pc2_eq2, 'Equilibrium 2')
 
-        # === Draw Reference State ===
-        plots.draw_pendulum_configuration(ax, p1_ref, p2_ref, pc1_ref, pc2_ref, 'Reference')
+            # === Draw Reference State ===
+            plots.draw_pendulum_configuration(ax, p1_ref, p2_ref, pc1_ref, pc2_ref, 'Reference')
 
-        # === Draw Current State ===
-        plots.draw_pendulum_configuration(ax, p1_curr, p2_curr, pc1_curr, pc2_curr, 'Current')
+            # === Draw Current State ===
+            plots.draw_pendulum_configuration(ax, p1_curr, p2_curr, pc1_curr, pc2_curr, 'Current')

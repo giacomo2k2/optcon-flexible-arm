@@ -226,8 +226,8 @@ def main():
     ######################################
 
     task = 'swing_up'   # Choose from keys of equilibrium_traj
-    max_iters = 300          # Max Newton iterations for trajectory generation
-    n_mid = 20                # Number of mid points for trajectory generation
+    max_iters = 100          # Max Newton iterations for trajectory generation
+    n_mid = 15                # Number of mid points for trajectory generation
     method = 'poly5'         # Trajectory generation method: 'poly3' or
     runs = 5                    # Number of runs with different initial perturbations
     perturb_scale = 2          # Scale of the initial perturbation
@@ -236,7 +236,7 @@ def main():
     # Algorithm flags
     ######################################
     
-    save_flag = True            # Save flag
+    save_flag = False            # Save flag
     plot_flag = True            # Plot flag
     debug_flag = True           # Debug print flag
 

@@ -139,7 +139,9 @@ def trajectory_comparison(
     u_ref: np.ndarray,
     x_track: np.ndarray,
     u_track: np.ndarray,
-    title: str,
+    u_min: float = None,
+    u_max: float = None,
+    title: str = "",
     plot_flag: bool = True,
     folder: str = None
 ) -> None:
@@ -168,14 +170,10 @@ def trajectory_comparison(
 
     # Ensure x_track and u_track have 3 dimensions
     if x_track.ndim < 3:
-        #print(f"before: {x_track.ndim}")
         x_track = x_track.reshape(x_track.shape[0], x_track.shape[1], 1)
-        #print(f"after: {x_track.ndim}")
     
     if u_track.ndim < 3:
-        #print(f"before: {u_track.ndim}")
         u_track = u_track.reshape(u_track.shape[0], u_track.shape[1], 1)
-        #print(f"after: {u_track.ndim}")
 
     # Extract dimensions
     num_runs = x_track.shape[2]
@@ -187,11 +185,24 @@ def trajectory_comparison(
     else:
         s_ref, s_track = r'*', r'\text{track}'
 
-    fig, axes = plt.subplots(num_vars, num_runs, figsize=(4 * num_runs, 15), sharex=True)
-    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=18, fontweight='bold', x=0.5, y=0.98, ha='center')
-
     if num_runs == 1:
-        axes = axes.reshape(-1, 1)
+        fig = plt.figure(figsize=(10, 12))
+        # Grid definition
+        gs = gridspec.GridSpec(3, 4, figure=fig)
+
+        # Axes definition
+        ax_q1  = fig.add_subplot(gs[0, 0:2])
+        ax_q2  = fig.add_subplot(gs[0, 2:4])
+        ax_dq1 = fig.add_subplot(gs[1, 0:2])
+        ax_dq2 = fig.add_subplot(gs[1, 2:4])
+        ax_u   = fig.add_subplot(gs[2, 1:3])
+
+        axes_to_use = [ax_q1, ax_q2, ax_dq1, ax_dq2, ax_u]
+    else:
+        fig, axes = plt.subplots(num_vars, num_runs, figsize=(4 * num_runs, 15), sharex=True)
+        if axes.ndim == 1: axes = axes.reshape(-1, 1)
+        
+    fig.suptitle(f"Trajectory Comparison: {title}", fontsize=18, fontweight='bold', x=0.5, y=0.98, ha='center')
 
     for run_idx in range(num_runs):
 
@@ -212,23 +223,44 @@ def trajectory_comparison(
         ]
 
         for var_idx, (d_ref, d_track, l_ref, l_track, unit) in enumerate(config):
-            ax = axes[var_idx, run_idx]
+            if num_runs == 1:
+                ax = axes_to_use[var_idx]
+            else:
+                ax = axes[var_idx, run_idx]
             
             # Plotting
             ax.plot(time, d_ref, color=colors['orange'], linestyle='--', linewidth=1.5, label=l_ref)
             ax.plot(time, d_track, color=colors['blue'], linestyle='-', linewidth=2, label=l_track)
+
+            # Titoli: IC solo sulla prima riga
+            ax.set_title(f"{ic_str}\n{l_ref} vs {l_track}" if var_idx < 2 else f"{l_ref} vs {l_track}", fontsize=9)
+            ax.set_ylabel(unit, fontsize=8)
             
             # Title logic: IC only for the first row (q1)
-            if var_idx == 0:
-                ax.set_title(f"{ic_str}\n{l_ref} vs {l_track}", fontsize=8)
-            else:
-                ax.set_title(f"{l_ref} vs {l_track}", fontsize=8)
-
-            # Labels and style
-            ax.set_ylabel(unit, fontsize=8)
-            if var_idx == num_vars - 1: # Only last row has X label
+            if num_runs == 1:
+                # Per run=1, l'ultimo è var_idx=4 (la u)
+                if var_idx == 4: ax.set_xlabel(r'$t \mathrm{[s]}$', fontsize=8)
+            elif var_idx == len(config) - 1:
                 ax.set_xlabel(r'$t \mathrm{[s]}$', fontsize=8)
-            
+
+            if var_idx == num_vars - 1 and u_min is not None and u_max is not None:
+                # Augment Ylimits
+                y_bot, y_top = ax.get_ylim()
+                margin = (y_top - y_bot) * 0.25 # Aggiungi un 25% di margine
+                new_ylim = (y_bot - margin, y_top + margin)
+
+                # Fill areas
+                ax.fill_between(time, u_max, new_ylim[1], color='tab:red', alpha=0.1)
+                ax.fill_between(time, u_min, u_max, color='tab:green', alpha=0.1)
+                ax.fill_between(time, new_ylim[0], u_min, color='tab:red', alpha=0.1)
+
+                # Draw limit lines
+                ax.axhline(u_max, color=colors['red'], linestyle='--', linewidth=1.0, label='Input Limits')
+                ax.axhline(u_min, color=colors['red'], linestyle='--', linewidth=1.0)
+
+                # Apply new limits
+                ax.set_ylim(new_ylim)
+
             ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend(loc='best', fontsize='small')
             
@@ -354,9 +386,11 @@ def trajectory_comparison_mid(
     time: np.ndarray,
     x_total: np.ndarray,
     u_total: np.ndarray,
-    n_mid: int,
-    max_iters: int, 
-    title: str,
+    n_mid: int = 15,
+    eq_pair1: tuple = None,
+    eq_pair2: tuple = None,
+    max_iters: int = 300, 
+    title: str = "",
     plot_flag: bool = True,
     folder: str = None,
 ) -> None:
@@ -381,7 +415,8 @@ def trajectory_comparison_mid(
         Folder to save the plots. Default is None.
     """
     
-    indices_to_plot = np.linspace(0, max_iters - 2, n_mid, dtype=int)
+    indices_to_plot = np.geomspace(1, max_iters - 2, n_mid, dtype=int)
+    indices_to_plot = np.unique(indices_to_plot)
 
     # Color palette 
     colors_mid = plt.cm.Blues(np.linspace(0.3, 0.9, len(indices_to_plot)))
@@ -432,6 +467,14 @@ def trajectory_comparison_mid(
         # 3. Plot Final Optimal
         ax.plot(time, data_total[idx, :, max_iters-1], color=c_final, linewidth=2.0, 
                 label='Final Optimal')
+        
+        for i, eq_pair in enumerate([eq_pair1, eq_pair2]):
+            x_eq, u_eq = eq_pair
+            val = u_eq[0] if key == "input" else x_eq[idx]
+
+            ax.axhline(y=val, color=colors["orange"], linestyle='--', alpha=0.7, 
+                        label=f'Eq {i+1}: {val:.2f}', linewidth=1.5)
+                
 
         ax.set_title(f"State {tex}" if key != "input" else "Control Input", fontsize=13)
         ax.set_ylabel(unit)
