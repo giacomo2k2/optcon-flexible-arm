@@ -4,10 +4,6 @@
 \section{Appendix}
 
 
-
-
-
-
 %---------------------------------------
 % Models matrices and parameters
 %---------------------------------------
@@ -238,4 +234,71 @@ Note that $u_k$ appears both directly in $f$ and indirectly through the state pe
     \frac{\partial k_4}{\partial u} &= A_c(x^{(4)}, u_k) \left( \Delta t \frac{\partial k_3}{\partial u} \right) + B_c(x^{(4)}, u_k)
 \end{align}
 This exact linearization of the RK4 integrator ensures that the discrete-time Jacobians accurately reflect the curvature of the numerical integration path, which is critical for the stability of Newton-based optimal control solvers.
+
+
+
+% TODO sistemare
+\subsection{Newton Method with Dynamic Horizon Extension algorithm}
+\begin{algorithm}
+\caption{Newton Method with Dynamic Horizon Extension}
+\label{alg:newton_extension}
+\begin{algorithmic}[2]
+\Require 
+    Dynamics $x_{t+1} = f(x_t, u_t)$, 
+    Start $x_{start}$, Goal $(x_{eq}, u_{eq})$,
+    Costs $Q, R$,
+    Initial Horizon $T$, Max Horizon $T_{max}$, Extension $\Delta T$,
+    Tolerances $\epsilon_{desc}, \epsilon_{term}$.
+\Ensure Optimal Trajectory $\mathbf{x}^*, \mathbf{u}^*$
+
+\State \textbf{Initialization:}
+\State Compute $P_N$ solving DARE$(A_{eq}, B_{eq}, Q, R)$ at $x_{eq}$.
+\State Generate Reference $\mathbf{x}^{ref}, \mathbf{u}^{ref}$ (e.g., Poly5).
+\State Initialize guess $\mathbf{x}^{(0)}, \mathbf{u}^{(0)}$ (Warm start or Equilibrium).
+\State $k \leftarrow 0$ \Comment{Optimization Iteration}
+\State $j \leftarrow 0$ \Comment{Extension Phase}
+
+\While{$T < T_{max}$} \Comment{\textbf{Outer Loop: Horizon Extension}}
+    
+    \Repeat \Comment{\textbf{Inner Loop: Newton Optimization}}
+        \State $J^{(k)} \leftarrow$ Compute Total Cost
+        
+        \State \textit{// Backward Pass}
+        \State $P_N \leftarrow P_f, \quad p_N \leftarrow \nabla_x \ell_f(x_N)$
+        \For{$t = N-1$ \textbf{to} $0$}
+            \State Linearize $f$ to get $A_t, B_t$
+            \State Compute gradients $q_t, r_t$ and Hessian $H_t$ of cost
+            \State $Q_{xx}, Q_{uu}, Q_{xu} \leftarrow$ Expansion of Hamiltonian
+            \State $K_t \leftarrow -Q_{uu}^{-1} Q_{ux}$ \Comment{Feedback Gain}
+            \State $\sigma_t \leftarrow -Q_{uu}^{-1} Q_{u}$ \Comment{Feedforward term}
+            \State Update $P_t, p_t$ (Riccati equations)
+        \EndFor
+        
+        \State \textit{// Line Search (Armijo)}
+        \State Find $\alpha$ such that cost decreases sufficiently
+        
+        \State \textit{// Forward Pass}
+        \State $x_0 \leftarrow x_{start}$
+        \For{$t = 0$ \textbf{to} $N-1$}
+            \State $u_t \leftarrow u_t^{(k)} + \alpha \sigma_t + K_t(x_t - x_t^{(k)})$
+            \State $x_{t+1} \leftarrow f(x_t, u_t)$
+        \EndFor
+        
+        \State Update $\mathbf{x}^{(k+1)}, \mathbf{u}^{(k+1)}$, increment $k$
+        
+    \Until{$\| \text{Descent} \| < \epsilon_{desc}$}
+    
+    \State \textit{// Check Terminal Constraint}
+    \If{$\|x_N - x_{eq}\| < \epsilon_{term}$}
+        \State \textbf{Break} \Comment{Solution found}
+    \Else
+        \State \textbf{Extend Horizon:} $T \leftarrow T + \Delta T$
+        \State Pad $\mathbf{x}^{ref}, \mathbf{u}^{ref}$ with $x_{eq}, u_{eq}$
+        \State Pad current solution $\mathbf{x}, \mathbf{u}$ with simulation at $u_{eq}$
+    \EndIf
+\EndWhile
+
+\State \Return $\mathbf{x}, \mathbf{u}$
+\end{algorithmic}
+\end{algorithm}
 

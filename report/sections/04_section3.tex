@@ -1,191 +1,159 @@
 %----------------------------------------------------------------------------------------
-%	SECTION 3: TRAJECTORY GENERATION
+%   SECTION 3: TRAJECTORY GENERATION
 %----------------------------------------------------------------------------------------
-
-
-
-
-% (section 3) task 2 - Trajectory generation with Newton's method:
-
-
-%     - newton extented
-%           - algorithm + extension
-%           - initial guess + escape from local minima + easier to solve simpler problems (cost function + descent + mid trajectories) + stabilizability
-%           - speed in convergence
 
 \section{Task 2: Trajectory Generation (Newton's Method)}
 
-We employed a Newton-type method for optimal control (Differential Dynamic Programming approach) to generate trajectories transitioning between equilibria.
+We employed a Newton-type method for optimal control, specifically a Differential Dynamic Programming (DDP) approach, to generate feasible trajectories transitioning between system equilibria.  This method iteratively optimizes the control sequence by utilizing quadratic approximations of the cost function and linear approximations of the system dynamics.
 
 \subsection{Reference Generation}
-The non-convex nature of the problem requires a reasonable reference trajectory, even though not feasible. We explored two reference generation methods:
+Given the non-convex nature of the optimization landscape, the solver requires a reasonable reference trajectory to guide convergence, even if that reference is dynamically infeasible. We analyzed two distinct generation methods:
+
 \begin{enumerate}
-\item \textbf{Stepwise:} A naive instantaneous switch from start to goal. This often results in poor convergence due to the large discontinuity.
-\item \textbf{Polynomial Interpolation (Poly 5):} We generated smooth references for positions and velocities using 5th-order polynomials. This provided a kinematic guide that respects boundary conditions, significantly aiding the solver.
+    \item \textbf{Stepwise:} A naive approach involving an instantaneous switch from the initial state $x_{start}$ to the goal state $x_{goal}$. This introduces a large discontinuity in the error term, often leading to poor convergence or aggressive control spikes.
+    \item \textbf{Polynomial Interpolation (Poly 5):} We generated smooth references for joint positions and velocities using 5th-order polynomials.  This method ensures kinematic consistency by respecting boundary conditions (position, velocity), thereby significantly aiding the solver in finding a feasible solution.
 \end{enumerate}
 
-
-\begin{multicols}{2}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{stepwise reference trajectory}
-    \label{fig:stepwise}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/placeholder.jpg}
+        \caption{Stepwise Reference}
+        \label{fig:ref_stepwise}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/placeholder.jpg}
+        \caption{Poly 5 Reference}
+        \label{fig:ref_poly5}
+    \end{subfigure}
+    \caption{Comparison of reference generation strategies.}
+    \label{fig:reference_comparison}
 \end{figure}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:poly5}
-\end{figure}
-
-\end{multicols}
-
-
-\subsubsection{Tasks definition}
-
-Swing up
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:stepwise_newton}
-\end{figure}
-
-
-Swing down 
+\subsubsection{Task Definitions}
+We defined a set of standard maneuvers to evaluate the generation algorithms:
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:stepwise_newton}
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/placeholder.jpg}
+        \caption{Swing Up}
+        \label{fig:task_swingup}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/placeholder.jpg}
+        \caption{Swing Down}
+        \label{fig:task_swingdown}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/placeholder.jpg}
+        \caption{Complex Maneuver}
+        \label{fig:task_complex}
+    \end{subfigure}
+    \caption{Visualization of the defined control tasks.}
+    \label{fig:tasks}
 \end{figure}
 
+\subsection{Performance Analysis: Stepwise vs. Polynomial}
 
-complex manouver
+The choice of reference trajectory significantly impacts the solver's performance. When applying Newton's method to the \textbf{Stepwise} reference, we observed significant limitations. As seen in Figure \ref{fig:newton_stepwise}, the instantaneous jump in the reference creates a large error gradient at the transition point. The solver attempts to compensate with an infeasible spike in control torque $u$, often pushing the system into unstable regions.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:swingup_newton}
+    \includegraphics[width=0.6\linewidth]{figs/placeholder.jpg}
+    \caption{Newton's method applied to Swing Up using Stepwise reference. Note the control discontinuity.}
+    \label{fig:newton_stepwise}
 \end{figure}
 
-
-
-\subsection{Newton's method applied to Stepwise reference trajectory}
-
-Example of stepwise applied to swing up
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:stepwise_newton}
-\end{figure}
-
-Problem of trajectory (big jump on u right at the transition)
-
-\subsection{Newton's method applied to polynomial reference trajectory}
-
-Example of polynomial applied to swing up
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:swingup_newton}
-\end{figure}
-
-
-Example of polynomial applied to swing down
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:swingdown_newton}
-\end{figure}
+Conversely, the \textbf{Polynomial (Poly 5)} reference provides a physically plausible kinematic guide. However, physical constraints inherent to the under-actuated flexible link still present challenges:
 
 \begin{itemize}
-    \item when doing elbow up kinematic energy gets transferred to potential energy
-    \item when doing elbow down there is no way to stop the second link using by subtracting kinetic energy 
-    \item friction is low and we cannot rely on that to dissipate energy fast enough 
+    \item \textbf{Energy Transfer (Elbow Up):} During swing-up motions, kinetic energy must be efficiently transferred to potential energy. The polynomial reference guides this transfer smoothly.
+    \item \textbf{Energy Dissipation (Elbow Down):} In downward motions, the passive second link cannot be directly braked. Since the system friction is low, the controller cannot rely on passive dissipation; it must actively pump energy out of the system via coupling, which is difficult if the reference demands a stop faster than the system's natural dynamics allow.
 \end{itemize}
-
-
-Example of polynomial applied to swing down complex manouver
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:complex_newton}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/placeholder.jpg}
+        \caption{Poly 5 applied to Swing Up}
+        \label{fig:newton_poly_up}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/placeholder.jpg}
+        \caption{Poly 5 applied to Swing Down}
+        \label{fig:newton_poly_down}
+    \end{subfigure}
+    \caption{Optimization results using 5th-order polynomial references.}
+    \label{fig:newton_poly_results}
 \end{figure}
 
+\subsection{Optimization Challenges}
+Applying the standard Newton method directly to complex, long-horizon maneuvers revealed several critical numerical and theoretical issues:
 
-Applying the standard Newton method directly to complex maneuvers revealed several issues:
 \begin{itemize}
-\item \textbf{Local Minima:} Being the manouver complex and the time horizon large, there would be many local minimum in the Loss landscape. 
-When using an initial guess that is far off from the real trajectory, it pushes the loss far away from the local minimum that guarantees a solution. 
-Once we land inside a minimum, it is not possible to move out of it.
+    \item \textbf{Non-Convex Optimization Landscape:} For complex maneuvers, the trajectory manifold is highly non-linear. The optimization landscape is riddled with local minima.  If the initial guess falls within the basin of attraction of a local minimum, representing a partial swing or a stalled state, the solver is unable to escape to the global optimum.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:cost}
-\end{figure}
+    \item \textbf{Long Time Horizons and Sensitivity:} Extending the time horizon $T$ exponentially increases the complexity of the solution space. A short horizon simplifies the optimization but fails to stabilize the system exactly at the equilibrium. Conversely, a long horizon increases the condition number of the Hessian matrix. Small changes in initial inputs propagate through the sensitivity matrix $\prod_{k=0}^{T-1} A_k$, causing massive deviations in terminal states and leading to numerical divergence.
+    
+    \item \textbf{Controllability and Terminal Cost:} To implement a stabilizing terminal cost $Q_T$, we solve the Discrete Algebraic Riccati Equation (DARE):
+    \begin{equation}
+        P = A^\top P A - (A^\top P B)(R + B^\top P B)^{-1}(B^\top P A) + Q
+    \end{equation}
+    This requires the system linearization $(A, B)$ at the target equilibrium to be stabilizable. In under-actuated configurations, kinematic singularities can cause rank deficiencies in the controllability matrix, making the calculation of $Q_T$ impossible.
 
-Using instead a smaller time horizon, the loss landscape has few local minima, therefore is possible to find an easier solution, but it's not possible to converge exactly to the equilibrium in time. We must choose a compromise.
+    \item \textbf{Instability to Dwell Time:} We observed numerical instability when requiring the system to maintain an unstable equilibrium for a final time interval (dwell time). 
+    Consider the analogy of balancing a ball on a sharp peak: reaching the peak at time $T$ requires precision, but remaining there requires perfect force cancellation over time. Any numerical error $\epsilon$ at $t < T$ is amplified by the unstable eigenvalues of the system evolution matrix ($A^k$). This creates a "narrow ridge" in the cost landscape; slight deviations result in massive penalties, pushing variables into numerical overflow.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.1\linewidth]{figs/placeholder.jpg}
-    \caption{poly 5 reference trajectory}
-    \label{fig:cost}
-\end{figure}
-
-
-\item \textbf{Assumption on controllability:} If we apply DARE to find the final cost matrix $Q_T$, we are assuming that from the last point on, the system 
-has completely converged to the equilibrium. 
-
-\item \textbf{}
+    \item \textbf{Linearization Validity:} The optimization relies on linearizing the non-linear dynamics around the current trajectory iteration. If the update step is too large, or if the trajectory deviates significantly into highly non-linear regions, the Taylor approximation breaks down, leading to valid descent directions becoming actual ascent directions in the non-linear cost landscape.
 \end{itemize}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figs/placeholder.jpg}
+    \caption{Illustration of the "Local Minimum Trap" where the solver converges to a suboptimal swing.}
+    \label{fig:local_minima}
+\end{figure}
 
+\subsection{Proposed Solution: Dynamic Horizon Extension}
 
-1. controllability
-2. ill-conditioning 
-3. long time horizons (search tree troppo grande e tanti local local minima nel manifold)
-4. explosions nelle condizioni instabili
+To address the ill-conditioning and local minima problems described above, we implemented a \textbf{Dynamic Horizon Extension} strategy. 
 
+Instead of attempting to solve the full problem $T_{final}$ immediately, we solve a sequence of sub-problems with increasing horizon lengths. This strategy conditions the optimization by ensuring the solver always operates within a valid local approximation.
 
-
-
-\subsection{Dynamic Horizon Extension Strategy}
-To overcome the "local minimum trap" athe difficulty of solving long-horizon problems from scratch, we implemented a \textbf{Dynamic Horizon Extension} strategy in "trajectory generation newton.py".
-
-\textbf{The Algorithm:}
+\subsubsection{Theoretical Justification}
 \begin{enumerate}
-\item \textbf{Start Small:} Solve the optimal control problem for a short time horizon (e.g., $T_{curr} < T_{final}$) where the goal is reachable or the DARE terminal cost effectively guides the system.
-\item \textbf{Converge:} Run the Newton solver until convergence for this sub-problem.
-\item \textbf{Extend:} Use the solution $x^*(t)$ from the current phase as the initial guess for an extended horizon $T_{curr} + \Delta T$. The new tail of the guess is padded with the target equilibrium.
-\item \textbf{Repeat:} Iterate this process until the full task duration is covered and the terminal error is below a tolerance ($\|x_T - x_{target}\| < \epsilon$).
+    \item \textbf{Conditioning:} For a short horizon $T$, the sensitivity matrix norm remains bounded, resulting in a well-conditioned Hessian and a larger basin of attraction for Newton's method.
+    \item \textbf{Warm Starting:} The optimal solution for horizon $T$ is used as the initial guess for $T + \Delta T$. This "anchors" the new optimization in a feasible region of the state space, close to the physical constraints.
+    \item \textbf{Iterative Refinement:} As the horizon expands, the solver primarily refines the control inputs locally. This avoids the explosive divergence associated with global searches in ill-conditioned landscapes.
 \end{enumerate}
 
+\subsubsection{Algorithm Implementation}
+The procedure is defined as follows:
 
-%     - newton examples and problems 
-%           - initial guess e cost function (local minimum trap)
-%           - controllability assumptions
-%           - dare (tf = 0.7) and long times + proof 
-%           - LQR 
-%     - dare works with tf = 1.0
+\begin{enumerate}
+    \item \textbf{Initialize:} Set a short initial horizon $T_{curr} \ll T_{final}$ where the DARE terminal cost effectively captures the remaining cost-to-go.
+    \item \textbf{Converge:} Execute the Newton solver until convergence criteria are met for the current $T_{curr}$.
+    \item \textbf{Extend:} Use the computed trajectory $x^*(t)$ as the initial guess. Extend the horizon by $\Delta T$, padding the reference tail with the target equilibrium and evolving the initial guess via the system dynamics.
+    \item \textbf{Repeat:} Increment $T_{curr} \leftarrow T_{curr} + \Delta T$ and repeat until $T_{curr} \geq T_{final}$ and the terminal error satisfies $\|\mathbf{x}_T - \mathbf{x}_{target}\| < \epsilon$.
+\end{enumerate}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figs/placeholder.jpg}
+    \caption{Evolution of the trajectory during the Dynamic Horizon Extension process.}
+    \label{fig:horizon_extension}
+\end{figure}
 
-\textbf{Results:} This approach proved robust. By incrementally solving the problem, the solver is always "warm-started" with a feasible trajectory. Tasks that failed with a direct solve (like the "Topside Pump") converged reliably using this extension scheme.
-
-\newpage
+\pagebreak
