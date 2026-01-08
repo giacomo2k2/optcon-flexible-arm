@@ -41,8 +41,8 @@ if __name__ == "__main__":
     # General parameters
     #######################################
 
-    save_flag = True            # Save flag
-    plot_flag = False           # Plot flag
+    save_flag = False            # Save flag
+    plot_flag = True           # Plot flag
     debug_flag = True           # Debug print flag
     plot_armijo = False         # Plot Armijo flag
     save_armijo = False         # Plot Armijo flag
@@ -116,6 +116,9 @@ if __name__ == "__main__":
     # Main loop over tasks
     ######################################
 
+    folder_generation = None
+    folder_tracker = None
+
     for task in TASKS:    
         # Check task name correctness 
         try:
@@ -132,6 +135,7 @@ if __name__ == "__main__":
         if save_flag:
             if GENERATOR == "Newton-Extended":
                 folder_generation = f'report/figs/code/traj_gen_newton_extended/{task}'
+                
                 if TRACKER == "LQR":
                     folder_tracker = f'report/figs/code/traj_track_LQR_extended/{task}'
                 elif TRACKER == "MPC":
