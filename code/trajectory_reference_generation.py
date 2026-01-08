@@ -23,102 +23,116 @@ import plots
 
 
 #######################################
-# Configurations
+# Global Variables
 #######################################
 
-# Model Initialization
-model = DoublePendulumFlexible(**PARAM_SET_2)
+configurations = None
+tasks = None
 
-
-configurations = {
-    'D-D': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=False), 
-    'D-U': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=True),
-    'U-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=False), 
-    'U-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=True),
-    'R-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=False),
-    'R-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=True),
-    'L-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/2, up=False),
-    'L-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/2, up=True),
-    'RD-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4, up=False),
-    'RD-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4, up=True),
-    'LD-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4, up=False),
-    'LD-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4, up=True),
-    'RU-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4*3, up=False),
-    'RU-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4*3, up=True),
-    'LU-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4*3, up=False),
-    'LU-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4*3, up=True),
-}
 
 #######################################
-# Tasks
+# Initialization Function
 #######################################
 
-tasks = {
-    'swing_up': { 
-        'start': configurations['D-D'],
-        'end': configurations['U-U'],
-        'time': 10.0,
-        'time_ext': 2.0,
-        'desc': 'Swing up from Down-Down to Up-Up'
-    },
-    'topside_pump': { 
-        'start': configurations['U-D'],
-        'end': configurations['U-U'],
-        'time': 6.0,
-        'time_ext': 2.0,
-        'desc': 'Topside pump from Up-Down to Up-Up'
-    },
-    'diagonal_swing': { 
-       'start': configurations['LD-D'],
-       'end': configurations['RU-U'],
-       'time': 6.0,
-       'time_ext': 2.0,
-        'desc': 'Diagonal swing from Left-Down to Right-Up'
-    },
-    'elbow_up': { 
-        'start': configurations['D-D'],
-        'end': configurations['R-U'],
-        'time': 10.0,
-        'time_ext': 2.0,
-        'desc': 'Elbow up from Down-Down to Right-Up'
-    },
-    'top_to_elbow_up': { 
-        'start': configurations['U-U'],
-        'end': configurations['R-U'],
-        'time': 8.0,
-        'time_ext': 2.0,
-        'desc': 'Top to Elbow up from Up-Up to Right-Up'
-    },
-    'low_diagonal_hold': {
-        'start': configurations['D-D'],
-        'end': configurations['RD-D'],
-        'time':6.0,
-        'time_ext':2.0,
-        'desc': 'Low diagonal hold from Down-Down to Right-Diagonal Down'
-    },
-    'half_swing_up': { 
-        'start': configurations['D-U'],
-        'end': configurations['U-D'],
-        'time': 10.0,
-        'time_ext': 4.0,
-        'desc': 'Half swing up from Down-Up to Up-Down'
-    },
-    'swing_down': {
-        'start': configurations['U-U'],
-        'end': configurations['D-D'],
-        'time': 10.0,
-        'time_ext': 4.0,
-        'desc': 'Swing down from Up-Up to Down-Down'
-    },
-    'complex_maneuver': { 
-        'start': configurations['R-D'],
-        'end': configurations['D-U'],
-        'time': 10.0,
-        'time_ext': 2.0,
-        'desc': 'Complex maneuver from Right-Down to Down-Up'
-    },
-}
+def init_trajectories(model: DoublePendulumFlexible):
+    """
+    Initializes configurations and tasks using the provided model instance.
+    This ensures computations happen only once.
+    """
+    global configurations, tasks
 
+    # If already initialized, do nothing
+    if tasks is not None and configurations is not None:
+        return
+
+    print("Initializing Trajectory Configurations and Tasks...")
+
+    # Compute Configurations
+    configurations = {
+        'D-D': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=False), 
+        'D-U': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=True),
+        'U-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=False), 
+        'U-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi, up=True),
+        'R-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=False),
+        'R-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/2, up=True),
+        'L-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/2, up=False),
+        'L-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/2, up=True),
+        'RD-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4, up=False),
+        'RD-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4, up=True),
+        'LD-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4, up=False),
+        'LD-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4, up=True),
+        'RU-D': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4*3, up=False),
+        'RU-U': model.find_equilibrium(fix_type='q1', value_fixed=np.pi/4*3, up=True),
+        'LU-D': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4*3, up=False),
+        'LU-U': model.find_equilibrium(fix_type='q1', value_fixed=-np.pi/4*3, up=True),
+    }
+
+    # Define Tasks
+    tasks = {
+        'swing_up': { 
+            'start': configurations['D-D'],
+            'end': configurations['U-U'],
+            'time': 10.0,
+            'time_ext': 2.0,
+            'desc': 'Swing up from Down-Down to Up-Up'
+        },
+        'topside_pump': { 
+            'start': configurations['U-D'],
+            'end': configurations['U-U'],
+            'time': 6.0,
+            'time_ext': 2.0,
+            'desc': 'Topside pump from Up-Down to Up-Up'
+        },
+        'diagonal_swing': { 
+            'start': configurations['LD-D'],
+            'end': configurations['RU-U'],
+            'time': 6.0,
+            'time_ext': 2.0,
+                'desc': 'Diagonal swing from Left-Down to Right-Up'
+        },
+        'elbow_up': { 
+            'start': configurations['D-D'],
+            'end': configurations['R-U'],
+            'time': 10.0,
+            'time_ext': 2.0,
+            'desc': 'Elbow up from Down-Down to Right-Up'
+        },
+        'top_to_elbow_up': { 
+            'start': configurations['U-U'],
+            'end': configurations['R-U'],
+            'time': 8.0,
+            'time_ext': 2.0,
+            'desc': 'Top to Elbow up from Up-Up to Right-Up'
+        },
+        'low_diagonal_hold': {
+            'start': configurations['D-D'],
+            'end': configurations['RD-D'],
+            'time': 10.0,
+            'time_ext':6.0,
+            'desc': 'Low diagonal hold from Down-Down to Right-Diagonal Down'
+        },
+        'half_swing_up': { 
+            'start': configurations['D-U'],
+            'end': configurations['U-D'],
+            'time': 10.0,
+            'time_ext': 4.0,
+            'desc': 'Half swing up from Down-Up to Up-Down'
+        },
+        'swing_down': {
+            'start': configurations['U-U'],
+            'end': configurations['D-D'],
+            'time': 10.0,
+            'time_ext': 4.0,
+            'desc': 'Swing down from Up-Up to Down-Down'
+        },
+        'complex_maneuver': { 
+            'start': configurations['R-D'],
+            'end': configurations['D-U'],
+            'time': 10.0,
+            'time_ext': 2.0,
+            'desc': 'Complex maneuver from Right-Down to Down-Up'
+        },
+    }
 
 #######################################
 # Functions
@@ -267,7 +281,7 @@ def trajectory_interpolation(
     return t, traj
 
 
-def reference_trajectory_generator(model: DoublePendulumFlexible, task, reference_params: dict, debug_params: dict,  folder:'str'=None,) -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple, tuple]:
+def reference_trajectory_generator(model: DoublePendulumFlexible, task, reference_params: dict, debug_params: dict,  folder:'str'=None, generator: 'str' = 'Newton') -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple, tuple]:
     """
     Generate reference trajectory for a specified task using the given model and parameters.
     Parameters:
@@ -276,6 +290,7 @@ def reference_trajectory_generator(model: DoublePendulumFlexible, task, referenc
         - reference_params: Parameters for trajectory generation (ti, tf, method).
         - debug_params: Debugging parameters (plot_flag).
         - folder: Folder path to save plots. Defaults to None.
+        - generator: Type of generator used ('Newton' or 'Newton-Extended').
     Returns:
         - time: Time vector for the reference trajectory.
         - xx_ref: Reference state trajectory.
@@ -296,7 +311,7 @@ def reference_trajectory_generator(model: DoublePendulumFlexible, task, referenc
     tf = reference_params['tf']                         # End time for trajectory segment (relative)
     method = reference_params['method']                 # Interpolation method
     dt = model.dt                                       # Time step
-    Tend = selected_equilibrium['time']
+    
 
     #######################################
     # Equilibrium manifold and selected equilibria
@@ -307,6 +322,11 @@ def reference_trajectory_generator(model: DoublePendulumFlexible, task, referenc
     eq_pair1, eq_pair2 = selected_equilibrium['start'], selected_equilibrium['end']
     x_eq1, u_eq1 = eq_pair1
     x_eq2, u_eq2 = eq_pair2
+
+    if generator == 'Newton':
+       Tend = selected_equilibrium['time']
+    elif generator == 'Newton-Extended':
+       Tend = selected_equilibrium['time_ext']
 
     plots.equilibrium_manifold(data_dict, eq_pair1, eq_pair2, plot_flag=plot_flag, folder=folder)
     model.draw_pendulums(eq_pair1, eq_pair2, title=task, plot_flag=plot_flag, folder=folder)

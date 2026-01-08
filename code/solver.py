@@ -17,16 +17,19 @@
 # Standard libraries
 import numpy as np
 import casadi as ca
+from typing import TYPE_CHECKING
 
 # Custom Libraries
-from model import DoublePendulumFlexible
+if TYPE_CHECKING:
+    from model import DoublePendulumFlexible
+
 
 #######################################
 # Functions
 #######################################
 
 
-def solver(model: DoublePendulumFlexible, x:np.ndarray, u: np.ndarray) -> np.ndarray:
+def solver(model: "DoublePendulumFlexible", x:np.ndarray, u: np.ndarray) -> np.ndarray:
     """
     Computes the next state using the specified discretization method.
     Parameters:
@@ -51,7 +54,7 @@ def solver(model: DoublePendulumFlexible, x:np.ndarray, u: np.ndarray) -> np.nda
         raise ValueError("Choose a valid method: 'fe' or 'rk4'.")
     return new_states
 
-def jacobian_discrete_analytic(model: DoublePendulumFlexible, x: np.ndarray, u: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def jacobian_discrete_analytic(model: "DoublePendulumFlexible", x: np.ndarray, u: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Computes the discrete-time Jacobians of the system dynamics using the specified discretization method.
     Parameters:
@@ -182,8 +185,8 @@ def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarra
 
     return Kt, PPt
 
-def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                        x0: np.ndarray, xx_star: np.ndarray, uu_star: np.ndarray, model: DoublePendulumFlexible) -> tuple[np.ndarray, np.ndarray]:
+def ltv_LQR(model:"DoublePendulumFlexible", At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
+                        x0: np.ndarray, xx_star: np.ndarray, uu_star: np.ndarray, ) -> tuple[np.ndarray, np.ndarray]:
     
     """
     Solves the finite-horizon LTV LQR problem and computes the optimal state and input trajectories.
@@ -306,4 +309,5 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
             print("solver_ltv_mpc: solver failed:", e)
             return None, None, None
 
-    return np.asarray(sol.value(dU[:, 0])), np.asarray(sol.value(dX)), np.asarray(sol.value(dU))
+    return np.asarray(sol.value(dU[:, 0])), np.asarray(sol.value(dX)), np.asarray(sol.value(dU))    
+

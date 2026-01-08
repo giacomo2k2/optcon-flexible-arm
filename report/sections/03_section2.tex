@@ -72,10 +72,10 @@ For the optimal control problem, we defined the quadratic cost function:
 \begin{equation}
 J = \sum_{t=0}^{T-1} \left( \frac{1}{2} \Delta x_t^\top Q \Delta x_t + \frac{1}{2} \Delta u_t^\top R \Delta u_t \right) + \frac{1}{2} \Delta x_T^\top Q_T \Delta x_T
 \end{equation}
-where $\Delta x = x - x_{ref}$ and $\Delta u = u - u_{ref}$. We selected $Q = \text{diag}(1, 1, 1, 1)$ and $R = 10^{-3}I$ to penalize state deviation while allowing for aggressive control actions.
+where $\Delta x = x - x_{ref}$ and $\Delta u = u - u_{ref}$. We selected $Q = \text{diag}(1, 1, 1, 1) \in \mathbb{R}^{n_s \times n_s}$ and $R = 10^{-3}I \in \mathbb{R}^{n_i}$ to penalize state deviation while allowing for aggressive control actions.
 
 \subsection{Terminal Cost via DARE}
-A critical aspect of the finite-horizon optimization is the terminal cost $Q_T$. Simply setting $Q_T = Q$ often fails to stabilize the system at the end of the horizon, especially for short durations.
+A critical aspect of the finite-horizon optimization is the terminal cost $Q_T \in \mathbb{R}^{n_s \times n_n}$. Simply setting $Q_T = Q$ often fails to stabilize the system at the end of the horizon, especially for short durations.
 In fact, without an appropriate terminal cost, the solver may produce trajectories that approach but do not settle at the desired equilibrium, leading to oscillations or drift post-optimization.
 Hence, the optimizer behaves  \textbf{'myopically'}, focusing only on minimizing cost up to time $T$ without considering the long-term behavior beyond this point.
 To address this, we computed $Q_T$ by solving the \textbf{Discrete Algebraic Riccati Equation} (DARE) based on the linearization at the final target equilibrium $(x_{eq}, u_{eq})$.
@@ -88,7 +88,7 @@ Setting $Q_T = P_{\infty}$ provides an approximation of the infinite-horizon cos
 \subsection{Step Size Selection (Armijo Rule)}
 To ensure global convergence of the Newton method, we implemented a \textbf{line search using the Armijo rule}. The step size $\alpha$ is reduced ($\alpha \leftarrow \beta \alpha$) until the actual cost reduction is a sufficient fraction of the predicted reduction (based on the gradient). 
 This prevents the solver from taking overly aggressive steps that could destabilize the trajectory and \textbf{ensures steady progress towards the optimum}.
-Additionally, the implementation includes a gradient check that validates the analytic descent direction by comparing it to a numeric slope $\frac{J(u + \epsilon \Delta u) - J(u)}{\epsilon}$ computed via finite difference. 
+Additionally, the implementation includes a gradient check that validates the analytic descent direction by comparing it to a numeric slope $\frac{J(u + \epsilon \Delta u) - J(u)}{\epsilon}$ with $\epsilon \simeq 0$computed via finite difference. 
 If the Armijo search fails to satisfy the sufficient decrease condition within the maximum allowed iterations, the \textbf{step size is set to zero} to prevent the update and safeguard the solver from adopting an unstable or divergent trajectory.
 The following plots shows the Armijo line search behavior during the trajectory optimization.
 

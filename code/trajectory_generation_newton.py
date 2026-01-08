@@ -16,7 +16,6 @@
 
 # Standard libriaries
 import numpy as np
-import scipy as sp
 import matplotlib.pyplot as plt 
 import signal
 import control as ctrl
@@ -26,8 +25,6 @@ import control as ctrl
 import costs as cst
 # - Armijo
 import armijo as armijo
-# - Trajectories
-import trajectory_reference_generation as traj
 # - Solver
 import solver as solver
 # - Animation
@@ -114,14 +111,6 @@ def generate_optimal_trajectory(model: DoublePendulumFlexible, optimal_gen_param
     time : np.ndarray
         Time vector.
     """
-
-    ######################################
-    # Log header
-    ######################################
-
-    print("\n" + "="*80)
-    print(f"[Trajectory Generation] - Newton Method".center(80))
-    print("="*80)
 
     ######################################
     # Algorithm parameters
@@ -392,7 +381,7 @@ def generate_optimal_trajectory(model: DoublePendulumFlexible, optimal_gen_param
     plots.gradient_error(gradient_error, max_iters, plot_flag=plot_flag, folder=folder)
 
     # Animation of the optimal trajectory
-    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, plot_flag=True, folder=folder)
+    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, folder=folder)
 
     # Close all plots if opened
     plt.close('all')

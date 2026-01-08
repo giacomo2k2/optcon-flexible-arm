@@ -95,15 +95,6 @@ def trajectory_tracking_LQR(model:DoublePendulumFlexible, optimal_trajectory_par
     -------
     None
     """
-
-    ######################################
-    # Log header
-    ######################################
-
-    print("\n" + "="*80)
-    print(f"[Trajectory Tracking] - LQR Method".center(80))
-    print("="*80)
-
     #######################################
     # Algorithm parameters
     ######################################
@@ -214,7 +205,7 @@ def trajectory_tracking_LQR(model:DoublePendulumFlexible, optimal_trajectory_par
         x0[:,rr] = xx_star[:,0] + epsilon_scaled # Initial state perturbation
         
         # LQR tracking: u update with time-varying feedback gain and rollout
-        xx_lqr[:,:,rr], uu_lqr[:,:,rr] = solver.ltv_LQR(At[:,:,:,rr], Bt[:,:,:,rr], QQt, RRt, QQT, x0[:, rr], xx_star, uu_star, model)   
+        xx_lqr[:,:,rr], uu_lqr[:,:,rr] = solver.ltv_LQR(At=At[:,:,:,rr], Bt=Bt[:,:,:,rr], QQt=QQt, RRt=RRt, QQT=QQT, x0=x0[:, rr], xx_star=xx_star, uu_star=uu_star, model=model)   
 
     ######################################
     # [RESULTS AND PLOTS] Final results and plots

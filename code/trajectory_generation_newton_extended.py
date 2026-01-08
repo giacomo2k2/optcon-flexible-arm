@@ -33,7 +33,7 @@ from model import DoublePendulumFlexible
 import costs as cst
 
 
-def generate_optimal_trajectory_extended(model: DoublePendulumFlexible, optimal_gen_params:dict, reference_params:dict, armijo_params: dict, debug_params:dict, folder: str = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def generate_optimal_trajectory_extended(model: DoublePendulumFlexible, optimal_gen_params:dict, reference_trajectory_params:dict, armijo_params: dict, debug_params:dict, folder: str = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Generates an optimal trajectory for the given model using a Newton-based method with dynamic horizon extension.
     Parameters:
@@ -81,11 +81,11 @@ def generate_optimal_trajectory_extended(model: DoublePendulumFlexible, optimal_
     RRt = optimal_gen_params['RRt']
     
     # Reference parameters
-    time = reference_params['time']
-    xx_ref = reference_params['xx_ref']
-    uu_ref = reference_params['uu_ref']
-    eq_pair1 = reference_params['eq_pair1']
-    eq_pair2 = reference_params['eq_pair2']
+    time = reference_trajectory_params['time']
+    xx_ref = reference_trajectory_params['xx_ref']
+    uu_ref = reference_trajectory_params['uu_ref']
+    eq_pair1 = reference_trajectory_params['eq_pair1']
+    eq_pair2 = reference_trajectory_params['eq_pair2']
 
     TT = time.shape[0]               # Number of time steps
 
@@ -375,7 +375,7 @@ def generate_optimal_trajectory_extended(model: DoublePendulumFlexible, optimal_
     plots.cost(global_JJ_arr, total_iterations, phase_iters=phase_iters, plot_flag=plot_flag, folder=folder)
     
     plots.trajectory_comparison(time, xx_ref, uu_ref, xx_star, uu_star, title="Optimal vs Reference", plot_flag=plot_flag, folder=folder)
-    plots.trajectory_comparison_mid(phase_history, eq_pair1=eq_pair1, eq_pair2=eq_pair2, n_mid=5, title="Evolution of Trajectories over Extension Phases", plot_flag=plot_flag, folder=folder)
+    plots.trajectory_comparison_phases(phase_history, eq_pair1=eq_pair1, eq_pair2=eq_pair2, title="Evolution of Trajectories over Extension Phases", plot_flag=plot_flag, folder=folder)
     
     plots.gradient_error(gradient_error, total_iterations, plot_flag=plot_flag, folder=folder)
 

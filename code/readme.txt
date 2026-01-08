@@ -36,7 +36,7 @@ This project implements optimal control strategies for a Flexible Double Pendulu
             # 'topside_pump', 'diagonal_swing', 'top_to_elbow_up', 'low_diagonal_hold', 'half_swing_up'
             TASKS = {'swing_up', 'elbow_up'} 
 
-        C. Hyperparameters (Optional)
+        C. Hyperparameters (Optional: you can run it as it is without modifying anything)
 
             Suggested parameters to tune are: 
                 

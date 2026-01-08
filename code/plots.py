@@ -546,6 +546,156 @@ def trajectory_comparison_mid(
     if folder is not None:
         fig.savefig(f"{folder}/trajectory_comparison_mid.png", dpi=300, bbox_inches='tight')
 
+def trajectory_comparison_phases(
+    phase_history: list,
+    eq_pair1: tuple,
+    eq_pair2: tuple,
+    title: str,
+    plot_flag: bool = True,
+    folder: str = None,
+) -> None:
+    """
+    Plots the evolution of the trajectory across dynamic horizon extensions.
+    Ensures later iterations are drawn ON TOP of previous ones.
+    
+    Parameters
+    ----------
+    phase_history : list
+        List of dictionaries containing phase data with keys 'time', 'xx', 'uu', and 'final_idx'.
+    eq_pair1 : tuple
+        First equilibrium pair.
+    eq_pair2 : tuple
+        Second equilibrium pair.
+    title : str
+        Title for the plots.
+    plot_flag : bool, optional
+        Whether to display the plots. Default is True.
+    folder : str, optional
+        Folder to save the plots. Default is None.
+    """
+    # Number of phases
+    num_phases = len(phase_history)
+
+    # Color map for phases (From Red to Green)
+    cmap = plt.cm.RdYlGn
+    
+    # Figure setup
+    fig = plt.figure(figsize=(15, 12))
+    fig.suptitle(f"{title}", fontsize=18, fontweight='bold', ha='center', x=0.5)
+    
+    # Grid view
+    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.25)
+    
+    # Axes mapping
+    axes_map = {
+        "q1":      fig.add_subplot(gs[0, 0]),
+        "q2":      fig.add_subplot(gs[0, 1]),
+        "q1_dot":  fig.add_subplot(gs[1, 0]),
+        "q2_dot":  fig.add_subplot(gs[1, 1]),
+        "input":   fig.add_subplot(gs[2, 0]),
+        "legend":  fig.add_subplot(gs[2, 1]) 
+    }
+
+    # Metadata (x_index, label_tex, unit)
+    config = {
+        "q1":     (0, r'$q_1$', r'$\mathrm{[rad]}$'),
+        "q2":     (1, r'$q_2$', r'$\mathrm{[rad]}$'),
+        "q1_dot": (2, r'$\dot{q}_1$', r'$\mathrm{[rad/s]}$'),
+        "q2_dot": (3, r'$\dot{q}_2$', r'$\mathrm{[rad/s]}$'),
+        "input":  (0, r'$u$', r'$\mathrm{[Nm]}$')
+    }
+
+    # Iterate through phases
+    for i, phase_data in enumerate(phase_history):
+        # Extract phase data
+        t_phase = phase_data['time']
+        xx_phase = phase_data['xx']
+        uu_phase = phase_data['uu']
+        final_idx = phase_data['final_idx']
+        
+        # Color Progression (Early=Red, Late=Green)
+        color_val = i / max(1, (num_phases - 1))
+        c_phase = cmap(color_val)
+
+        # Z-ordering, line_width, alpha
+        z_ord = 20 - i              
+        lw_val = 2.0 
+        alpha_val = 1.0           
+
+        # Determine Label for Legend
+        lbl = None
+        if i == 0: lbl = "Phase 0 (Initial - Top Layer)"
+        elif i == num_phases - 1: lbl = f"Phase {i} (Final - Bottom Layer)"
+        
+        # Plot Logic
+        for key in axes_map:
+            # Skip legend cell
+            if key == "legend": continue
+            
+            # Select Axis
+            ax = axes_map[key]
+            idx, _, unit = config[key]
+            
+            # Select Data
+            if key == "input":
+                data_final = uu_phase[idx, :, final_idx]
+            else:
+                data_final = xx_phase[idx, :, final_idx]
+            
+            # Plot Phase Trajectory
+            ax.plot(t_phase, data_final, color=c_phase, 
+                    linewidth=lw_val, alpha=alpha_val, zorder=z_ord)
+            
+            ax.set_ylabel(unit)
+            if key in ['q2_dot', 'input']:
+                ax.set_xlabel(r'$t \mathrm{[s]}$')
+            ax.grid(True, linestyle=':', alpha=0.6)
+
+    for key in axes_map:
+        if key == "legend": continue
+        
+        ax = axes_map[key]
+        idx, _, unit = config[key]
+
+        # Plot Equilibrium Lines
+        for i, eq_pair in enumerate([eq_pair1, eq_pair2]):
+            x_eq, u_eq = eq_pair
+
+            val = u_eq[0] if key == "input" else x_eq[idx]
+
+            ax.axhline(y=val, color=colors['grey'], linestyle='--', alpha=0.7, 
+                       label=f'Eq {i+1}: {val:.2f}' if i==0 else f'Eq {i+1}: {val:.2f}', 
+                       linewidth=1.5, zorder=1) # zorder basso per stare dietro alle traiettorie
+            
+            ax.legend()
+
+    # Titles
+    axes_map["q1"].set_title(r"State $q_1$", fontsize=13)
+    axes_map["q2"].set_title(r"State $q_2$", fontsize=13)
+    axes_map["q1_dot"].set_title(r"State $\dot{q}_1$", fontsize=13)
+    axes_map["q2_dot"].set_title(r"State $\dot{q}_2$", fontsize=13)
+    axes_map["input"].set_title(r"Control Input $u$", fontsize=13)
+
+    # Custom Legend / Colorbar
+    ax_leg = axes_map["legend"]
+    ax_leg.axis('off')
+    
+    # Colorbar for phases
+    norm = mpl.colors.Normalize(vmin=0, vmax=num_phases-1)
+    cb = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax_leg, orientation='horizontal', fraction=0.1)
+    cb.set_label('Horizon Extension (Red=Short $\to$ Green=Long)')
+    
+    # Adjust layout
+    plt.subplots_adjust(hspace=0.4)
+    
+    # Show plot if requested
+    if plot_flag:
+        plt.show()
+
+    # Save plot if folder is provided
+    if folder is not None:
+        fig.savefig(f"{folder}/trajectory_comparison_phases.png", dpi=300, bbox_inches='tight')
+
 def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plot the equilibrium manifold using scatter plots with torque-based coloring, highlighting two specific equilibrium pairs.
@@ -923,3 +1073,34 @@ def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, 
     # Save plot if folder is provided
     if folder is not None:
         plt.savefig(f"{folder}/gradient_error.png", dpi=300, bbox_inches='tight')
+
+def print_header(title: str, rank: int = 0, size: int = 80, char: str = '=', capitalize: bool = True) -> None:
+    """
+    Prints a formatted header to the console terminal.
+
+    Parameters
+    ----------
+    title : str
+        The title to display in the header.
+    rank : int, optional
+        The indentation rank for formatting. Default is 0.
+    size : int, optional
+        The total size of the header line. Default is 80.
+    char : str, optional
+        The character to use for the header line. Default is '='.
+    """
+    # Clean title by replacing underscores with spaces
+    clean_title = title.replace('_', ' ')
+
+    # Capitalize title if requested
+    if capitalize:
+        clean_title = clean_title.title()
+
+    padding_each_side = int((size / 2) * (1 - (0.7**rank)))
+    line_length = size - (2 * padding_each_side)
+    
+    centered_str = " " * padding_each_side + char * line_length + " " * padding_each_side
+
+    print(centered_str)
+    print(clean_title.center(size))
+    print(centered_str)

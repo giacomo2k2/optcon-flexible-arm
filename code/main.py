@@ -25,13 +25,14 @@ from trajectory_tracking_LQR import trajectory_tracking_LQR
 from trajectory_tracking_MPC import trajectory_tracking_MPC
 import trajectory_reference_generation as traj
 from model import DoublePendulumFlexible, PARAM_SET_2
+from plots import print_header
 
 
 
 GENERATOR = "Newton"            # Newton | Newton-Extended
-TRACKER = "LQR"                 # LQR | MPC
+TRACKER = "MPC"                 # LQR | MPC
 GENERATION_ONLY = False
-TASKS = {'swing_up', 'elbow_up', 'swing_down', 'complex_maneuver'}    # choose task from {'swing_up', 'elbow_up', 'swing_down', 'complex_maneuver', 'topside_pump', 'diagonal_swing', 'top_to_elbow_up', 'low_diagonal_hold', 'half_swing_up'}
+TASKS = {'swing_up', 'low_diagonal_hold'}    # choose task from {'swing_up', 'elbow_up', 'swing_down', 'complex_maneuver', 'topside_pump', 'diagonal_swing', 'top_to_elbow_up', 'low_diagonal_hold', 'half_swing_up'}
 
 if __name__ == "__main__":
 
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     # definition of the model
     discr_method = "fe"                # fe | rk4  
     dt = 0.01      
-    model = DoublePendulumFlexible(PARAM_SET_2, discr_method=discr_method, dt=dt)                                
+    model = DoublePendulumFlexible(**PARAM_SET_2, method=discr_method, dt=dt)                                
 
     ######################################
     # Parameters for trajectory generation and tracking
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     
     optimal_gen_params = {'max_iters': max_iters, 'n_mid': n_mid, 'descent_threshold': descent_threshold, 'max_time': max_time, 'extension_duration': extension_duration, 'terminal_error_tol': terminal_error_tol, 'QQt': QQt_gen, 'RRt': RRt_gen}
     
-    armijo_params = {'stepsize_0': stepsize_0, 'c':c, 'beta':beta, 'maxiters':armijo_maxiters}
+    armijo_params = {'stepsize_0': stepsize_0, 'c':c, 'beta':beta, 'max_iters':armijo_maxiters}
 
     tracking_params = {'runs': runs, 'perturb': perturb, 'perturbation_scale': perturb_scale, 'extend_time': time_extension, 'T_pred': T_pred, 'QQt': QQt_track, 'RRt': RRt_track}
 
@@ -104,13 +105,17 @@ if __name__ == "__main__":
     else:
         reference_params = {'ti': ti, 'tf': tf, 'method': method}
 
+    ########################################
+    # Initialize tasks and configurations
+    ########################################
     
+    traj.init_trajectories(model)
+
     ######################################
     # Main loop over tasks
     ######################################
 
     for task in TASKS:    
-        
         # Check task name correctness 
         try:
             if task not in traj.tasks.keys():
@@ -118,6 +123,9 @@ if __name__ == "__main__":
         except ValueError as e:
             print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
             exit(1)
+        
+        # Print header
+        print_header(f'[Task Selected] - {task}', rank=0, size=80, char='=')
 
         # Create folders for saving results
         if save_flag:
@@ -155,12 +163,10 @@ if __name__ == "__main__":
         ######################################
 
         # Print header
-        print("\n" + "="*80)
-        print(f"[Trajectory Reference] - {method.capitalize()}".center(80))
-        print("="*80)
+        print_header(f'[Trajectory Reference] - {method}', rank=1, size=80, char='=')
 
         # Generate reference trajectory
-        time, xx_ref, uu_ref, eq_pair1, eq_pair2 = traj.reference_trajectory_generator(model, task, reference_params, folder_generation, debug_params)
+        time, xx_ref, uu_ref, eq_pair1, eq_pair2 = traj.reference_trajectory_generator(model=model, task=task, reference_params=reference_params, debug_params=debug_params, folder=folder_generation, generator=GENERATOR)
 
         # Pack reference trajectory parameters
         reference_trajectory_params = {'time': time, 'xx_ref': xx_ref, 'uu_ref': uu_ref, 'eq_pair1': eq_pair1, 'eq_pair2': eq_pair2}
@@ -170,40 +176,48 @@ if __name__ == "__main__":
         ######################################
 
         # Print header
-        print("\n" + "="*80)
-        print(f"[Trajectory Reference] - {method.capitalize()}".center(80))
-        print("="*80)
-        
+        print_header(f'[Trajectory Generation] - {"Newton Method" if GENERATOR=="Newton" else "Newton Method - (Dynamic Horizon Extension)"}', rank=1, size=80, char='=')
+
+        # Generate optimal trajectory 
         if GENERATOR == "Newton-Extended":
             xx_star, uu_star, time = generate_optimal_trajectory_extended(
-                model = model, armijo_params=armijo_params, optimal_gen_params=optimal_gen_params, reference_trajectory_params=reference_trajectory_params, debug_params=debug_params, folder=folder_generation)
+                model=model, armijo_params=armijo_params, optimal_gen_params=optimal_gen_params, reference_trajectory_params=reference_trajectory_params, debug_params=debug_params, folder=folder_generation)
         elif GENERATOR == "Newton":
             xx_star, uu_star, time = generate_optimal_trajectory(
                 model = model, optimal_gen_params=optimal_gen_params, reference_trajectory_params=reference_trajectory_params, armijo_params=armijo_params, debug_params=debug_params, folder=folder_generation)
         else:
             raise ValueError(f"Unknown GENERATOR '{GENERATOR}'. Please choose 'Newton' or 'Newton-Extended'.")
         
+        # Pack optimal trajectory parameters
         optimal_trajectory_params = {'xx_star': xx_star, 'uu_star': uu_star, 'eq_pair1': eq_pair1, 'eq_pair2': eq_pair2, 'time': time}
         
         ######################################
         # Track optimal trajectory via LQR
         ######################################
+
+        # Print header
+        print_header(f'[Trajectory Tracking] - {TRACKER} Method', rank=1, size=80, char='=', capitalize=False)
+
         if GENERATION_ONLY:
             print(f"Generation only flag is set. Skipping trajectory tracking for task '{task}'.")
             continue
         if TRACKER == "MPC":
             trajectory_tracking_MPC(
-            optimal_trajectory_params=optimal_trajectory_params, tracking_params=tracking_params,  debug_params=debug_params, folder=folder_tracker)
+            model=model, optimal_trajectory_params=optimal_trajectory_params, tracking_params=tracking_params,  debug_params=debug_params, folder=folder_tracker)
         elif TRACKER == "LQR":
             trajectory_tracking_LQR(
-                optimal_trajectory_params=optimal_trajectory_params, tracking_params=tracking_params,  debug_params=debug_params, folder=folder_tracker)
+                model=model, optimal_trajectory_params=optimal_trajectory_params, tracking_params=tracking_params,  debug_params=debug_params, folder=folder_tracker)
         else:
             raise ValueError(f"Unknown TRACKER '{TRACKER}'. Please choose 'LQR' or 'MPC'.")
         
         ######################################
-        # End of task loop
+        # End of single task loop
         ######################################
         
         print(f"Completed task '{task}'.\n")
     
+    ######################################
+        # End of task loop
+    ######################################
+
     print("All tasks completed.")

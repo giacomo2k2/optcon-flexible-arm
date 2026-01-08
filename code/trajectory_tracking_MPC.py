@@ -16,10 +16,8 @@
 
 # Standard libriaries
 import numpy as np
-import scipy as sp
 import matplotlib.pyplot as plt 
 import signal
-import os
 import control as ctrl
 
 # Custom libraries
@@ -93,22 +91,13 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     -------
     None
     """
-    
-    ######################################
-    # Log header
-    ######################################
-
-    print("\n" + "="*80)
-    print(f"[Trajectory Tracking] - MPC".center(80))
-    print("="*80)
-
     #######################################
     # Unpack parameters
     #######################################
 
     ns = model.ns  # number of states
     ni = model.ni  # number of inputs
-    TT = len(time)
+    
 
     # Optimal trajectory parameters
     xx_star = optimal_trajectory_params['xx_star']
@@ -117,6 +106,7 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     eq_pair2 = optimal_trajectory_params['eq_pair2']
     time = optimal_trajectory_params['time']
     
+    TT = len(time)  # number of time steps
     # Tracking parameters
     runs = tracking_params['runs']
     perturb = tracking_params['perturb']
@@ -132,7 +122,7 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     debug_print = debug_params['debug_print']
 
     dict_ioptions = {
-        "print_time": True,                                                                     # Show computation time
+        "print_time": False,                                                                     # Show computation time
         "ipopt.print_level": 1,                                                                 # Level of detail (0 to 12)
         "ipopt.sb": "no",                                                                       # Remove Ipopt banner at start
         "ipopt.derivative_test": "first-order",                                                 # Utility to check if gradients are correct
@@ -182,6 +172,9 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
 
     xx_mpc = np.zeros((ns,TT,runs))     # State seq.
     uu_mpc = np.zeros((ni,TT,runs))     # Input seq.
+
+
+    ltv_mpc_solver = solver.LTV_MPC(ns, ni, T_pred, umax=u_max, umin=u_min, QQt=QQt, RRt=RRt, QQT=QQT, ipopt_opts=dict_ioptions)
 
     for rr in range(runs):
         
@@ -233,7 +226,7 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
             res = solver.ltv_mpc(At_slice, Bt_slice, QQt, RRt, QQT, x_curr, x_ref_slice, u_ref_slice,
                 umax=u_max, umin=u_min, T_pred=T_pred, ipopt_opts=dict_ioptions
             )
-            
+        
         
     ################################################
     # 5. Store results from MPC and update + rollout
@@ -264,3 +257,5 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     plots.tracking_error(time, xx_star, uu_star, xx_mpc, uu_mpc, title="MPC Tracking Error", plot_flag=plot_flag, folder=folder)
 
     anim.animate_comparison(model, xx_mpc[:,:,0], xx_star, eq_pair1, eq_pair2, model.dt, folder=folder)
+
+
