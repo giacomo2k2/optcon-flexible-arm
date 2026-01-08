@@ -873,8 +873,11 @@ def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, 
     plt.title('Gradient Error over Iterations', fontsize=16)
     plt.grid(alpha=0.4)
     
+    if folder is not None:
+        plt.savefig(f"{folder}/gradient_error.png", dpi=300, bbox_inches='tight')
+
+
     if plot_flag:
         plt.show()
 
-    if folder is not None:
-        plt.savefig(f"{folder}/gradient_error.png", dpi=300, bbox_inches='tight')
+   

@@ -7,9 +7,9 @@
 
 \subsection{Equilibrium Manifold}
 The system's equilibria are defined by states where $\dot{q} = \ddot{q} = 0$. This implies the gravity and stiffness torques must be balanced by the input $\tau$.
-We analyzed the equilibrium manifold by fixing one generalized coordinate ($\theta_1$ or $\theta_2$) and solving for the other.
+We analyzed the dynamics equation at equilibrium:
 \begin{equation}
-    \cancel{M(\theta_1, \theta_2) \begin{pmatrix} \ddot{\theta}_1 \\ \ddot{\theta}_2 \end{pmatrix}} + \cancel{C(\theta_1, \theta_2, \dot{\theta}_1, \dot{\theta}_2) \begin{pmatrix} \dot{\theta}_1 \\ \dot{\theta}_2 \end{pmatrix}} + \cancel{F \begin{pmatrix} \dot{\theta}_1 \\ \dot{\theta}_2 \end{pmatrix}} + G(\theta_1, \theta_2) = \begin{pmatrix} 0 \\ \tau \end{pmatrix}
+    \cancel{M(\theta_1, \theta_2) \begin{pmatrix} \ddot{\theta}_1 \\ \ddot{\theta}_2 \end{pmatrix}} + \cancel{C(\theta_1, \theta_2, \dot{\theta}_1, \dot{\theta}_2) \begin{pmatrix} \dot{\theta}_1 \\ \dot{\theta}_2 \end{pmatrix}} + \cancel{F \begin{pmatrix} \dot{\theta}_1 \\ \dot{\theta}_2 \end{pmatrix}} + G(\theta_1, \theta_2) = \begin{pmatrix} \tau \\ 0 \end{pmatrix}
 \end{equation}
 This reduces to:
 \begin{equation}
@@ -21,7 +21,7 @@ This reduces to:
     }_{G(\theta_1, \theta_2)} 
     = 
     \underbrace{
-    \begin{pmatrix} 0 \\ \tau \end{pmatrix}
+    \begin{pmatrix} \tau \\ 0 \end{pmatrix}
     }_{\boldsymbol{\tau}}
     \vspace{0.2cm}
 \end{equation}
@@ -32,7 +32,7 @@ It looks natural, since we are interested in obtaining specific configurations, 
 \begin{minipage}[t]{0.35\textwidth}
     \vspace{0pt} % Sets the alignment anchor to the very top
     Using this approach, we generate an equilibrium manifold that is a function of the first joint angle $\theta_1$. It is worth noting that two distinct configurations arise for each $\theta_1$ value, corresponding to different $\theta_2$ angles (e.g., "Elbow-Up" and "Elbow-Down" positions).
-    They will respectively be stable and unstable equilibria.
+    They will respectively be stable and unstable configurations.
 \end{minipage}
 \hfill 
 \begin{minipage}[t]{0.5\textwidth}
@@ -52,12 +52,12 @@ It looks natural, since we are interested in obtaining specific configurations, 
 \end{figure}
 
 
-The first thing we can see is that the manifold has a sinusoidal shape and a periodic behavior, which is expected given the rotational nature of the joints and the influence of gravity.
+The first thing we can see is that the manifold has a sinusoidal shape and a periodic behavior, which is expected given the rotational nature of the joints.
 From the plot, we can also observe some important characteristics:
 \begin{itemize}
-\item \textbf{Branches} We can say that the manifold is \textbf{constituted by branches}, hence there will be starting and ending equilibria that are on the same branch and others that will be in two different ones.\\
-This will have an impact on the trajectory generation, as moving between different branches may \textbf{require more complex maneuvers}. 
-\item \textbf{Uncontrolled second arm} Since the second joint is unactuated, the torque $\tau$ is only applied at the first joint.\\
+\item \textbf{Branches:} We can say that the manifold is \textbf{constituted by branches}, hence there will be starting and ending equilibria that are on the same branch and others that will be in two different ones.\\
+This will have an impact on the trajectory generation, as moving between different branches may require highly dynamical maneuvers since it's not possible to switch branch by steady-state maneuvers.
+\item \textbf{Uncontrolled second arm:} Since the second joint is unactuated, the torque $\tau$ is only applied at the first joint.\\
 This means that the system's ability to reach certain \textbf{configurations} in a given \textbf{time} is \textbf{limited by the dynamics of the second link} and the coupling between the two joints.
 This coupling will prove useful in achieving a stabilization of the second link by appropriately controlling the first one. 
 We will see this is \textbf{not always possible}, and this causes problems in trajectory generation when trying to reach certain target equilibria and mantain them for some time.
@@ -105,7 +105,27 @@ Here there are some plots of the Armijo line search behavior during the trajecto
         \label{fig:armijo line search B}
     \end{figure}
 
+    \vspace{0.2cm}
 \end{multicols}
+
+\begin{multicols}{2}
+    \vspace{0.2cm}
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/armijo/armijo_iteration_0.png}
+        \caption{Armijo line search behavior C.}
+        \label{fig:armijo line search C}
+    \end{figure}
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.9\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/armijo/armijo_iteration_30.png}
+        \caption{Armijo line search behavior D.}
+        \label{fig:armijo line search D}
+    \end{figure}
+
+\end{multicols}
+
 
 
 \newpage

@@ -498,7 +498,7 @@ def main():
     ######################################
 
     save_flag = True                       # Save flag
-    plot_flag = True                        # Plot flag
+    plot_flag = False                        # Plot flag
     plot_flag_armijo = False                # Plot Armijo stepsize flag
     debug_flag = True                       # Debug print flag
 
@@ -506,7 +506,7 @@ def main():
     # Environment setup
     ######################################
     # tasks = ['elbow_up', 'swing_up', 'the_dive', 'custom5']  # List of tasks to run
-    tasks = ['complex_maneuver']
+    tasks = ['swing_down']
     # Check task name correctness 
     for task in tasks:
         try:

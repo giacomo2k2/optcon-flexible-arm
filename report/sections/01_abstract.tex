@@ -1,0 +1,22 @@
+%----------------------------------------------------------------------------------------
+%	ABSTRACT
+%----------------------------------------------------------------------------------------
+\begin{abstract}
+
+Control of under-actuated robotic mechanisms with nonlinear joint stiffness remains 
+a significant challenge due to the complex coupling between passive and active dynamics. 
+This work develops an integrated framework for trajectory generation and tracking control 
+for a planar two-degree-of-freedom double pendulum with nonlinear flexibility.
+
+We first model the system dynamics and analyze the equilibrium manifold to identify feasible operating regions.
+For motion planning, we start with a Newton method for trajectory generation of simple to intermediate complexity maneuvers. 
+To handle more complex trajectories that traverse challenging state-space regions, we introduce a Dynamic Horizon Extension alongside a Newton-based approach.
+
+For tracking, we conduct a comparative analysis between a Linear Time-Varying Linear Quadratic Regulator (LTV-LQR) and Model Predictive Control (MPC). 
+Results demonstrate that MPC outperforms LQR, specifically in handling constraints on the input, while LQR offers superior computational speed. 
+The proposed framework successfully stabilizes the system along highly dynamic trajectories.
+
+\end{abstract}
+
+\newpage
+

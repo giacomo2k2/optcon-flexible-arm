@@ -7,12 +7,12 @@ The double pendulum model used in this project is reported in Figure \ref{fig:do
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.2\linewidth]{figs/misc/DoublePendulumModel.png}
+    \includegraphics[width=0.4\linewidth]{figs/misc/DoublePendulumModel.png}
     \caption{Double Pendulum System with flexible link.}
     \label{fig:double_pendulum}
 \end{figure}
 
-The configuration vector is defined as: $q = \begin{bmatrix}\theta_1 \ \theta_2\end{bmatrix}^\top \in \mathbb{R}^n$. With $n=2$ degrees of freedom. The continuous-time dynamics of the double pendulum are governed by the equation:
+The configuration vector is defined as: $q = \begin{bmatrix}\theta_1 \ \theta_2\end{bmatrix}^\top \in \mathbb{R}^n$. With $n=2$ degrees of freedom. The continuous-time dynamics of the double pendulum is governed by the equation:
 \begin{equation}
       M(q)\ddot{q} + C(q, \dot{q})\dot{q} + F\dot{q} + G(q) = \begin{bmatrix} \tau \\ 0 \end{bmatrix}
       \label{eq:double_pendulum_model}
@@ -20,12 +20,18 @@ The configuration vector is defined as: $q = \begin{bmatrix}\theta_1 \ \theta_2\
 Where\footnote{The detailed expressions for $M(q)$, $C(q, \dot{q})$, $F$, and $G(q)$ can be found in the Appendix \ref{app:Models_matrices_and_parameters}.}:
 \begin{itemize}
       \item  $M(q) = M(q)^\top \succeq 0 \in \mathbb{R}^{n \times n}$ is the inertia matrix;
-      \item $C(q, \dot{q}) = C(q, \dot{q})^\top \succeq 0 \in \mathbb{R}^{n \times n}$ represents Coriolis and centrifugal forces;
-      \item $F = F^\top \succeq 0 \in \mathbb{R}^{n \times n}$ is the viscous friction matrix;
+      \item $C(q, \dot{q}) \in \mathbb{R}^{n \times n}$ represents Coriolis and centrifugal forces;
+      \item $F = F^\top \succ 0 \in \mathbb{R}^{n \times n}$ is the viscous friction matrix;
       \item $G(q)$ is the gravity vector;
       \item $\tau \in \mathbb{R}^{n_i}$ is the control torque applied at the first joint\footnote{In this tractation are not considered non-conservative forces or contact forces.} with $n_i = 1$.
 \end{itemize}
-The adopted parameters for this system are summarized in Table \ref{tab:model_parameters}.
+The adopted parameters for this system are summarized in Table \ref{tab:model_parameters}. Some considerations regarding the model:
+
+\begin{itemize}
+    \item \textbf{Under-actuation:} The system has two degrees of freedom (DoF) but only one control input (torque at the base);
+    \item \textbf{Nonlinear Elasticity:} The stiffness between the links depends nonlinearly on the relative angle $\theta_2$, complicating the dynamics compared to standard linear springs;
+    \item \textbf{Low Friction:} The provided parameters (Set 2) involve relatively low friction coefficients, making the system prone to oscillations and sensitive to disturbances.
+\end{itemize}
 
 The state space vector is defined to include both positions and velocities: $x = \begin{bmatrix} \theta_1 \ \theta_2 \ \dot{\theta}_1 \ \dot{\theta}_2 \end{bmatrix}^\top \in \mathbb{R}^{n_s}$. With $n_s = 2n = 4$ states. Thus, the continuous time state-space nonlinear dynamics can be expressed as:
 \begin{equation}
@@ -39,18 +45,18 @@ Where:
 \end{itemize}
 
 \subsection{Discretization Methods}
-Two discretization schemes has been implemented in \texttt{solver.py}\footnote{Details in Appendix \ref{app:discretization_methods}}.
+Two discretization schemes have been implemented in \texttt{solver.py}\footnote{Details in Appendix \ref{app:discretization_methods}}.
 \begin{enumerate}
       \item \textbf{Forward Euler (FE):} 
             \begin{equation}
                   x_{k+1} = x_k + \Delta t f(x_k, u_k)
             \end{equation}
-            While simple, this method is numerically unstable for stiff systems or large time steps;
+            While simple, this method is numerically less accurate or unstable.
       \item \textbf{Runge-Kutta 4th Order (RK4):}
             \begin{equation}
                   x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
             \end{equation}
-            This method maps all poles of the continuous-time system to within the unit circle in the discrete-time domain, ensuring stability. However, its computation time is higher that FE.
+            This method maps all poles of the continuous-time system within the unit circle in the discrete-time domain, ensuring stability. However, its computation time is higher than the previous method.
 \end{enumerate}
 Where:
 \begin{itemize}

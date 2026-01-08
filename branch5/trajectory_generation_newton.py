@@ -178,6 +178,8 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
     xx_ref[2,:] = 0.0
     xx_ref[3,:] = 0.0
 
+    model.draw_pendulum_envelope(eq_pair1, eq_pair2, xx_ref, title=task, plot_flag=plot_flag, folder=folder)
+
     # Generate initial Guess
     xx_init = np.zeros_like(xx_ref)
     uu_init = np.zeros_like(uu_ref)
@@ -315,14 +317,11 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
                 converged = True
                 final_kk = kk
  
-                #phase_iters.append(phase_iters[jj]+final_kk+1)
                 break
             
             if np.isnan(descent[kk]):
                 print(f"\nNaN detected at iter {kk}. Stopping.")
                 final_kk = kk
-               
-                #phase_iters.append(phase_iters[jj]+final_kk+1)
                 break
 
             # 4. Forward Update
@@ -346,7 +345,7 @@ def generate_optimal_trajectory(task: str, max_iters: int = 300,  discr = "fe", 
                 log_str = (f"Iter: {kk} | "
                     f"Cost: {JJ[kk]:.6e} | "
                     f"Stepsize: {stepsize:.3e} | "
-                    f"Descent: {descent_arm[kk]:.6e}")
+                    f"Descent: {descent[kk]:.6e}")
                 print(f"\r{log_str}".ljust(120), end="", flush=True)
             else:
                 dots = "." * (kk % 4)
@@ -458,15 +457,15 @@ def main():
     plot_flag = False                        
     plot_flag_armijo = False  
     save_armijo = True              
-    debug_flag = False    
-    run_single = False                   
+    debug_flag = True    
+    run_single = True                   
 
     ######################################
     # Environment setup
     ######################################
 
     if run_single:
-        single_task = 'swing_up'
+        single_task = 'complex_maneuver'  # Options: 'swing_up', 'point_to_point', 'complex_maneuver'
 
     if not run_single:
         single_task = None

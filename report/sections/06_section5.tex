@@ -3,12 +3,6 @@
 %----------------------------------------------------------------------------------------
 
 
-
-% (section 5) task 4 - Trajectory tracking with MPC:
-%     - prediction horizon
-%     - perturbation
-%     - constraint u (max u)    
-%
 \section{Task 4: Trajectory Tracking via MPC}
 
 While LQR is effective for unconstrained tracking, it \textbf{cannot explicitly handle actuator saturation}. We implemented a linear \textbf{Model Predictive Control} (MPC) scheme to address this.
@@ -19,6 +13,7 @@ At each time step $t$, we solve a finite-horizon optimization problem:
 \min_{\Delta u} \quad & \sum_{t=\tau}^{\tau + T_{pred}} \left( \|\Delta x_{\tau}\|_{Q}^2 + \|\Delta u_{\tau}\|_{R}^2 \right) + \|\Delta x_{T_{pred}}\|_{Q_T}^2 \\
 \text{s.t.} \quad & \Delta x_{t+1} = A_{t} \Delta x_t + B_{t} \Delta u_t, \quad \forall t = \tau, ..., \tau + T_{pred}   \\
 & u_{min} \leq u^*_t + \Delta u_t \leq u_{max}, \quad \forall t = \tau, ..., \tau + T_{pred}   \\
+\Delta x_t =\Delta x_t^{meas}
 \end{align*}
 where $T_{pred}$ is the prediction horizon.
 
@@ -29,31 +24,17 @@ In particular, we set $u_{max} = \max(|u^*|)$ and $u_{min} = -u_{max}$, so as \t
 to find a way through thanks to the prediction window and the optimization.
 \item \textbf{Receding Horizon:} Only the first control input is applied, and the optimization is repeated at the next step. Furthermore we opted for a prediction horizon $T_{pred}$\\
 that could serve as a \textbf{good compromise between performance and computational load}. In particular, we set $T_{pred} = \min(100, \frac{\text{len}(time)}{2})$.
-\item \textbf{Perturbations:} Similar to the LQR case, we introduced random initial state perturbations to evaluate robustness. We opted for bigger values, about $1.5$ times those used in the LQR case.
+\item \textbf{Perturbations:} Similar to the LQR case, we introduced random initial state perturbations to evaluate robustness. 
 \item \textbf{Solver:} We utilized CasADi with IPOPT to solve the constrained QP/NLP at each step.
 \end{itemize}
 
 \subsection{Simulation Results}
 The MPC controller showed superior performance in scenarios where large perturbations would cause an LQR controller to request infeasible torques.\\
 Moreover, the ability to handle constraints makes MPC a versatile choice.\\
-Down below some results are shown (see Figure \ref{fig:the_dive_MPC_signal}, \ref{fig:swing_up_MPC_signal}, \ref{fig:elbow_up_MPC_signal}).
-One can notice how, in some cases, the knowledge of the future helps in recovering the reference trajectory and final equilibrium, and other cases in\\
+Down below some results are shown (see Figure \ref{fig:swing_up_MPC_signal}, \ref{fig:elbow_up_MPC_signal}, \ref{fig:swing_down_MPC_signal}, \ref{fig:complex_maneuver_MPC_signal}).
+One can notice how, in some cases, the knowledge of the future helps in recovering the reference trajectory and final equilibrium, and other cases in
 which \textbf{the window and/or the constraints do not allow the controller to return to the nominal path} (as in Figure \ref{fig:swing_up_MPC_signal}).
 Above all, the controller \textbf{never exceeds the maximum torque defined}, showing the effectiveness of the constraints in the optimization problem.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/trajectory_comparison_MPC_Trajectory_Tracking.png}
-    \caption{Trajectory tracking on a dive maneuver}
-    \label{fig:the_dive_MPC_signal}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/tracking_error_analysis.png}
-    \caption{Error analysis during MPC tracking of dive maneuver}
-    \label{fig:the_dive_MPC_error}
-\end{figure}
 
 \begin{figure}[H]
     \centering
@@ -71,16 +52,47 @@ Above all, the controller \textbf{never exceeds the maximum torque defined}, sho
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/trajectory_comparison_MPC_Trajectory_Tracking.png}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/swing_down/trajectory_comparison_MPC_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a swing down maneuver}
+    \label{fig:swing_down_MPC_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/swing_down/tracking_error_analysis.png}
+    \caption{Error analysis during MPC tracking on a swing down maneuver}
+    \label{fig:swing_down_MPC_error}
+\end{figure}
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/elbow_up/trajectory_comparison_MPC_Trajectory_Tracking.png}
     \caption{Trajectory tracking on a elbow up maneuver}
     \label{fig:elbow_up_MPC_signal}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/the_dive/tracking_error_analysis.png}
-    \caption{Error analysis during MPC tracking of a elbow maneuver}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/elbow_up/tracking_error_analysis.png}
+    \caption{Error analysis during MPC tracking of a elbow up maneuver}
     \label{fig:elbow_up_MPC_error}
 \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/complex_maneuver/trajectory_comparison_MPC_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a complex maneuver}
+    \label{fig:complex_maneuver_MPC_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_MPC/complex_maneuver/tracking_error_analysis.png}
+    \caption{Error analysis during MPC tracking on a complex maneuver}
+    \label{fig:complex_maneuver_MPC_error}
+\end{figure}
+
 
 \newpage

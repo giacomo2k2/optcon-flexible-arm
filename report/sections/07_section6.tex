@@ -4,10 +4,53 @@
 \section{Task 5: Animation}
 
 \subsection{Visualization}
-An animation suite was developed (`animation.py`) to visualize the results. It displays the double pendulum link, the reference trajectory (ghost), and the actual tracked path. This visual verification was crucial for debugging the "elbow-flip" behaviors inherent in the nonlinear stiffness model.
+An animation suite was developed \texttt{animation.py} to visualize the results. It displays the double pendulum link, the reference trajectory (ghost), and the actual tracked path. 
+\begin{figure}[H]
+    \centering
+    % --- Row 1, Column 1: Swing Up ---
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \href{https://liveunibo.sharepoint.com/:i:/s/idughis/IQAQx0Jxkof_TYjZezNVmFUFAQT-IVWI8ssrIYjIfkmQ99g?e=i4RAgo}{
+            \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/swing_up/double_pendulum_envelope.png}
+        }
+        \caption{Swing Up}
+    \end{subfigure}
+    \hfill % Adds flexible space between columns
+    % --- Row 1, Column 2: Swing Down ---
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \href{https://liveunibo.sharepoint.com/:i:/s/idughis/IQC-XigtCJjQR7pyMAX4DrF7AQlhC1YRlTCSK7YDvB56klk?e=3FZESg}{
+            \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/swing_down/double_pendulum_envelope.png}
+        }
+        \caption{Swing Down}
+    \end{subfigure}
+    
+    \vspace{0.5cm} % Vertical spacing between rows
+    
+    % --- Row 2, Column 1: Elbow Up ---
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \href{https://liveunibo.sharepoint.com/:i:/s/idughis/IQAtAW5JBdnEQK5DhAivVbCCAWaUNA3icW72ocd3PqweAdU?e=i2ytaX}{
+            \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/elbow_up/double_pendulum_envelope.png}
+        }
+        \caption{Elbow Up}
+    \end{subfigure}
+    \hfill
+    % --- Row 2, Column 2: Complex Maneuver ---
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \href{https://liveunibo.sharepoint.com/:i:/s/idughis/IQAvTEW6PkUNT6r4IRLkExyqAQ6iqQGndhgIHoFIA3_wS4g?e=6abeLj}{
+            \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/complex_maneuver/double_pendulum_envelope.png}
+        }
+        \caption{Complex Maneuver}
+    \end{subfigure}
+
+    \caption{Double Pendulum Trajectories. Click any image to play the corresponding animation.}
+    \label{fig:pendulum_grid}
+\end{figure}
+
 
 \newpage
 
 
 
-\newpage

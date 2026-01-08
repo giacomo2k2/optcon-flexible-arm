@@ -121,8 +121,8 @@ def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, um
     #######################################
 
     # Cost matrices
-    QQt = np.diag([100, 100, 100, 100])
-    RRt = 0.01 * np.eye(ni)
+    QQt = np.diag([1, 1, 1, 1])
+    RRt = 1e-3 * np.eye(ni)
 
     # Terminal matrices
     A_final, B_final = At[:, :, -1], Bt[:, :, -1]
@@ -135,7 +135,7 @@ def trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax, um
 
     # Initial state
     if perturb:
-        epsilon = np.random.uniform(-0.1, 0.1, size=(4,))  # initial state perturbation
+        epsilon = np.random.uniform(-0.05, 0.05, size=(4,))  # initial state perturbation
     else:
         epsilon = np.zeros(4)
 
@@ -230,8 +230,8 @@ def main():
     max_iters = 300          # Max Newton iterations for trajectory generation
     n_mid = 20                # Number of mid points for trajectory generation
     method = 'poly5'         # Trajectory generation method: 'poly3' or
-    runs = 3                    # Number of runs with different initial perturbations
-    perturb_scale = 3          # Scale of the initial perturbation
+    runs = 5                    # Number of runs with different initial perturbations
+    perturb_scale = 4          # Scale of the initial perturbation
 
     ######################################
     # Algorithm flags
@@ -240,6 +240,15 @@ def main():
     save_flag = True            # Save flag
     plot_flag = False            # Plot flag
     debug_flag = True           # Debug print flag
+    run_single = True    
+
+
+    if run_single:
+        single_task = 'complex_maneuver'  # Choose task to run
+
+    if not run_single:
+        single_task = None
+
 
     ######################################
     # Environment setup
@@ -247,41 +256,43 @@ def main():
 
     for task in traj.tasks.keys():
         # Check task name correctness 
-        try:
-            if task not in traj.tasks:
-                raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
-        except ValueError as e:
-            print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
-            exit(1)
-        
-        # Create folder for plots
-        if save_flag:
-            folder = f'report/figs/branch5/traj_track_MPC/{task}/'
 
-            # Create folder if it does not exist
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-        else:
-            folder = None
+        if task == single_task or run_single==False: 
+            try:
+                if task not in traj.tasks:
+                    raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
+            except ValueError as e:
+                print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
+                exit(1)
+            
+            # Create folder for plots
+            if save_flag:
+                folder = f'report/figs/branch5/traj_track_MPC/{task}/'
 
-        ######################################
-        # Generate optimal trajectory
-        ######################################
+                # Create folder if it does not exist
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+            else:
+                folder = None
 
-        xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
-            task=task, max_iters=max_iters, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
-        
-        #choose reasonable umax and umin based on task
-        umax = np.max(np.abs(uu_star))
+            ######################################
+            # Generate optimal trajectory
+            ######################################
 
-        #choose reasonable T_pred based on task length
-        T_pred = min(100, len(time)//2)
+            xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
+                task=task, max_iters=max_iters, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag)
+            
+            #choose reasonable umax and umin based on task
+            umax = np.max(np.abs(uu_star))
 
-        ######################################
-        # Trajectory tracking via MPC
-        ######################################
+            #choose reasonable T_pred based on task length
+            T_pred = min(100, len(time)//2)
 
-        trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax=umax, umin=-umax, T_pred=T_pred, runs=runs, perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, print_debug=True, folder=folder)
+            ######################################
+            # Trajectory tracking via MPC
+            ######################################
+
+            trajectory_tracking_MPC(eq_pair1, eq_pair2, xx_star, uu_star, time, umax=umax, umin=-umax, T_pred=T_pred, runs=runs, perturb=True, perturbation_scale=perturb_scale, plot_flag=plot_flag, print_debug=True, folder=folder)
 
 
 if __name__ == "__main__":

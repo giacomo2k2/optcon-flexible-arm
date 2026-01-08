@@ -237,12 +237,11 @@ This exact linearization of the RK4 integrator ensures that the discrete-time Ja
 
 
 
-% TODO sistemare
 \subsection{Newton Method with Dynamic Horizon Extension algorithm}
-\begin{algorithm}
+\begin{algorithm}[H]
 \caption{Newton Method with Dynamic Horizon Extension}
 \label{alg:newton_extension}
-\begin{algorithmic}[2]
+\begin{algorithmic}[1]
 \Require 
     Dynamics $x_{t+1} = f(x_t, u_t)$, 
     Start $x_{start}$, Goal $(x_{eq}, u_{eq})$,
@@ -252,7 +251,7 @@ This exact linearization of the RK4 integrator ensures that the discrete-time Ja
 \Ensure Optimal Trajectory $\mathbf{x}^*, \mathbf{u}^*$
 
 \State \textbf{Initialization:}
-\State Compute $P_N$ solving DARE$(A_{eq}, B_{eq}, Q, R)$ at $x_{eq}$.
+\State Compute $P_{\infty}$ solving DARE$(A_{eq}, B_{eq}, Q, R)$ at $x_{eq}$.
 \State Generate Reference $\mathbf{x}^{ref}, \mathbf{u}^{ref}$ (e.g., Poly5).
 \State Initialize guess $\mathbf{x}^{(0)}, \mathbf{u}^{(0)}$ (Warm start or Equilibrium).
 \State $k \leftarrow 0$ \Comment{Optimization Iteration}
@@ -264,11 +263,11 @@ This exact linearization of the RK4 integrator ensures that the discrete-time Ja
         \State $J^{(k)} \leftarrow$ Compute Total Cost
         
         \State \textit{// Backward Pass}
-        \State $P_N \leftarrow P_f, \quad p_N \leftarrow \nabla_x \ell_f(x_N)$
+        \State $P_{\infty} \leftarrow P_f, \quad p_N \leftarrow \nabla_x \ell_f(x_N)$
         \For{$t = N-1$ \textbf{to} $0$}
             \State Linearize $f$ to get $A_t, B_t$
             \State Compute gradients $q_t, r_t$ and Hessian $H_t$ of cost
-            \State $Q_{xx}, Q_{uu}, Q_{xu} \leftarrow$ Expansion of Hamiltonian
+            \State $Q_{xx}, Q_{uu}, Q_{xu} \leftarrow$ entry of Value function Hessian
             \State $K_t \leftarrow -Q_{uu}^{-1} Q_{ux}$ \Comment{Feedback Gain}
             \State $\sigma_t \leftarrow -Q_{uu}^{-1} Q_{u}$ \Comment{Feedforward term}
             \State Update $P_t, p_t$ (Riccati equations)

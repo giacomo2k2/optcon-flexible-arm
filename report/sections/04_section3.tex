@@ -4,10 +4,10 @@
 
 \section{Task 2: Trajectory Generation (Newton's Method)}
 
-To generate feasible trajectories transitioning between system equilibria, we employed a Newton-type method for optimal control, specifically a Differential Dynamic Programming (DDP) approach. This method iteratively optimizes the control sequence by utilizing quadratic approximations of the cost function and linear approximations of the system dynamics to find a local minimum of the objective function.
+To generate feasible trajectories transitioning between system equilibria, we employed a Newton-type method for optimal control.
 
 \subsection{Reference Generation}
-Given the non-convex nature of the optimization landscape, the solver requires a reasonable reference trajectory to guide convergence, even if that reference is dynamically infeasible. We analyzed two distinct generation methods:
+Given the non-convex nature of the optimization landscape, the solver requires a reasonable reference trajectory to guide convergence, even if's dynamically infeasible. We analyzed two distinct generation methods:
 
 \begin{enumerate}
     \item \textbf{Stepwise:} A naive approach involving an instantaneous switch from the initial state $x_{start}$ to the goal state $x_{goal}$. This introduces a large discontinuity in the error term, often leading to poor convergence or aggressive control spikes.
@@ -45,93 +45,105 @@ Given the non-convex nature of the optimization landscape, the solver requires a
 \subsubsection{Task Definitions}
 We defined a set of standard maneuvers of varying complexity to evaluate the generation algorithms, ranging from simple transitions to complex swings.
 
+
+
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.5\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/elbow_up/double_pendulum_envelope.png}
-        \caption{Elbow Up}
-        \label{fig:task_elbowup}
-    \end{subfigure}
+    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/elbow_up/double_pendulum_envelope.png}
+    \caption{Elbow Up}
+    \label{fig:task_elbowup}
+\end{figure}
     
-     \begin{subfigure}[b]{0.5\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/swing_up/double_pendulum_envelope.png}
-        \caption{Swing Up}
-        \label{fig:task_swingup}
-    \end{subfigure}
-    
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/swing_up/double_pendulum_envelope.png}
+    \caption{Swing Up}
+    \label{fig:task_swingup}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/swing_down/double_pendulum_envelope.png}
+    \caption{Swing Down}
+    \label{fig:task_swingdown}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/complex_maneuver/double_pendulum_envelope.png}
+    \caption{Complex Maneuver}
+    \label{fig:task_complex}
     \caption{Visualization of the defined control tasks and their target equilibria.}
 \end{figure}
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.5\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/swing_down/double_pendulum_envelope.png}
-        \caption{Swing Down}
-        \label{fig:task_swingdown}
-    \end{subfigure}
-    
-    \begin{subfigure}[b]{0.5\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/complex_maneuver/double_pendulum_envelope.png}
-        \caption{Complex Maneuver}
-        \label{fig:task_complex}
-    \end{subfigure}
-    x
-    \label{fig:tasks}
-\end{figure}
 
-\subsection{Performance Analysis: Stepwise vs. Polynomial}
+\subsection{Performance Analysis: Stepwise vs. Polynomial Initialization}
 
-The choice of reference trajectory significantly impacts the solver's performance. When applying Newton's method to the \textbf{Stepwise} reference, we observed significant limitations. As seen in Figure \ref{fig:newton_stepwise}, the instantaneous jump in the reference creates a large error gradient at the transition point. The solver attempts to compensate with an infeasible spike in control torque $u$, often pushing the system into unstable regions.
+The convergence properties of Newton-type methods are highly sensitive to the quality of the initial reference trajectory. Our analysis indicates that the initialization strategy is a determinant factor in the solver's ability to locate a feasible solution within the under-actuated dynamic constraints.
+
+\subsubsection{Limitations of Stepwise Initialization}
+Applying Newton's method to the \textbf{Stepwise} reference resulted in significant numerical instability. As illustrated in Figure \ref{fig:newton_stepwise}, the instantaneous state transition implies an infinite velocity and acceleration requirement at the discontinuity. This generates a large localized error gradient, causing the solver to propose impulsive control torques ($u$). Such spikes often drive the system state into regions of the manifold where the linearization approximation breaks down, leading to divergence or stabilization at infeasible equilibria.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\linewidth]{figs/misc/trajectory_comparison_mid.png}
-    \caption{Newton's method applied to Elbow Up using Stepwise reference. Note the control discontinuity.}
+    \caption{Newton's method applied to the Elbow Up maneuver using Stepwise reference. Note the control discontinuity manifesting as an infeasible torque spike.}
     \label{fig:newton_stepwise}
 \end{figure}
 
-Conversely, the \textbf{Polynomial (Poly 5)} reference provides a physically plausible kinematic guide. However, physical constraints inherent to the under-actuated flexible link still present challenges:
-
-\begin{itemize}
-    \item \textbf{Energy Transfer (Elbow Up):} During swing-up motions, kinetic energy must be efficiently transferred to potential energy. The polynomial reference guides this transfer smoothly.
-    \item \textbf{Energy Dissipation (Elbow Down):} In downward motions, the passive second link cannot be directly braked. Since the system friction is low, the controller cannot rely on passive dissipation; it must actively pump energy out of the system via dynamic coupling. This becomes infeasible if the reference demands a deceleration rate faster than the system's natural dynamics allow.
-\end{itemize}
+\subsubsection{Polynomial Interpolation and Dynamic Feasibility}
+Conversely, the \textbf{Polynomial (Poly 5)} reference offers a $C^2$-continuous kinematic guide, ensuring that position and velocity boundary conditions are respected. While this mitigates the initial gradient shock, the solver must still reconcile this kinematic path with the under-actuated dynamics of the flexible link.
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.8\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/swing_up/trajectory_comparison_mid.png}
-        \caption{Poly 5 applied to Swing Up}
-        \label{fig:newton_poly_up}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.8\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/the_dive/trajectory_comparison_mid.png}
-        \caption{Poly 5 applied to Swing Down}
-        \label{fig:newton_poly_down}
-    \end{subfigure}
-    \caption{Optimization results using 5th-order polynomial references.}
-    \label{fig:newton_poly_results}
+    \includegraphics[width=0.7\linewidth]{figs/branch4/traj_gen_newton/swing_up/trajectory_comparison_mid.png}
+    \caption{Optimization results: Poly 5 reference applied to the Swing Up task.}
+    \label{fig:newton_poly_swing_up}
 \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figs/branch4/traj_gen_newton/elbow_up/trajectory_comparison_mid.png}
+    \caption{Optimization results: Poly 5 reference applied to the Elbow Up task.}
+    \label{fig:newton_poly_elbow_up}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figs/branch4/traj_gen_newton/swing_down/trajectory_comparison_mid.png}
+    \caption{Optimization results: Poly 5 reference applied to the Swing Down task.}
+    \label{fig:newton_poly_swing_down}
+\end{figure}
+
+The results demonstrate that Newton's method successfully converges to accurate trajectories for upward maneuvers (Swing Up, Elbow Up). However, the algorithm struggles to generate valid trajectories for the Swing Down task, as evidenced by the deviation in Figure \ref{fig:newton_poly_swing_down}.
+
+This dichotomy in performance is attributable to the fundamental difference in energy dynamics required for these maneuvers:
+
+\begin{itemize}
+    \item \textbf{Energy Conversion (Upward Maneuvers):} In swing-up tasks, the control objective aligns with the natural conversion of kinetic energy into potential energy. As the links rise, gravity naturally decelerates the system. The polynomial reference effectively guides this energy transfer, requiring only corrective control efforts to maintain the path.
+    
+    \item \textbf{Energy Extraction (Downward Maneuvers):} In contrast, downward motions involve a release of potential energy, which accelerates the system. Due to the under-actuated nature of the second link and the low-friction environment, the system lacks a passive mechanism to dissipate this accumulated kinetic energy. The controller cannot brake the passive link directly; instead, it must actively extract energy from the system via dynamic coupling between the links. This requirement creates a complex, non-intuitive optimization landscape where simple polynomial initialization fails to provide a sufficient gradient towards the feasible solution.
+\end{itemize}
 
 \subsection{Optimization Challenges}
 Applying the standard Newton method directly to complex, long-horizon maneuvers revealed several critical numerical and theoretical issues:
 
 \begin{itemize}
-    \item \textbf{Non-Convex Optimization Landscape:} The trajectory manifold for complex maneuvers is highly non-linear, and the cost landscape is riddled with local minima. If the initial guess falls within the basin of attraction of a local minimum—representing a partial swing or a stalled state—the solver is unable to escape to the global optimum.
+    \item \textbf{Non-Convex Optimization Landscape:} The trajectory manifold for complex maneuvers is highly non-linear, and the cost landscape is riddled with local minima. If the initial guess falls within the basin of attraction of a local minimum, representing a partial swing or a stalled state, the solver is unable to escape to the local optimum that guarantees the wanted trajectory.
     
-    \item \textbf{Long Time Horizons and Sensitivity:} Extending the time horizon $T$ exponentially increases the complexity of the solution space. Conversely, a long horizon increases the condition number of the Hessian matrix. Small changes in initial inputs propagate through the sensitivity matrix $\prod_{k=0}^{T-1} A_k$, causing massive deviations in terminal states and leading to numerical divergence.
+    \item \textbf{Long Time Horizons and Sensitivity:} Extending the time horizon $T$ exponentially increases the complexity of the solution space. Consequently, a long horizon increases the condition number of the Hessian matrix. Small changes in initial inputs propagate through the sensitivity matrix, causing massive deviations in terminal states and leading to numerical divergence.
 
-    \item \textbf{Fixed Horizon Inflexibility:} A significant limitation of standard DDP is the rigidity of the fixed time horizon. If the chosen $T$ is mismatched with the natural frequency of the maneuver, the optimization may be physically impossible to solve, leading to poor convergence.
+    \item \textbf{Fixed Horizon Inflexibility:} A significant limitation of standard Newton's method is the rigidity of the fixed time horizon. If the chosen $T$ is mismatched with the natural frequency of the maneuver, the optimization may be physically impossible to solve, leading to poor convergence.
 
-    \item \textbf{Controllability and Terminal Cost:} Implementing a stabilizing terminal cost $Q_T$ requires solving the Discrete Algebraic Riccati Equation (DARE). This necessitates that the system linearization $(A, B)$ at the target equilibrium be stabilizable. In under-actuated configurations, kinematic singularities can cause rank deficiencies in the controllability matrix, rendering the DARE unsolvable.
+    \item \textbf{Controllability and Terminal Cost:} Implementing a stabilizing terminal cost $Q_T$ requires solving the Discrete Algebraic Riccati Equation (DARE). This necessitates the system linearization $(A, B)$ at the target equilibrium to be stabilizable. In under-actuated configurations, kinematic singularities can cause rank deficiencies in the controllability matrix, rendering the DARE unsolvable.
 
-    \item \textbf{Instability to Dwell Time:} We observed numerical instability when requiring the system to maintain an unstable equilibrium for a final time interval (dwell time). Any numerical error $\epsilon$ at $t < T$ is amplified by the unstable eigenvalues of the system evolution matrix ($A^k$). This creates a "narrow ridge" in the cost landscape where slight deviations result in massive penalties.
+    \par While standard controllability checks the rank of the Kalman controllability matrix \\
+    $[B, AB, \dots, A^{n-1}B]$, numerical conditioning is better assessed via the Popov-Belevitch-Hautus (PBH) test. A system is stabilizable if and only if:
+    \begin{equation}
+    \text{rank}([\lambda I - A \mid B]) = n \quad \forall \lambda \in \mathbb{C}, \quad |\lambda| \ge 1
+    \end{equation}
+    In underactuated systems like in our case, kinematic singularities can cause this rank to drop (in our case we control only through coupling!). If the rank deficiency occurs at an unstable eigenvalue, the mode is \textit{uncontrollable} and \textit{unstable}. In such configurations, the Hessian becomes singular, and the Newton step is undefined.
+
+    \item \textbf{Instability to Dwell Time:} We observed numerical instability when requiring the system to maintain an unstable equilibrium for a final time interval (dwell time). Consider the analogy of balancing a ball on a sharp peak: reaching the peak at time $T$ requires precision, but remaining there requires perfect force cancellation over time.  Any numerical error $\epsilon$ at $t < T$ is amplified by the unstable eigenvalues of the system evolution matrix ($A^k$). This creates a "narrow ridge" in the cost landscape where slight deviations result in massive penalties.
 
     \item \textbf{Linearization Validity:} The optimization relies on linearizing the non-linear dynamics around the current trajectory. If the update step is too large, the Taylor approximation breaks down, leading to valid descent directions becoming actual ascent directions in the true non-linear landscape.
 \end{itemize}
@@ -141,7 +153,7 @@ The issue of local minima is illustrated in Figure \ref{fig:optimal_trajectory_s
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch4/traj_gen_newton/custom5/trajectory_comparison_mid.png}
+    \includegraphics[width=0.8\linewidth]{figs/branch4/traj_gen_newton/custom5/trajectory_comparison_mid.png}
     \caption{Illustration of the "Local Minimum Trap" where the solver converges to a suboptimal trajectory rather than the target equilibrium.}
     \label{fig:optimal_trajectory_suboptimal}
 \end{figure}
@@ -188,7 +200,7 @@ The efficacy of the Dynamic Horizon Extension is visually demonstrated in the ev
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_gen_newton/custom5/trajectory_comparison_mid_extended.png}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/trajectory_comparison_mid_extended.png}
     \caption{Evolution of the trajectory during the Dynamic Horizon Extension process. The system incrementally "learns" the complex maneuver.}
     \label{fig:horizon_extension}
 \end{figure}
@@ -197,14 +209,14 @@ Figure \ref{fig:horizon_extension} illustrates the iterative learning process fo
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{figs/branch5/traj_gen_newton/custom5/cost_function.png}
+    \includegraphics[width=0.8\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/cost_function.png}
     \caption{Step-wise evolution of the cost function. Each "step" corresponds to a horizon extension.}
     \label{fig:horizon_extension_cost}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{figs/branch5/traj_gen_newton/custom5/descent_direction.png}
+    \includegraphics[width=0.8\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/descent_direction.png}
     \caption{Norm of the descent direction. Spikes indicate the start of a new extension phase, followed by rapid convergence.}
     \label{fig:horizon_extension_descent}
 \end{figure}
@@ -212,39 +224,47 @@ Figure \ref{fig:horizon_extension} illustrates the iterative learning process fo
 This behavior is further corroborated by the cost function evolution shown in Figure \ref{fig:horizon_extension_cost}. It is observed that earlier, shorter solutions yield a lower total cumulative cost than the final "correct" solution. This result highlights the regularizing effect of the algorithm: a direct full-horizon optimization would likely converge to a lower-energy, locally optimal solution (like a partial swing) that fails to reach the target. By incrementally extending the horizon, we force the system to accept a higher-cost trajectory that satisfies the terminal boundary conditions.
 
 The descent direction norm (Figure \ref{fig:horizon_extension_descent}) confirms the stability of this approach. Each horizon extension introduces a perturbation, visible as a spike in the descent magnitude. However, because the system is warm-started from a feasible prior solution, the solver rapidly reconverges (descent norm $\to 0$) within a few iterations. This proves that the algorithm successfully transforms a difficult global search into a series of manageable local refinements.
+
+\hfill
+
+The efficacy of the Dynamic Horizon Extension algorithm is further evidenced by the trajectories generated for the standard task set, presented in Figures \ref{fig:newton_extended_swing_up} through \ref{fig:newton_extened_swing_down}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figs/branch5/traj_gen_newton/swing_up/trajectory_comparison_mid_extended.png}
+    \caption{Optimization results: Poly 5 reference applied to the Swing Up task.}
+    \label{fig:newton_extended_swing_up}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figs/branch5/traj_gen_newton/elbow_up/trajectory_comparison_mid_extended.png}
+    \caption{Optimization results: Poly 5 reference applied to the Elbow Up task.}
+    \label{fig:newton_extended_elbow_up}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figs/branch5/traj_gen_newton/swing_down/trajectory_comparison_mid_extended.png}
+    \caption{Optimization results: Poly 5 reference applied to the Swing Down task.}
+    \label{fig:newton_extended_swing_down}
+\end{figure}
+
+\subsubsection{Convergence Analysis}
+The results highlight a clear distinction in the complexity of the solution manifolds for upward versus downward motions:
+
+\begin{itemize}
+    \item \textbf{Upward Maneuvers (Swing Up, Elbow Up):} As observed in Figures \ref{fig:newton_extended_swing_up} and \ref{fig:newton_extened_elbow_up}, the optimizer converges to a feasible trajectory almost immediately within the initial iterations. This rapid convergence suggests that the trajectory manifold for these energy-injection tasks is well-behaved and exhibits a quasi-convex structure in the vicinity of the polynomial reference. The solver easily locates a path that flows naturally toward the target equilibrium without requiring extensive temporal adjustments.
+
+    \item \textbf{Downward Maneuver (Swing Down):} In contrast, the Swing Down task (Figure \ref{fig:newton_extened_swing_down}) necessitates a substantial adaptation of the optimization problem. The algorithm autonomously extends the time horizon significantly, settling on a final duration approaching $T \approx 20\text{s}$. This behavior underscores the difficulty of the energy extraction phase; the system requires a longer time window to pump energy out via dynamic coupling while respecting actuation limits.
+\end{itemize}
+
+Crucially, this result validates the necessity of the incremental approach. A standard Newton method initialized with a fixed $20\text{s}$ horizon would inevitably diverge due to the severe ill-conditioning of the Hessian matrix and the accumulation of sensitivity errors over such a long duration. The Dynamic Horizon Extension avoids this by solving a sequence of well-conditioned sub-problems, allowing it to traverse a solution path that is inaccessible to the static solver.
+
 \pagebreak
 
 
- % \item \textbf{Ill-Conditioning of the Hessian}:
-
-% Newton's method updates the control sequence by solving a linear system involving the Hessian of the cost function, $H$. The step $\Delta \mathbf{u}$ is calculated as:
-
-% \begin{equation}
-
-% \Delta \mathbf{u} = -H^{-1} g
-
-% \end{equation}
-
-% where $g$ is the gradient. As $N$ increases, the massive magnitude disparity in the sensitivity matrix $A^N$ causes the condition number of the Hessian,
-
-% $\kappa(H) = \frac{|\lambda_{\max}|}{|\lambda_{\min}|}$, to skyrocket. This leads to the following effect: infinitesimal changes in the inputs (especially first ones) imply massive
-
-% changes in $x_N$, causing the Newton step to overshoot local minima and resulting in numerical divergence.
-
-% could it be that constraining the input to stand still in the beginning we are losing our opportunity to control the unstable modes?
 
 
-
-% \subsection{The PBH Test}
-
-% While standard controllability checks the rank of the Kalman controllability matrix $[B, AB, \dots, A^{n-1}B]$, numerical conditioning is better assessed via the Popov-Belevitch-Hautus (PBH) test. A system is stabilizable if and only if:
-
-% \begin{equation}
-
-% \text{rank}([\lambda I - A \mid B]) = n \quad \forall \lambda \in \mathbb{C}, \quad |\lambda| \ge 1
-
-% \end{equation}
-
-%In underactuated systems (our case), kinematic singularities can cause this rank to drop (in our case we control only through coupling!). If the rank deficiency occurs at an unstable eigenvalue, the mode is \textit{uncontrollable} and \textit{unstable}. In such configurations, the Hessian becomes singular, and the Newton step is undefined.
 
 

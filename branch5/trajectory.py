@@ -96,7 +96,7 @@ tasks = {
         'end': configurations['U-D'],
         'time': 6.0,
     },
-    'the_dive': {
+    'swing_down': {
         'start': configurations['U-U'],
         'end': configurations['D-D'],
         'time': 4.0,
@@ -131,7 +131,7 @@ tasks = {
     #    'end': configurations['D-U'],
     #    'time': 2.0,
     #},
-    'custom5': { 
+    'complex_maneuver': { 
         'start': configurations['R-D'],
         'end': configurations['D-U'],
         'time': 2.0,
@@ -146,6 +146,8 @@ tasks = {
     #    'end': configurations['R-U'],
     #    'time': 4.0,
     #},
+    
+
 }
 
 

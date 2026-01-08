@@ -2,12 +2,6 @@
 %	SECTION 4: TRAJECTORY TRACKING VIA LQR
 %----------------------------------------------------------------------------------------
 
-
-% (section 4) task 3 - Trajectory tracking with LQR:
-%     - perturbation epsilon 
-%     - cost function
-%     - final extension of time + dare
-
 \section{Task 3: Trajectory Tracking via LQR}
 
 Once an optimal trajectory $(x^*, u^*)$ is generated, we designed a \textbf{Linear Quadratic Regulator} (LQR) to stabilize the system around this trajectory in the presence of \textbf{disturbances}.\\
@@ -18,7 +12,7 @@ Since the reference trajectory is not a static point, we linearized the system d
 \begin{equation}
 \delta x_{t+1} = A_t \delta x_t + B_t \delta u_t
 \end{equation}
-The feedback law is computed as $u_t = u^*_t - K_t (x_t - x^*_t)$, where $K_t$ is obtained by solving the Riccati equation backward in time.
+The feedback law is computed as $u_t = u^*_t + K_t (x_t - x^*_t)$, where $K_t$ is obtained by solving the Riccati equation backward in time.
 The input is therefore composed of the nominal \textbf{feedforward} term $u^*_t$ and a \textbf{feedback} correction based on the state deviation.
 
 \subsection{Implementation Details}
@@ -35,28 +29,15 @@ As shown in the extended simulations, the LQR continues to operate beyond the no
 It is important to note that the validity of this terminal regulation relies on the \textbf{final trajectory state being a true equilibrium point}. \\
 This ensures that the linearized dynamics used for the DARE remain a faithful approximation of the nonlinear system, allowing the LQR to stabilize the robot within the neighborhood of the target pose even in the presence of residual perturbations.
 \item \textbf{Cost Function:} The weighting matrices $Q$, $R$, and $Q_T$ were chosen to \textbf{balance state deviation penalties and control effort}, tuned through simulations to achieve desired performance.\\
-In this case, differently from the trajectory generation phase, we opted for a higher weight on the control effort (R matrix) to \textbf{avoid aggressive maneuvers} during tracking.\\
-Furthermore, given the flexible nature of the robot, high-gain tracking ($Q \gg R$) could \textbf{excite high-frequency oscillations} or lead to saturation in a real-world scenario.
+In this case we used similar or lower $R$ to give more flexibility to recover from disturbances but, given 
+given the flexible nature of the robot, high-gain tracking ($Q \gg R$) could \textbf{excite high-frequency oscillations} or lead to saturation in a real-world scenario.
 \end{itemize}
 
 \subsection{Simulation Results}
-The results (see Figure \ref{fig:custom5_LQR_signal}, \ref{fig:swing_up_LQR_signal}, \ref{fig:low_diagonal_hold_LQR_signal}) demonstrate that the LTV-LQR effectively rejects initial disturbances and tracks the complex optimal maneuver.
+The results (see Figure \ref{fig:swing_up_LQR_signal}, \ref{fig:swing_down_LQR_signal}, \ref{fig:elbow_up_hold_LQR_signal}, \ref{fig:complex_LQR_signal}) demonstrate that the LTV-LQR effectively rejects initial disturbances and tracks the complex optimal maneuver.
 It is possible to observe how the final stabilization of the second term is left onto the first arm, which oscillates to neglect the perturbations on the second link, and only later it will stabilize.
-However, there are cases in which the initial perturbation is too large for the LQR to recover the nominal trajectory, leading to divergence (see Figure \ref{fig:elbow_up_hold_LQR_signal}).
+\par In this simulation 5 second of stand-still at the final equilibrium has been added for every task. 
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/custom5/trajectory_comparison_LQR_Trajectory_Tracking.png}
-    \caption{Trajectory tracking on a downward maneuver}
-    \label{fig:custom5_LQR_signal}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/custom5/tracking_error_analysis.png}
-    \caption{Error analysis during LQR tracking of downward maneuver}
-    \label{fig:custom5_LQR_error}
-\end{figure}
 
 \begin{figure}[H]
     \centering
@@ -68,22 +49,22 @@ However, there are cases in which the initial perturbation is too large for the 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/swing_up/tracking_error_analysis.png}
-    \caption{Error analysis during LQR tracking}
+    \caption{Error analysis during LQR tracking on a swing-up maneuver}
     \label{fig:swing_up_LQR_error}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/low_diagonal_hold/trajectory_comparison_LQR_Trajectory_Tracking.png}
-    \caption{Trajectory tracking on a hold maneuver}
-    \label{fig:low_diagonal_hold_LQR_signal}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/swing_down/trajectory_comparison_LQR_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a swing down maneuver}
+    \label{fig:swing_down_LQR_signal}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/custom5/tracking_error_analysis.png}
-    \caption{Error analysis during LQR tracking}
-    \label{fig:low_diagonal_hold_LQR_error}
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/swing_down/tracking_error_analysis.png}
+    \caption{Error analysis during LQR tracking of a swing down maneuver}
+    \label{fig:swing_down_LQR_error}
 \end{figure}
 
 \begin{figure}[H]
@@ -96,8 +77,23 @@ However, there are cases in which the initial perturbation is too large for the 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/elbow_up/tracking_error_analysis.png}
-    \caption{Error analysis during LQR tracking}
+    \caption{Error analysis during LQR tracking of elbow up maneuver}
     \label{fig:elbow_up_hold_LQR_error}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/complex_maneuver/trajectory_comparison_LQR_Trajectory_Tracking.png}
+    \caption{Trajectory tracking on a complex maneuver}
+    \label{fig:complex_LQR_signal}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_track_LQR/complex_maneuver/tracking_error_analysis.png}
+    \caption{Error analysis during LQR tracking of complex maneuver}
+    \label{fig:complex_LQR_error}
 \end{figure}
 
 \newpage

@@ -270,7 +270,7 @@ def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarra
 
 
 def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                        x0: np.ndarray, xx_star: np.ndarray, uu_star: np.ndarray, model: object) -> tuple[np.ndarray, np.ndarray]:
+                        x0: np.ndarray, xx_star: np.ndarray, uu_star: np.ndarray, model: object, input_disturbance: bool = False, step_disturbance: int = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Linear time-varying LQR solver.
     
@@ -317,7 +317,7 @@ def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
     # Solve Riccati difference equation backward in time
     PP[:,:,TT-1] = QQT
 
-    
+
     for tt in reversed(range(TT-1)):
         KK[:,:,tt], PP[:,:,tt] = ltv_LQR_step(At[:,:,tt], Bt[:,:,tt], QQt, RRt, PP[:,:,tt+1])
 
@@ -351,38 +351,54 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
     # Decision variables for the upcoming time window
     dX = opti.variable(ns, T_pred) 
     dU = opti.variable(ni, T_pred)
+    x0_p = opti.parameter(ns)
+
+
+    A_seq_p = opti.parameter(ns, ns * (T_pred - 1))
+    B_seq_p = opti.parameter(ns, ni * (T_pred - 1))
+
+    U_ref_p = opti.parameter(ni, T_pred)
+
+    opti.subject_to(dX[:, 0] == x0_p)
 
     # Objective function
     cost = 0
     for t_p in range(T_pred - 1):
         # Stage cost
+
+        Ak = A_seq_p[:, t_p*ns : (t_p+1)*ns]
+        Bk = B_seq_p[:, t_p*ni : (t_p+1)*ni]
+
+        opti.subject_to(dX[:, t_p+1] == ca.mtimes([Ak, dX[:, t_p]]) + ca.mtimes([Bk, dU[:, t_p]]))
+
         cost += ca.mtimes([dX[:, t_p].T, QQt, dX[:, t_p]]) + ca.mtimes([dU[:, t_p].T, RRt, dU[:, t_p]])
 
-        # Dynamic constraint
-        opti.subject_to(dX[:, t_p + 1] == ca.DM(At[:,:,t_p]) @ dX[:, t_p] + ca.DM(Bt[:,:,t_p]) @ dU[:, t_p])
-
         # Input constraints
-        u_real = ca.DM(u_ref[:, t_p]) + dU[:, t_p]
-        # opti.subject_to(opti.bounded(umin, u_real, umax))
-        opti.subject_to(u_real <= umax)
-        opti.subject_to(u_real >= umin)
+        u_real_last = U_ref_p[:, t_p] + dU[:, t_p]
         
-  
+        opti.subject_to(opti.bounded(umin, u_real_last, umax))
+        
     # Terminal cost
     cost += ca.mtimes([dX[:, T_pred - 1].T, QQT, dX[:, T_pred - 1]])
     
-    # Initial condition
-    opti.subject_to(dX[:, 0] == ca.DM(xxt - x_ref[:, 0]))
-
     # Cost to minimize
     opti.minimize(cost)
 
+   
     # Solver options
     if ipopt_opts is None:
         ipopt_opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.max_iter": 1000}
     opti.solver("ipopt", ipopt_opts)
 
     try:
+
+        dx0 = xxt - x_ref[:, 0]
+        opti.set_value(x0_p, dx0)
+
+        opti.set_value(A_seq_p, At[:, :, 0:T_pred-1].reshape(ns, -1, order='F'))
+        opti.set_value(B_seq_p, Bt[:, :, 0:T_pred-1].reshape(ns, -1, order='F'))
+
+        opti.set_value(U_ref_p, u_ref[:, 0:T_pred])
         # Solve the optimization problem
         sol = opti.solve()
     except RuntimeError:

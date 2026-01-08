@@ -95,6 +95,8 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
 
     # Extract time horizon
 
+    TT = xx_star.shape[1]
+
     model.discr_method = discr
 
     x_eq, u_eq = eq_pair2
@@ -145,7 +147,7 @@ def trajectory_tracking_LQR(eq_pair1: tuple, eq_pair2: tuple, xx_star: np.ndarra
 
     # Cost matrices
     QQt = np.diag([1, 1, 1, 1])
-    RRt = 1 * np.eye(ni)
+    RRt = 1e-3 * np.eye(ni)
 
 
     # Terminal matrices
@@ -221,46 +223,54 @@ def main():
     save_flag = True            # Save flag
     plot_flag = False            # Plot flag
     debug_flag = True           # Debug print flag
-
+    run_single = True     
     ######################################
     # Environment setup
     ######################################
-    
+
+    if run_single:
+        single_task = 'complex_maneuver'  # Choose task to run
+
+    if not run_single:
+        single_task = None
 
     for task in traj.tasks.keys():    
         # Check task name correctness 
-        try:
-            if task not in traj.tasks:
-                raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
-        except ValueError as e:
-            print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
-            exit(1)
 
-        if save_flag:
-            folder = f'report/figs/branch5/traj_track_LQR/{task}/'
+        if task == single_task or run_single==False:        
 
-            # Create folder if it does not exist
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-        else:
-            folder = None
-        
-        # Create folder for plots
-        
-        ######################################
-        # Generate optimal trajectory
-        ######################################
+            try:
+                if task not in traj.tasks:
+                    raise ValueError(f"Task '{task}' not found in predefined tasks. Please choose a valid task.")
+            except ValueError as e:
+                print(f"\n{e}\nAvailable tasks are: {list(traj.tasks.keys())}\n")
+                exit(1)
 
-        xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
-            task=task, max_iters=max_iters, discr=discr, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag, save_armijo=False)
-        
-        ######################################
-        # Track optimal trajectory via LQR
-        ######################################
-        
-        trajectory_tracking_LQR(
-            eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 
-            perturb=True, perturbation_scale=perturb_scale, discr=discr, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
+            if save_flag:
+                folder = f'report/figs/branch5/traj_track_LQR/{task}/'
+
+                # Create folder if it does not exist
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+            else:
+                folder = None
+            
+            # Create folder for plots
+            
+            ######################################
+            # Generate optimal trajectory
+            ######################################
+
+            xx_star, uu_star, eq_pair1, eq_pair2, time = traj_gen_newton.generate_optimal_trajectory(
+                task=task, max_iters=max_iters, discr=discr, method=method, plot_armijo=False, plot_flag=False, debug_print=debug_flag, save_armijo=False)
+            
+            ######################################
+            # Track optimal trajectory via LQR
+            ######################################
+            
+            trajectory_tracking_LQR(
+                eq_pair1, eq_pair2, xx_star, uu_star, time, extend_time=5, runs=runs, 
+                perturb=True, perturbation_scale=perturb_scale, discr=discr, plot_flag=plot_flag, debug_print=debug_flag, folder=folder)
 
 
 if __name__ == "__main__":
