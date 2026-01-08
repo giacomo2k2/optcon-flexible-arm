@@ -29,14 +29,14 @@ As shown in the extended simulations, the LQR continues to operate beyond the no
 It is important to note that the validity of this terminal regulation relies on the \textbf{final trajectory state being a true equilibrium point}. \\
 This ensures that the linearized dynamics used for the DARE remain a faithful approximation of the nonlinear system, allowing the LQR to stabilize the robot within the neighborhood of the target pose even in the presence of residual perturbations.
 \item \textbf{Cost Function:} The weighting matrices $Q$, $R$, and $Q_T$ were chosen to \textbf{balance state deviation penalties and control effort}, tuned through simulations to achieve desired performance.\\
-In this case we used similar or lower $R$ to give more flexibility to recover from disturbances but, given 
+In this case we used similar or lower $R$ permitting larger control deviations to recover from disturbances but, given 
 given the flexible nature of the robot, high-gain tracking ($Q \gg R$) could \textbf{excite high-frequency oscillations} or lead to saturation in a real-world scenario.
 \end{itemize}
 
 \subsection{Simulation Results}
 The results (see Figure \ref{fig:swing_up_LQR_signal}, \ref{fig:swing_down_LQR_signal}, \ref{fig:elbow_up_hold_LQR_signal}, \ref{fig:complex_LQR_signal}) demonstrate that the LTV-LQR effectively rejects initial disturbances and tracks the complex optimal maneuver.
-It is possible to observe how the final stabilization of the second term is left onto the first arm, which oscillates to neglect the perturbations on the second link, and only later it will stabilize.
-\par In this simulation 5 second of stand-still at the final equilibrium has been added for every task. 
+It is possible to observe how the final stabilization of the second term is delegated to the first link, which oscillates to compensate for perturbations on the second link, before eventually reaching a steady state.
+\par In these simulations, a 5-second dwell time at the final equilibrium was added for each task.
 
 
 \begin{figure}[H]

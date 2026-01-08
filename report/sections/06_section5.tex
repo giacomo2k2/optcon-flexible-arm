@@ -13,15 +13,16 @@ At each time step $t$, we solve a finite-horizon optimization problem:
 \min_{\Delta u} \quad & \sum_{t=\tau}^{\tau + T_{pred}} \left( \|\Delta x_{\tau}\|_{Q}^2 + \|\Delta u_{\tau}\|_{R}^2 \right) + \|\Delta x_{T_{pred}}\|_{Q_T}^2 \\
 \text{s.t.} \quad & \Delta x_{t+1} = A_{t} \Delta x_t + B_{t} \Delta u_t, \quad \forall t = \tau, ..., \tau + T_{pred}   \\
 & u_{min} \leq u^*_t + \Delta u_t \leq u_{max}, \quad \forall t = \tau, ..., \tau + T_{pred}   \\
-\Delta x_t =\Delta x_t^{meas}
+& \Delta x_t =\Delta x_t^{meas}
 \end{align*}
 where $T_{pred}$ is the prediction horizon.
 
 \subsection{Key Features}
 \begin{itemize}
 \item \textbf{Constraints:} We imposed hard constraints on the input torque ($u \in [u_{min}, u_{max}]$) to \textbf{respect physical motor limits}, which LQR ignores. \\
-In particular, we set $u_{max} = \max(|u^*|)$ and $u_{min} = -u_{max}$, so as \textbf{not to exceed the torque needed to complete the nominal trajectory} with no disturbances; managing \\
-to find a way through thanks to the prediction window and the optimization.
+In particular, we set $u_{max} = \max(|u^*|)$ and $u_{min} = -u_{max}$, so as \textbf{to avoid exceeding the torque required to complete the nominal trajectory} with no disturbances; enabling the controller to navigate the state space by 
+leveraging the prediction window and optimization. 
+
 \item \textbf{Receding Horizon:} Only the first control input is applied, and the optimization is repeated at the next step. Furthermore we opted for a prediction horizon $T_{pred}$\\
 that could serve as a \textbf{good compromise between performance and computational load}. In particular, we set $T_{pred} = \min(100, \frac{\text{len}(time)}{2})$.
 \item \textbf{Perturbations:} Similar to the LQR case, we introduced random initial state perturbations to evaluate robustness. 
@@ -31,10 +32,10 @@ that could serve as a \textbf{good compromise between performance and computatio
 \subsection{Simulation Results}
 The MPC controller showed superior performance in scenarios where large perturbations would cause an LQR controller to request infeasible torques.\\
 Moreover, the ability to handle constraints makes MPC a versatile choice.\\
-Down below some results are shown (see Figure \ref{fig:swing_up_MPC_signal}, \ref{fig:elbow_up_MPC_signal}, \ref{fig:swing_down_MPC_signal}, \ref{fig:complex_maneuver_MPC_signal}).
-One can notice how, in some cases, the knowledge of the future helps in recovering the reference trajectory and final equilibrium, and other cases in
-which \textbf{the window and/or the constraints do not allow the controller to return to the nominal path} (as in Figure \ref{fig:swing_up_MPC_signal}).
-Above all, the controller \textbf{never exceeds the maximum torque defined}, showing the effectiveness of the constraints in the optimization problem.
+Representative results are illustrated below (see Figure \ref{fig:swing_up_MPC_signal}, \ref{fig:elbow_up_MPC_signal}, \ref{fig:swing_down_MPC_signal}, \ref{fig:complex_maneuver_MPC_signal}).
+It can be observed that, in some cases, the knowledge of the future helps in recovering the reference trajectory and final equilibrium, and other cases in
+which \textbf{the limited prediction horizon or stringent input constraints prevent the controller from returning to the nominal path} (as in Figure \ref{fig:swing_up_MPC_signal}).
+Crucially, the controller \textbf{never exceeds the maximum torque defined}, showing the effectiveness of the constraints in the optimization problem.
 
 \begin{figure}[H]
     \centering

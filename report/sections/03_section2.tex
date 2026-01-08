@@ -27,19 +27,22 @@ This reduces to:
 \end{equation}
 
 In this framework, we have three variables: $\theta_1$, $\theta_2$, and $\tau$. By fixing one of the three variables, we can solve for the other two.
-It looks natural, since we are interested in obtaining specific configurations, and since the first joint is actuated, to fix $\theta_1$ and solve for $\theta_2$ and $\tau$.
+Given that the first joint is actuated, it is intuitive to fix $\theta_1$ and solve for $\theta_2$ and $\tau$, since we are interested in obtaining specific configurations.
 \noindent
 \begin{minipage}[t]{0.35\textwidth}
-    \vspace{0pt} % Sets the alignment anchor to the very top
-    Using this approach, we generate an equilibrium manifold that is a function of the first joint angle $\theta_1$. It is worth noting that two distinct configurations arise for each $\theta_1$ value, corresponding to different $\theta_2$ angles (e.g., "Elbow-Up" and "Elbow-Down" positions).
-    They will respectively be stable and unstable configurations.
-\end{minipage}
+    \vspace{0pt} 
+    \raggedright 
+    Using this approach, we generate an \textbf{equilibrium manifold} that is a function of the first joint angle $\theta_1$. \\
+    It is worth noting that two distinct configurations arise for each $\theta_1$ value, corresponding to different $\theta_2$ angles (e.g., \textbf{Elbow-Up} and \textbf{Elbow-Down} positions).
+    These correspond to stable and unstable configurations, respectively.
+\end{minipage}%
 \hfill 
 \begin{minipage}[t]{0.5\textwidth}
     \vspace{0pt} % Ensures the image top aligns with the text top
     \centering
     \includegraphics[width=\textwidth]{figs/branch4/traj_gen_newton/low_diagonal_hold/equilibrium_manifold_3d.png}
-    \captionof{figure}{3D Equilibrium manifold.}
+    \captionsetup{hypcap=false}
+    \captionof{figure}{3D Equilibrium manifold}
     \label{fig:3Dequilibrium_manifold}
 \end{minipage}
 
@@ -55,12 +58,12 @@ It looks natural, since we are interested in obtaining specific configurations, 
 The first thing we can see is that the manifold has a sinusoidal shape and a periodic behavior, which is expected given the rotational nature of the joints.
 From the plot, we can also observe some important characteristics:
 \begin{itemize}
-\item \textbf{Branches:} We can say that the manifold is \textbf{constituted by branches}, hence there will be starting and ending equilibria that are on the same branch and others that will be in two different ones.\\
-This will have an impact on the trajectory generation, as moving between different branches may require highly dynamical maneuvers since it's not possible to switch branch by steady-state maneuvers.
-\item \textbf{Uncontrolled second arm:} Since the second joint is unactuated, the torque $\tau$ is only applied at the first joint.\\
+\item \textbf{Branches:} We can say that the manifold is \textbf{composed of branches}, hence there will be starting and ending equilibria that are on the same branch and others that will be in two different ones.\\
+This will have an impact on the trajectory generation, as moving between different branches may require \textbf{highly dynamical maneuvers} since it's not possible to switch branch by steady-state maneuvers.
+\item \textbf{Uncontrolled second link:} Since the second joint is unactuated, the torque $\tau$ is only applied at the first joint.\\
 This means that the system's ability to reach certain \textbf{configurations} in a given \textbf{time} is \textbf{limited by the dynamics of the second link} and the coupling between the two joints.
 This coupling will prove useful in achieving a stabilization of the second link by appropriately controlling the first one. 
-We will see this is \textbf{not always possible}, and this causes problems in trajectory generation when trying to reach certain target equilibria and mantain them for some time.
+We will see this is \textbf{not always possible}, and this causes problems in trajectory generation when trying to reach certain target equilibria and maintain them for some time.
 \end{itemize}
 
 
@@ -74,7 +77,7 @@ where $\Delta x = x - x_{ref}$ and $\Delta u = u - u_{ref}$. We selected $Q = \t
 \subsection{Terminal Cost via DARE}
 A critical aspect of the finite-horizon optimization is the terminal cost $Q_T$. Simply setting $Q_T = Q$ often fails to stabilize the system at the end of the horizon, especially for short durations.
 In fact, without an appropriate terminal cost, the solver may produce trajectories that approach but do not settle at the desired equilibrium, leading to oscillations or drift post-optimization.
-It is as if the optimizer result was \textbf{"myopic"}, focusing only on minimizing cost up to time $T$ without considering the long-term behavior beyond this point.
+Hence, the optimizer behaves  \textbf{'myopically'}, focusing only on minimizing cost up to time $T$ without considering the long-term behavior beyond this point.
 To address this, we computed $Q_T$ by solving the \textbf{Discrete Algebraic Riccati Equation} (DARE) based on the linearization at the final target equilibrium $(x_{eq}, u_{eq})$.
 
 \begin{equation}
@@ -87,21 +90,21 @@ To ensure global convergence of the Newton method, we implemented a \textbf{line
 This prevents the solver from taking overly aggressive steps that could destabilize the trajectory and \textbf{ensures steady progress towards the optimum}.
 Additionally, the implementation includes a gradient check that validates the analytic descent direction by comparing it to a numeric slope $\frac{J(u + \epsilon \Delta u) - J(u)}{\epsilon}$ computed via finite difference. 
 If the Armijo search fails to satisfy the sufficient decrease condition within the maximum allowed iterations, the \textbf{step size is set to zero} to prevent the update and safeguard the solver from adopting an unstable or divergent trajectory.
-Here there are some plots of the Armijo line search behavior during the trajectory optimization.
+The following plots shows the Armijo line search behavior during the trajectory optimization.
 
 \begin{multicols}{2}
     \vspace{0.2cm}
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.9\linewidth]{figs/branch5/traj_gen_newton/inverted_hand_off/armijo/armijo_iteration_150.png}
-        \caption{Armijo line search behavior A.}
+        \caption{Armijo line search behavior A}
         \label{fig:armijo line search A}
     \end{figure}
 
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.9\linewidth]{figs/branch5/traj_gen_newton/inverted_hand_off/armijo/armijo_iteration_170.png}
-        \caption{Armijo line search behavior B.}
+        \caption{Armijo line search behavior B}
         \label{fig:armijo line search B}
     \end{figure}
 
@@ -113,14 +116,14 @@ Here there are some plots of the Armijo line search behavior during the trajecto
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.9\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/armijo/armijo_iteration_0.png}
-        \caption{Armijo line search behavior C.}
+        \caption{Armijo line search behavior C}
         \label{fig:armijo line search C}
     \end{figure}
 
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.9\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/armijo/armijo_iteration_30.png}
-        \caption{Armijo line search behavior D.}
+        \caption{Armijo line search behavior D}
         \label{fig:armijo line search D}
     \end{figure}
 

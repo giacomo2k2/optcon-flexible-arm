@@ -3,7 +3,7 @@
 %----------------------------------------------------------------------------------------
 \section{Task 0: Problem Setup and Discretization}
 \label{sec:task0}
-The double pendulum model used in this project is reported in Figure \ref{fig:double_pendulum}.
+The double pendulum model used in this project is illustrated in Figure. \ref{fig:double_pendulum}.
 
 \begin{figure}[htbp]
     \centering
@@ -12,18 +12,18 @@ The double pendulum model used in this project is reported in Figure \ref{fig:do
     \label{fig:double_pendulum}
 \end{figure}
 
-The configuration vector is defined as: $q = \begin{bmatrix}\theta_1 \ \theta_2\end{bmatrix}^\top \in \mathbb{R}^n$. With $n=2$ degrees of freedom. The continuous-time dynamics of the double pendulum is governed by the equation:
+The configuration vector is defined as: $q = \begin{bmatrix}\theta_1 \ \theta_2\end{bmatrix}^\top \in \mathbb{R}^n$. Where $n=2$ is the number of degrees of freedom. The continuous-time dynamics of the double pendulum is governed by the equation:
 \begin{equation}
       M(q)\ddot{q} + C(q, \dot{q})\dot{q} + F\dot{q} + G(q) = \begin{bmatrix} \tau \\ 0 \end{bmatrix}
       \label{eq:double_pendulum_model}
 \end{equation}
 Where\footnote{The detailed expressions for $M(q)$, $C(q, \dot{q})$, $F$, and $G(q)$ can be found in the Appendix \ref{app:Models_matrices_and_parameters}.}:
 \begin{itemize}
-      \item  $M(q) = M(q)^\top \succeq 0 \in \mathbb{R}^{n \times n}$ is the inertia matrix;
+      \item  $M(q) = M(q)^\top \succ 0 \in \mathbb{R}^{n \times n}$ is the inertia matrix;
       \item $C(q, \dot{q}) \in \mathbb{R}^{n \times n}$ represents Coriolis and centrifugal forces;
       \item $F = F^\top \succ 0 \in \mathbb{R}^{n \times n}$ is the viscous friction matrix;
       \item $G(q)$ is the gravity vector;
-      \item $\tau \in \mathbb{R}^{n_i}$ is the control torque applied at the first joint\footnote{In this tractation are not considered non-conservative forces or contact forces.} with $n_i = 1$.
+      \item $\tau \in \mathbb{R}^{n_i}$ is the control torque applied at the first joint\footnote{In this derivation, non-conservative forces or contact forces are not considered} with $n_i = 1$.
 \end{itemize}
 The adopted parameters for this system are summarized in Table \ref{tab:model_parameters}. Some considerations regarding the model:
 
@@ -56,7 +56,8 @@ Two discretization schemes have been implemented in \texttt{solver.py}\footnote{
             \begin{equation}
                   x_{k+1} = x_k + \frac{\Delta t}{6} (k_1 + 2k_2 + 2k_3 + k_4)
             \end{equation}
-            This method maps all poles of the continuous-time system within the unit circle in the discrete-time domain, ensuring stability. However, its computation time is higher than the previous method.
+            This method provides higher-order accuracy and improved numerical stability. However, it requires more computational effort per time step.
+
 \end{enumerate}
 Where:
 \begin{itemize}
@@ -65,10 +66,10 @@ Where:
       \item $k_1, k_2, k_3, k_4$ are the RK4 intermediate slopes.
 \end{itemize}
 
-\subsection{Analytic Jacobian Computation}
+\subsection{Analytical Jacobian Computation}
 For the Newton-based optimal control algorithm, accurate gradients of the dynamics are required. Relying on finite differences can introduce numerical noise, while symbolic differentiation (via \texttt{SymPy}) proved too slow for iterative solving.
 
-Therefore, we implemented an \textbf{analytic Jacobian} computation in \texttt{model.py}. 
+Therefore, we implemented an \textbf{analytical Jacobian} computation in \texttt{model.py}. 
 \begin{itemize}
       \item $A = \frac{\partial f(x, u)}{\partial x} = \nabla_1 f(x, u)^\top \in \mathbb{R}^{n_s \times n_s}$: State Jacobian;
       \item $B = \frac{\partial f(x, u)}{\partial u} = \nabla_2 f(x, u)^\top \in \mathbb{R}^{n_s \times n_i}$: Input Jacobian;

@@ -267,7 +267,7 @@ This exact linearization of the RK4 integrator ensures that the discrete-time Ja
         \For{$t = N-1$ \textbf{to} $0$}
             \State Linearize $f$ to get $A_t, B_t$
             \State Compute gradients $q_t, r_t$ and Hessian $H_t$ of cost
-            \State $Q_{xx}, Q_{uu}, Q_{xu} \leftarrow$ entry of Value function Hessian
+            \State $Q_{xx}, Q_{uu}, Q_{xu} \leftarrow$ entries of the Value function Hessian
             \State $K_t \leftarrow -Q_{uu}^{-1} Q_{ux}$ \Comment{Feedback Gain}
             \State $\sigma_t \leftarrow -Q_{uu}^{-1} Q_{u}$ \Comment{Feedforward term}
             \State Update $P_t, p_t$ (Riccati equations)
@@ -293,7 +293,7 @@ This exact linearization of the RK4 integrator ensures that the discrete-time Ja
     \Else
         \State \textbf{Extend Horizon:} $T \leftarrow T + \Delta T$
         \State Pad $\mathbf{x}^{ref}, \mathbf{u}^{ref}$ with $x_{eq}, u_{eq}$
-        \State Pad current solution $\mathbf{x}, \mathbf{u}$ with simulation at $u_{eq}$
+        \State Pad current solution $\mathbf{x}, \mathbf{u}$ by propagating dynamics with $u_{eq}$
     \EndIf
 \EndWhile
 
