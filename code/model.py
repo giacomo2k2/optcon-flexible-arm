@@ -7,34 +7,26 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2026
 #########################################################################################
 
 #######################################
 # Imports
 #######################################
 
-# Python libraries
+# Standard libraries
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
-from numba import njit
 from matplotlib.lines import Line2D
 
 # Set font family
 plt.rcParams['font.family'] = 'serif'
 
-# Solver
+# Custom libraries
 import solver as solver
-
-# Plots
 import plots as plots
-
-# Color palette
 from plots import colors
-
-# Flag for fast method usage (Numba-optimized)
-USE_FAST_METHOD = False
 
 # Parameters settings
 PARAM_SET_1 = {
@@ -92,9 +84,9 @@ class DoublePendulumFlexible:
     Class representing a flexible double pendulum system.
     """
     def __init__(self, m1:float, m2:float, l1:float, l2:float, lc1:float, lc2:float,
-                  I1:float, I2:float, g:float, f1:float, f2:float, k:float) -> None:
+                  I1:float, I2:float, g:float, f1:float, f2:float, k:float, dt: float, method: str) -> None:
         """
-        Create a Double Pendulum system.
+        Create a Flexible Double Pendulum system.
 
         Parameters
         ----------
@@ -136,114 +128,24 @@ class DoublePendulumFlexible:
         self.f2 = f2
         self.k = k
 
-        # Parameters as tuple and dict for easy access if needed
-        self.param_tuple = (self.m1, self.m2, self.l1, self.l2, self.lc1, self.lc2, self.I1, self.I2, self.g, self.f1, self.f2, self.k)
-        self.param_dict = {
-            'm1': self.m1,
-            'm2': self.m2,
-            'l1': self.l1,
-            'l2': self.l2,
-            'lc1': self.lc1,
-            'lc2': self.lc2,
-            'I1': self.I1,
-            'I2': self.I2,
-            'g': self.g,
-            'f1': self.f1,
-            'f2': self.f2,
-            'k': self.k
-        }
-        self.param_names = ['m1', 'm2', 'l1', 'l2', 'lc1', 'lc2', 'I1', 'I2', 'g', 'f1', 'f2', 'k']
-
+        # System settings
+        self.ndof = 2               # Number of degrees of freedom
         self.ns = 4                 # State dimension
         self.ni = 1                 # Input dimension
-        self.dt = 0.01              # Discretization time step
-        self.discr_method = 'rk4'   # Discretization method
+        self.dt = dt                # Discretization time step
+        self.discr_method = method  # Discretization method
 
-    def get_params_as_tuple(self) -> tuple:
-        """
-        Return model parameters as a tuple.
-
-        Returns
-        -------
-        params : tuple
-            Model parameters (m1, m2, l1, l2, lc1, lc2, I1, I2, g, f1, f2, k).
-        """
-        return self.param_tuple
-
-    def get_param(self, param: str) -> float:
-        """
-        Get a single model parameter.
-
-        Parameters
-        ----------
-        param : str
-            Name of the parameter to get.
-
-        Returns
-        -------
-        value : float
-            Value of the requested parameter.
-        """
-        try:
-            if param not in self.param_names:
-                raise ValueError(f"Parameter '{param}' is not valid.")
-        except ValueError as e:
-            print(f"\n{e}\nValid paramters name are: {', '.join(self.param_names)}.\n")
-            exit(1)
-        
-        return getattr(self, param)
-
-    def set_param(self, param: str, value: float) -> None:
-        """
-        Set a single model parameter.
-
-        Parameters
-        ----------
-        param : str
-            Name of the parameter to set.
-        value : float
-            New value for the parameter.
-        """
-        try:
-            if param not in self.param_names:
-                raise ValueError(f"Parameter '{param}' is not valid.")
-            if not isinstance(value, (int, float)):
-                raise ValueError("Parameter value must be numeric (int or float).")
-        except ValueError as e:
-            print(f"\n{e}\nValid paramters name are: {', '.join(self.param_names)}.\n")
-            exit(1)
-        
-        setattr(self, param, value)
-        self.param_dict[param] = value
-        self.param_tuple = tuple(self.param_dict[name] for name in self.param_names)
-
-    def set_params(self, params: dict) -> None:
-        """
-        Set multiple model parameters from a dictionary.
-
-        Parameters
-        ----------
-        params : dict
-            Dictionary of model parameters to set.
-        """
-        try:
-            for param, value in params.items():
-                if param not in self.param_names:
-                    raise ValueError(f"Parameter '{param}' is not valid.")
-                if not isinstance(value, (int, float)):
-                    raise ValueError(f"Value for parameter '{param}' must be numeric (int or float).")
-        except ValueError as e:
-            print(f"\n{e}\nValid paramters name are: {', '.join(self.param_names)}.\n")
-            exit(1)
-        
-        for param, value in params.items():
-            setattr(self, param, value)
-            self.param_dict[param] = value
-        self.param_tuple = tuple(self.param_dict[name] for name in self.param_names)
- 
+    
     def dynamic_model(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Compute the dynamic model of the Double Pendulum.
+        Compute the dynamic model of the Double Pendulum. 
+        
+        This method computes and returns the manipulator equation terms:
+        * Mass matrix (M $\in R^{2x2}$)
+        * Inverse of the mass matrix (M_inv)
+        * Coriolis and centrifugal matrix (C)
+        * Gravity vector (G)
+        * Friction matrix (F)
         
         Parameters
         ----------
@@ -324,20 +226,17 @@ class DoublePendulumFlexible:
         x_dot : np.ndarray
             Time derivative of the state vector.
         """
-        # Angular velocities, scalars
+        # Angular velocities
         q1_dot = x[2]
         q2_dot = x[3]
 
-        # Compute dynamic model matrices with possible fast method        
-        if USE_FAST_METHOD:
-            params = self.get_params_as_tuple()
-            M, M_inv, C, G, F = fast_dynamic_model(x, params)
-        else:
-            M, M_inv, C, G, F = self.dynamic_model(x)
+        # Compute dynamic model matrices    
+        M, M_inv, C, G, F = self.dynamic_model(x)
 
+        # Convert to scalar if u is an array
         if isinstance(u, np.ndarray):
-            u = u.item()  # Convert to scalar if u is an array
-
+            u = u.item()  
+        
         # Angular velocity vector
         q_dot = np.array([
                             [q1_dot],
@@ -377,11 +276,14 @@ class DoublePendulumFlexible:
         x_next : np.ndarray
             State vector at the next time step.
         """
-        return solver.solver_step(self, x, u)
+        return solver.solver(self, x, u)
     
     def jacobian(self, x: np.ndarray, u:np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the continuous-time Jacobian matrices A, B analytically.
+
+        This method uses the analytical expression for the Jacobian matrices. 
+        The resulting matrices are equivalent with the ones obtained via symbolic differentiation using SymPy. 
 
         Parameters
         ----------
@@ -397,119 +299,145 @@ class DoublePendulumFlexible:
         B : np.ndarray
             Continuous-time input Jacobian matrix.
         """
+        #############################
+        # Extract variables 
+        #############################
 
-        # Compute Jacobian with possible fast method
-        if USE_FAST_METHOD:
-            params = self.get_params_as_tuple()
-            A, B = fast_jacobian(x, u.item(), params)
-            return A, B
-        else:
-            # Zeros entries
-            a11 = np.zeros((2, 2))
-            a12 = np.eye(2)
+        # Extract state variables
+        q1 = x[0]
+        q2 = x[1]
+        q1_dot = x[2]
+        q2_dot = x[3]
 
-            # Extract state variables
-            q1 = x[0]
-            q2 = x[1]
-            q1_dot = x[2]
-            q2_dot = x[3]
+        # Angular velocity vector
+        q_dot = np.array([
+                            [q1_dot],
+                            [q2_dot]
+                        ])
 
-            # Angular velocity vector
-            q_dot = np.array([
-                                [q1_dot],
-                                [q2_dot]
-                            ])
+        # Precompute sines and cosines
+        s1 = np.sin(q1)
+        c1 = np.cos(q1)
+        s2 = np.sin(q2)
+        c2 = np.cos(q2)
 
-            # Precompute sines and cosines
-            s1 = np.sin(q1)
-            c1 = np.cos(q1)
-            s2 = np.sin(q2)
-            c2 = np.cos(q2)
+        # Combined angles sines and cosines
+        c12 = np.cos(q1 + q2)
+        s12 = np.sin(q1 + q2)
 
-            # Combined angles sines and cosines
-            c12 = np.cos(q1 + q2)
-            s12 = np.sin(q1 + q2)
+        # Compute dynamic model matrices
+        M, M_inv, C, G, F = self.dynamic_model(x)
 
-            # Compute dynamic model matrices
-            M, M_inv, C, G, F = self.dynamic_model(x)
+        # Convert to scalar if u is an array
+        if isinstance(u, np.ndarray):
+            u = u.item() 
+        
+        # Input Torque vector
+        T = np.array([
+                        np.array([u]),
+                        np.array([0.0])
+                    ]).reshape((2,1))
+        
+        #############################
+        # Compute Jacobian A 
+        #############################
+        
+        # Zeros entries
+        a11 = np.zeros((2, 2))
+        a12 = np.eye(2)
 
-            if isinstance(u, np.ndarray):
-                u = u.item() # Convert to scalar if u is an array
-
-            # Input Torque vector
-            T = np.array([
-                            np.array([u]),
-                            np.array([0.0])
-                        ]).reshape((2,1))
-
-            # Derivative of Coriolis matrix w.r.t q_dot
-            dc_dq_dot = 2*self.l1 * self.lc2 * self.m2 * s2 * np.array([
-                                                                        [-q2_dot, -q1_dot - q2_dot],
-                                                                        [q1_dot, 0.0]
-                                                                    ])
-
-            # Lower-right block
-            a22 = M_inv @ (-F - dc_dq_dot)
-
-            # Derivative of M w.r.t q1
-            dM_dq1 = np.array([
-                [0, 0],
-                [0, 0]
-            ])
-
-            # Derivative of M w.r.t q2
-            dM_dq2 = np.array([
-                                [- 2 * self.l1 * self.lc2 * self.m2 * s2, - self.l1 * self.lc2 *self.m2 * s2],
-                                [- self.l1 * self.lc2 *self.m2 * s2, 0.0]
-                            ])
-            
-            # Compute tau'
-            tau = - F @ q_dot - C @ q_dot - G + T
-
-            # Derivative of M_inv * tau w.r.t q1 and q2
-            dM_inv_dq_tau_1 = - M_inv @ dM_dq1 @ M_inv @ tau
-            dM_inv_dq_tau_2 = - M_inv @ dM_dq2 @ M_inv @ tau
-
-            # Combine derivatives
-            dM_inv_dq_tau = np.array([
-                [dM_inv_dq_tau_1[0, 0], dM_inv_dq_tau_2[0, 0]],
-                [dM_inv_dq_tau_1[1, 0], dM_inv_dq_tau_2[1, 0]]
-            ])
-
-            # Derivative of Coriolis matrix w.r.t q1 and q2
-            dc_dq = self.l1 * self.lc2 * self.m2 * c2 * np.array([
-                                                                    [0.0, -2*q1_dot*q2_dot - q2_dot**2],
-                                                                    [0.0, q1_dot**2]
+        # Derivative of Coriolis matrix w.r.t q_dot
+        dc_dq_dot = 2*self.l1 * self.lc2 * self.m2 * s2 * np.array([
+                                                                    [-q2_dot, -q1_dot - q2_dot],
+                                                                    [q1_dot, 0.0]
                                                                 ])
-            
-            # Derivative of Gravity vector w.r.t q1 and q2
-            dG_dq = np.array([
-                            [self.g * self.lc1 * self.m1 * c1 + self.g * self.m2 * self.l1 * c1 + self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12],
-                            [self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12 + 3 * self.k * (c2**2 - 2*s2**2) * c2]
+
+        # Lower-right block
+        a22 = M_inv @ (-F - dc_dq_dot)
+
+        # Derivative of M w.r.t q1
+        dM_dq1 = np.array([
+            [0, 0],
+            [0, 0]
+        ])
+
+        # Derivative of M w.r.t q2
+        dM_dq2 = np.array([
+                            [- 2 * self.l1 * self.lc2 * self.m2 * s2, - self.l1 * self.lc2 *self.m2 * s2],
+                            [- self.l1 * self.lc2 *self.m2 * s2, 0.0]
+                        ])
+        
+        # Compute tau'
+        tau = - F @ q_dot - C @ q_dot - G + T
+
+        # Derivative of M_inv * tau w.r.t q1 and q2
+        dM_inv_dq_tau_1 = - M_inv @ dM_dq1 @ M_inv @ tau
+        dM_inv_dq_tau_2 = - M_inv @ dM_dq2 @ M_inv @ tau
+
+        # Combine derivatives
+        dM_inv_dq_tau = np.array([
+            [dM_inv_dq_tau_1[0, 0], dM_inv_dq_tau_2[0, 0]],
+            [dM_inv_dq_tau_1[1, 0], dM_inv_dq_tau_2[1, 0]]
+        ])
+
+        # Derivative of Coriolis matrix w.r.t q1 and q2
+        dc_dq = self.l1 * self.lc2 * self.m2 * c2 * np.array([
+                                                                [0.0, -2*q1_dot*q2_dot - q2_dot**2],
+                                                                [0.0, q1_dot**2]
+                                                            ])
+        
+        # Derivative of Gravity vector w.r.t q1 and q2
+        dG_dq = np.array([
+                        [self.g * self.lc1 * self.m1 * c1 + self.g * self.m2 * self.l1 * c1 + self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12],
+                        [self.m2 * self.g * self.lc2 * c12, self.m2 * self.g * self.lc2 * c12 + 3 * self.k * (c2**2 - 2*s2**2) * c2]
+                        ])
+        
+        # Lower-left block
+        a21 = dM_inv_dq_tau + M_inv @ (- dc_dq - dG_dq)
+
+        # Analytic State Jacobian matrix
+        A = np.block([
+            [a11, a12],
+            [a21, a22]
+        ])
+
+        #############################
+        # Compute Jacobian B 
+        #############################
+
+        # Zero entry
+        b1 = np.zeros((2, 1))
+
+        # Lower block
+        b2 = M_inv @ np.array([
+                                [1.0],
+                                [0.0]
                             ])
-            
-            # Lower-left block
-            a21 = dM_inv_dq_tau + M_inv @ (- dc_dq - dG_dq)
 
-            # Analytic State Jacobian matrix
-            A = np.block([
-                [a11, a12],
-                [a21, a22]
-            ])
+        # Analytic Input Jacobian matrix
+        B = np.vstack((b1, b2))
 
-            # Zero entry
-            b1 = np.zeros((2, 1))
+        return A, B
+    
+    def discrete_jacobian(self, x: np.ndarray, u: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the discrete-time Jacobian matrices A, B analytically.
 
-            # Lower block
-            b2 = M_inv @ np.array([
-                                    [1.0],
-                                    [0.0]
-                                ])
+        Parameters
+        ----------
+        x : np.ndarray
+            Current state vector.
+        u : np.ndarray
+            Current input vector.
 
-            # Analytic Input Jacobian matrix
-            B = np.vstack((b1, b2))
-
-            return A, B
+        Returns
+        -------
+        A_d : np.ndarray
+            Discrete-time state Jacobian matrix.
+        B_d : np.ndarray
+            Discrete-time input Jacobian matrix.
+        """
+        return solver.jacobian_discrete_analytic(self, x, u)
     
     def _get_forward_kinematics(self, x: np.ndarray, com: bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -581,8 +509,10 @@ class DoublePendulumFlexible:
 
         # Solve for each guess
         for guess in guesses:
+            # Use fsolve to find roots
             sol, info, ier, msg = fsolve(error_func, guess, full_output=True)
             
+            # Check convergence
             current_error = np.abs(info['fvec'])
             if ier == 1 or current_error < 1e-6:
                 # Normalize to [-pi, pi]
@@ -611,6 +541,7 @@ class DoublePendulumFlexible:
                         valid_solutions.append({'q1': val, 'q2': value_fixed, 'u': u_calc})
                     seen_vals.append(val)
 
+        # Select the requested solution
         index = 0    
         if fix_type == 'q1':
             for i, sol in enumerate(valid_solutions):
@@ -624,7 +555,6 @@ class DoublePendulumFlexible:
 
         else:            
             for i, sol in enumerate(valid_solutions):
-                
                 q1 = sol['q1']
                 if right:
                     if q1 >= 0: 
@@ -655,6 +585,7 @@ class DoublePendulumFlexible:
             Dictionary containing equilibrium data for 'q1_fix' and 'q2_fix'.
             Format: {'q1_fix': np.array([[q1, q2, u], ...]), ...}
         """
+        # Sweep ranges
         q_range = np.linspace(-q_max, q_max, n_points)
         
         # We only initialize lists for q1 and q2 sweeps
@@ -689,16 +620,68 @@ class DoublePendulumFlexible:
                 
         return res
     
+    def check_pbh_stabilizability(self, x: np.ndarray, u: np.ndarray, tol: float = 1e-5):
+        """
+        Check the local stabilizability of the system at a given equilibrium point using the PBH test.
+        PBH (Popov-Belevitch-Hautus) test states that a system is stabilizable if for every unstable eigenvalue.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Equilibrium state vector.
+        u : np.ndarray
+            Equilibrium input vector.
+        tol : float, optional
+            Tolerance for numerical rank determination (default is 1e-5).
+
+        Returns
+        -------
+        is_stabilizable : bool
+            True if the system is locally stabilizable, False otherwise.
+        message : str
+            Explanation message regarding stabilizability.
+        A : np.ndarray
+            Discrete-time state Jacobian matrix.
+        B : np.ndarray
+            Discrete-time input Jacobian matrix.
+        """
+        # 1. Compute discrete time Jacobian matrices A, B
+        A, B = self.discrete_jacobian(x, u)
+
+        # Compute eigenvalues of A
+        eigvals = np.linalg.eigvals(A)
+    
+        # 2. Identify unstable eigenvalues (magnitude >= 1)
+        unstable_eigvals = [ev for ev in eigvals if np.abs(ev) >= 1.0 - tol]
+
+        # Check if system is naturally stable
+        if not unstable_eigvals:
+            return True, "System is naturally stable (all eigenvalues < 1).", A, B
+
+        # 3. Test each unstable eigenvalue with PBH test
+        for lam in unstable_eigvals:
+            # Construct the PBH matrix: [lambda*I - A | B]
+            pbh_matrix = np.hstack([lam * np.eye(self.ns) - A, B])
+            
+            # Check the rank using Singular Value Decomposition (SVD)
+            # SVD is more numerically stable than np.linalg.matrix_rank
+            s = np.linalg.svdvals(pbh_matrix)
+            rank = np.sum(s > tol)
+            
+            # PBH condition: rank must be equal to ns to affirm controllability
+            if rank < self.ns:
+                return False, f"Non-controllable mode detected at lambda={lam:.4f}", A, B
+                
+        return True, "System is locally stabilizable.", A, B
+
     def draw_pendulums(self, eq_pair1: tuple, eq_pair2: tuple, title: str = "", plot_flag: bool = True, folder: str = None) -> None:
         """
         Visualize the double pendulum at the equilibrium point.
         
         Parameters
-        ----------
-        x_eq : np.ndarray
-            Equilibrium state [q1, q2, 0, 0].
-        u_eq : float
-            Equilibrium input torque.
+        eq_pair1:First equilibrium pair (x_eq, u_eq).
+        eq_pair2: tuple
+            Second equilibrium pair (x_eq, u_eq).
         title : str, optional
             Title for the plot (default is empty string).
         plot_flag : bool, optional
@@ -710,9 +693,14 @@ class DoublePendulumFlexible:
         x_eq1, u_eq1 = eq_pair1
         x_eq2, u_eq2 = eq_pair2
 
+        # Create figure and axes
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+
+        # Draw pendulum at initial equilibrium points
         self.draw_frame(x_eq1, ax[0])
         ax[0].set_title(f"u = {u_eq1[0]:.2f} Nm, q1 = {x_eq1[0]:.2f} rad, q2 = {x_eq1[1]:.2f} rad")
+
+        # Draw pendulum at final equilibrium points
         self.draw_frame(x_eq2, ax[1])
         ax[1].set_title(f"u = {u_eq2[0]:.2f} Nm, q1 = {x_eq2[0]:.2f} rad, q2 = {x_eq2[1]:.2f} rad")
         
@@ -746,10 +734,11 @@ class DoublePendulumFlexible:
         folder : str, optional
             If provided, save the plot to the specified folder (default is None).
         """
-        n_mid_pendulum = 15  # Increased slightly for smoother motion look
+        # Ghost pendulum to show within the envelope
+        n_mid_pendulum = 15 
         indices = np.linspace(0, xx_ref.shape[1]-1, n_mid_pendulum+2, dtype=int)
 
-        # Estrazione x_eq e u_eq dai pair
+        # Extract equilibrium pairs
         x_eq1, u_eq1 = eq_pair1
         x_eq2, u_eq2 = eq_pair2
 
@@ -774,7 +763,7 @@ class DoublePendulumFlexible:
         # Title for the plot
         plt.title(f"{title.replace('_', ' ').title()}", fontsize=16, fontweight='bold')
 
-        # Helper
+        # Helper function to format vectors
         def fmt_v(v):
             if isinstance(v, (np.ndarray, list)):
                 return "[" + ", ".join([f"{x:.2f}" for x in v]) + "]"
@@ -784,13 +773,14 @@ class DoublePendulumFlexible:
         label1 = rf'$x_{{eq,1}} = {fmt_v(x_eq1)}^\top$' + '\n' + rf'$u_{{eq,1}} = {fmt_v(u_eq1)}$'
         label2 = rf'$x_{{eq,2}} = {fmt_v(x_eq2)}^\top$' + '\n' + rf'$u_{{eq,2}} = {fmt_v(u_eq2)}$'
 
+        # Create custom legend
         legend_elements = [
             Line2D([0], [0], color='green', lw=2, label=label1),
             Line2D([0], [0], color='red', lw=2, label=label2),
             Line2D([0], [0], color='gray', alpha=0.3, lw=1.5, label='Trajectory Envelope')
         ]
         
-        # Posizioniamo la legenda fuori dal grafico o in un punto meno invasivo
+        # Plot legend
         ax.legend(handles=legend_elements, loc='upper left',
               fontsize=9, frameon=True, shadow=True, title="Equilibrium Points")
 
@@ -830,13 +820,12 @@ class DoublePendulumFlexible:
         ax.set_ylabel('y [m]')
         ax.set_title(f'Double Pendulum')
 
-        # === Draw Links and Joints ===
-        # Link 1
+        # Draw first arm
         ax.plot([0.0, p1[0]], [0.0, p1[1]], color=colors['grey'], linewidth=2.5, label='Link 1', alpha=alpha) # Link 1
         ax.scatter([0.0], [0.0], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 1
         ax.scatter([pc1[0]], [pc1[1]], color=colors['red'], s=40, zorder=5, alpha=alpha)   # CM1
 
-        # Link 2
+        # Link second arm
         ax.scatter(p1[0], p1[1], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 2
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=colors['grey'], linewidth=2.5, label='Link 2', alpha=alpha) # Link 2
         ax.scatter(pc2[0], pc2[1], color=colors['red'], s=40, zorder=5, alpha=alpha) # CM2
@@ -867,6 +856,7 @@ class DoublePendulumFlexible:
         # Limit for total plot size
         lim_size = (self.l1 + self.l2) * 1.5
 
+        # Plot settings
         plots.set_animation_figure(ax, lim_size)
 
         # === Draw Equilibrium 1 ===
@@ -881,171 +871,3 @@ class DoublePendulumFlexible:
         # === Draw Current State ===
         plots.draw_pendulum_configuration(ax, p1_curr, p2_curr, pc1_curr, pc2_curr, 'Current')
 
-
-@njit(cache=True, fastmath=True)
-def fast_dynamic_model(x, params):
-    m1, m2, l1, l2, lc1, lc2, I1, I2, g, f1, f2, k = params
-    
-    q1, q2, q1_dot, q2_dot = x[0], x[1], x[2], x[3]
-    
-    c1 = np.cos(q1)
-    s1 = np.sin(q1)
-    c2 = np.cos(q2)
-    s2 = np.sin(q2)
-    s12 = np.sin(q1 + q2)
-
-    # Mass Matrix (M)
-    M = np.zeros((2, 2))
-    M[0, 0] = I1 + I2 + lc1**2 * m1 + m2 * (l1**2 + 2 * l1 * lc2 * c2 + lc2**2)
-    M[0, 1] = I2 + lc2 * m2 * (l1 * c2 + lc2)
-    M[1, 0] = M[0, 1]
-    M[1, 1] = I2 + m2 * lc2**2
-    
-    # Coriolis (C)
-    C = np.zeros((2, 2))
-    C[0, 0] = -l1 * lc2 * m2 * q2_dot * s2
-    C[0, 1] = -l1 * lc2 * m2 * (q1_dot + q2_dot) * s2
-    C[1, 0] = l1 * lc2 * m2 * q1_dot * s2
-    
-    # Gravity (G)
-    G = np.zeros((2, 1))
-    G[0, 0] = g * lc1 * m1 * s1 + g * m2 * l1 * s1 + m2 * g * lc2 * s12
-    G[1, 0] = g * m2 * lc2 * s12 + 3 * k * s2 * c2**2
-    
-    # Friction (F)
-    F = np.zeros((2, 2))
-    F[0, 0] = f1
-    F[1, 1] = f2
-
-    # Invert M manually for 2x2 to avoid overhead
-    det_M = M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0]
-    M_inv = np.zeros((2, 2))
-    M_inv[0, 0] = M[1, 1] / det_M
-    M_inv[0, 1] = -M[0, 1] / det_M
-    M_inv[1, 0] = -M[1, 0] / det_M
-    M_inv[1, 1] = M[0, 0] / det_M
-    
-    return M, M_inv, C, G, F
-
-
-#######################################
-# Numba-accelerated Jacobian computation
-#######################################
-
-@njit(cache=True, fastmath=True)
-def fast_jacobian(x: np.ndarray, u_scalar: float, params: tuple) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Compute the continuous-time Jacobian matrices A, B for the DoublePendulumFlexible model using Numba acceleration.
-
-    Parameters
-    ----------
-    x : np.ndarray
-        State vector [q1, q2, q1_dot, q2_dot].
-    u_scalar : float
-        Input torque (scalar).
-    params : tuple
-        Model parameters tuple.
-    
-    Returns
-    -------
-    A : np.ndarray
-        Continuous-time state Jacobian matrix.
-    B : np.ndarray
-        Continuous-time input Jacobian matrix.
-    """
-    # Unpack parameters
-    m1, m2, l1, l2, lc1, lc2, I1, I2, g, f1, f2, k = params
-    
-    # Extract joint angles and velocities
-    q1, q2 = x[0], x[1]
-    q1_dot, q2_dot = x[2], x[3]
-
-    # Precompute trig
-    s1, c1 = np.sin(q1), np.cos(q1)
-    s2, c2 = np.sin(q2), np.cos(q2)
-    s12, c12 = np.sin(q1 + q2), np.cos(q1 + q2)
-
-    # Get Dynamics Matrices
-    _, M_inv, C, G, F = fast_dynamic_model(x, params)
-
-    # Helper vectors
-    q_dot = np.array([[q1_dot], [q2_dot]])
-    T = np.array([[u_scalar], [0.0]])
-    
-    # --- Compute a22 = M_inv @ (-F - dc_dq_dot) ---
-    # dc_dq_dot construction
-    term_common = 2 * l1 * lc2 * m2 * s2
-    dc_dq_dot = np.zeros((2, 2))
-    dc_dq_dot[0, 0] = -q2_dot * term_common
-    dc_dq_dot[0, 1] = -(q1_dot + q2_dot) * term_common
-    dc_dq_dot[1, 0] = q1_dot * term_common
-    # dc_dq_dot[1, 1] is 0.0
-
-    # Calculate inner term for a22
-    neg_F_minus_dc = -F - dc_dq_dot
-    a22 = M_inv @ neg_F_minus_dc
-
-    # --- Compute a21 term ---
-    # Calculate tau (torque balance)
-    tau = - (F @ q_dot) - (C @ q_dot) - G + T
-    
-    # dM_dq1 is zero matrix in original code, so dM_inv_dq_tau_1 is zero.
-    # dM_dq2 construction
-    dM_dq2 = np.zeros((2, 2))
-    term_M2 = -l1 * lc2 * m2 * s2
-    dM_dq2[0, 0] = 2 * term_M2
-    dM_dq2[0, 1] = term_M2
-    dM_dq2[1, 0] = term_M2
-    
-    # Calculate dM_inv/dq * tau contribution
-    # Formula: d(M_inv)/dq * tau = - M_inv * (dM/dq) * M_inv * tau
-    temp_vec = M_inv @ tau
-    vec_dq2 = dM_dq2 @ temp_vec
-    dM_inv_dq_tau_2 = - M_inv @ vec_dq2
-
-    # dM_inv_dq_tau matrix (col 1 is 0 because dM_dq1 is 0)
-    dM_inv_dq_tau = np.zeros((2, 2))
-    dM_inv_dq_tau[0, 1] = dM_inv_dq_tau_2[0, 0]
-    dM_inv_dq_tau[1, 1] = dM_inv_dq_tau_2[1, 0]
-
-    # dc_dq construction
-    dc_dq = np.zeros((2, 2))
-    term_c2 = l1 * lc2 * m2 * c2
-    dc_dq[0, 1] = (-2 * q1_dot * q2_dot - q2_dot**2) * term_c2
-    dc_dq[1, 1] = (q1_dot**2) * term_c2
-
-    # dG_dq construction
-    dG_dq = np.zeros((2, 2))
-    term_g_c1 = g * (lc1 * m1 + m2 * l1) * c1
-    term_g_c12 = m2 * g * lc2 * c12
-    
-    dG_dq[0, 0] = term_g_c1 + term_g_c12
-    dG_dq[0, 1] = term_g_c12
-    dG_dq[1, 0] = term_g_c12
-    dG_dq[1, 1] = term_g_c12 + 3 * k * (c2**2 - 2 * s2**2) * c2
-
-    # Final a21
-    inner_a21 = -dc_dq - dG_dq
-    a21 = dM_inv_dq_tau + (M_inv @ inner_a21)
-
-    # --- Assemble A (4x4) ---
-    A = np.zeros((4, 4))
-    # a11 is zeros (already done)
-    # a12 is identity
-    A[0, 2] = 1.0
-    A[1, 3] = 1.0
-    # a21
-    A[2, 0], A[2, 1] = a21[0, 0], a21[0, 1]
-    A[3, 0], A[3, 1] = a21[1, 0], a21[1, 1]
-    # a22
-    A[2, 2], A[2, 3] = a22[0, 0], a22[0, 1]
-    A[3, 2], A[3, 3] = a22[1, 0], a22[1, 1]
-
-    # --- Assemble B (4x1) ---
-    B = np.zeros((4, 1))
-    # b1 is zeros
-    # b2 is M_inv @ [1, 0]. This is effectively the first column of M_inv
-    B[2, 0] = M_inv[0, 0]
-    B[3, 0] = M_inv[1, 0]
-
-    return A, B

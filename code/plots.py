@@ -7,14 +7,14 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2026
 #########################################################################################
 
 #######################################
 # Imports
 #######################################
 
-# Python libraries
+# Standard libraries
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib as mpl
@@ -67,7 +67,6 @@ def show_traj(time: np.ndarray, x_traj: np.ndarray, u_traj: np.ndarray, eq_pair1
     folder : str, optional
         Folder to save the plots. Default is None.
     """
-
     # Labels based on title content
     if "ref" in title.lower():
         lbl_q1, lbl_q2 = r'$q_1^\text{ref}(t)$', r'$q_2^\text{ref}(t)$'
@@ -170,6 +169,10 @@ def trajectory_comparison(
         Tracked state trajectories (ns, TT, runs).
     u_track : np.ndarray
         Tracked control inputs (ns, TT, runs).
+    u_min : float, optional
+        Minimum control input limit. Default is None.
+    u_max : float, optional
+        Maximum control input limit. Default is None.
     title : str
         Title for the plots.
     plot_flag : bool, optional
@@ -177,7 +180,6 @@ def trajectory_comparison(
     folder : str, optional
         Folder to save the plots. Default is None.
     """
-
     # Ensure x_track and u_track have 3 dimensions
     if x_track.ndim < 3:
         x_track = x_track.reshape(x_track.shape[0], x_track.shape[1], 1)
@@ -195,8 +197,10 @@ def trajectory_comparison(
     else:
         s_ref, s_track = r'*', r'\text{track}'
 
+    # Figure setup for single or multiple runs
     if num_runs == 1:
         fig = plt.figure(figsize=(10, 12))
+
         # Grid definition
         gs = gridspec.GridSpec(3, 4, figure=fig)
 
@@ -209,15 +213,18 @@ def trajectory_comparison(
 
         axes_to_use = [ax_q1, ax_q2, ax_dq1, ax_dq2, ax_u]
     else:
+        # Subplots definition
         fig, axes = plt.subplots(num_vars, num_runs, figsize=(4 * num_runs, 15), sharex=True)
         if axes.ndim == 1: axes = axes.reshape(-1, 1)
         
     fig.suptitle(f"Trajectory Comparison: {title}", fontsize=18, fontweight='bold', x=0.5, y=0.98, ha='center')
 
+    # Loop over runs
     for run_idx in range(num_runs):
         # Initial condition for this run
         ic_str = r"$\varepsilon = [0, 0, 0, 0]^\top$"
 
+        # Compute the initial condition error
         if x_ref[:,0].tolist() != x_track[:,0, run_idx].tolist():
             eps = x_ref[:,0] - x_track[:,0, run_idx]
             ic_str = rf"$ \varepsilon = [{eps[0]:.2g}, {eps[1]:.2g}, {eps[2]:.2g}, {eps[3]:.2g}]^\top$"
@@ -231,6 +238,7 @@ def trajectory_comparison(
             (u_ref[0, :], u_track[0, :, run_idx], rf'$u^{s_ref}$', rf'$u^{s_track}$', r'$\mathrm{[Nm]}$'),
         ]
 
+        # Loop over variables (q1, q2, dq1, dq2, u)
         for var_idx, (d_ref, d_track, l_ref, l_track, unit) in enumerate(config):
             if num_runs == 1:
                 ax = axes_to_use[var_idx]
@@ -247,11 +255,11 @@ def trajectory_comparison(
             
             # Title logic: IC only for the first row (q1)
             if num_runs == 1:
-                # Per run=1, l'ultimo è var_idx=4 (la u)
                 if var_idx == 4: ax.set_xlabel(r'$t \mathrm{[s]}$', fontsize=8)
             elif var_idx == len(config) - 1:
                 ax.set_xlabel(r'$t \mathrm{[s]}$', fontsize=8)
 
+            # Input limits visualization (only for input plot)
             if var_idx == num_vars - 1 and u_min is not None and u_max is not None:
                 # Augment Ylimits
                 y_bot, y_top = ax.get_ylim()
@@ -317,7 +325,6 @@ def tracking_error(
     folder : str, optional
         Folder to save the plots. Default is None.
     """
-
     # Extract number of runs
     num_runs = x_track.shape[2]
 
@@ -325,13 +332,14 @@ def tracking_error(
     cmap = plt.get_cmap('tab10')
     run_colors = [cmap(i) for i in range(num_runs)]
 
+    # Figure setup
     fig = plt.figure(figsize=(14, 12))
     fig.suptitle(f"Tracking Error Analysis: {title}", fontsize=16, fontweight='bold', x=0.5, ha='center')
 
     # 3x2 layout: row1(q1,q2), row2(velocities), row3(u, legend)
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.35, wspace=0.25)
 
-    # Assi: 6 celle
+    # Axes mapping
     axes_map = {
         "q1":      fig.add_subplot(gs[0, 0]),
         "q2":      fig.add_subplot(gs[0, 1]),
@@ -341,7 +349,7 @@ def tracking_error(
         "legend":  fig.add_subplot(gs[2, 1])
     }
 
-    # Metadata (indice_stato, label_errore, unità)
+    # Metadata (state_index, label_tex, unit)
     config = {
         "q1":      (0, r'$e_{q_1}$', r'$\mathrm{[rad]}$'),
         "q2":      (1, r'$e_{q_2}$', r'$\mathrm{[rad]}$'),
@@ -390,6 +398,7 @@ def tracking_error(
     for r in range(num_runs):
         ax_leg.plot([], [], color=run_colors[r], label=epsilon_labels[r])
     
+    # Plot legend
     ax_leg.legend(loc='center', ncol=1, fontsize=10, frameon=True,
                   title="Perturbed Initial Conditions ($\\epsilon$)")
 
@@ -444,7 +453,6 @@ def trajectory_comparison_mid(
     folder : str, optional
         Folder to save the plots. Default is None.
     """
-    
     # Determine indices of mid iterations to plot (logarithmic spacing)
     indices_to_plot = np.geomspace(1, max_iters - 2, n_mid, dtype=int)
     indices_to_plot = np.unique(indices_to_plot)
@@ -454,12 +462,14 @@ def trajectory_comparison_mid(
     c_init = 'blue'
     c_final = 'orange'
 
+    # Figure setup
     fig = plt.figure(figsize=(15, 12))
     fig.suptitle(f"Newton Method Evolution: {title}", fontsize=18, fontweight='bold', ha='center', x=0.5)
     
     # Grid view
     gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.25)
 
+    # Axes mapping
     axes_keys = ["q1", "q2", "q1_dot", "q2_dot", "input"]
     axes_map = {
         "q1":      fig.add_subplot(gs[0, 0]),
@@ -479,6 +489,7 @@ def trajectory_comparison_mid(
         "input":  (0, r'$u$', r'$\mathrm{[Nm]}$')
     }
 
+    # Loop over variables (q1, q2, dq1, dq2, u)
     for key in axes_keys:
         ax = axes_map[key]
         idx, tex, unit = config[key]
@@ -534,7 +545,7 @@ def trajectory_comparison_mid(
     if folder is not None:
         fig.savefig(f"{folder}/trajectory_comparison_mid.png", dpi=300, bbox_inches='tight')
 
-def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, print_results: bool = True, plot_flag: bool = True, folder: str = None) -> None:
+def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, plot_2d: bool = True, plot_3d: bool = True, plot_flag: bool = True, folder: str = None) -> None:
     """
     Plot the equilibrium manifold using scatter plots with torque-based coloring, highlighting two specific equilibrium pairs.
 
@@ -679,26 +690,6 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
     if (plot_2d or plot_3d) and plot_flag:
         plt.show()
         
-    # Display results text
-    if print_results:
-        print(f"\nHighlighting Equilibrium 1: q1={x_eq1[0]:.3f}, q2={x_eq1[1]:.3f}, u={u_eq1:.3f}")
-        print(f"Highlighting Equilibrium 2: q1={x_eq2[0]:.3f}, q2={x_eq2[1]:.3f}, u={u_eq2:.3f}")
-
-        for key in manifold_data:
-            data = manifold_data[key]
-            if len(data) == 0:
-                print(f"\nNo equilibria found for sweep: {key}")
-                continue
-            
-            print(f"\nEquilibria computed for {key}: {len(data)} state/input pairs found.")
-            limit = 10 
-            print(f"Showing first {limit} samples:")
-            
-            for i, pair in enumerate(data[:limit]):
-                print(f"Sample {i+1}: q1 = {pair[0]:.3f},\t q2 = {pair[1]:.3f},\t u = {pair[2]:.3f}")
-            
-            if len(data) > limit:
-                print(f"... and {len(data) - limit} more.")
 
 def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int, plot: bool = True, save: bool = False, folder: str = None) -> None:
     """

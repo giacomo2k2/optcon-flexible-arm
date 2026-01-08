@@ -7,19 +7,20 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2026
 #########################################################################################
 
 #######################################
 # Imports
 #######################################
 
-# Python libraries
+# Standard libraries
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
 
-# Model
+# Custom libraries
+#  - Model
 from model import DoublePendulumFlexible
 
 # Set font family
@@ -61,12 +62,14 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
     video_dt = 1 / target_fps
     skip_steps = max(1, int(video_dt / dt))
     
-    # Create indices for the frames we want to render
+    # Create indices for the frames we want to render: must be integer
     indices = np.arange(0, x_traj1.shape[1], skip_steps)
 
     fig, ax = plt.subplots()
     
     def update(frame_idx):
+
+        # Clear axis for new frame drawing
         ax.clear()
         
         # Extract states at the specific frame index
@@ -78,6 +81,7 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
         
         # Add timestamp
         time_sec = frame_idx * dt
+        # Axes text for time
         ax.text(
             0.02, 0.95,
             f"t = {time_sec:.2f} s", 
@@ -85,11 +89,11 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
             fontsize=12,
             verticalalignment='top'
         )                
-        
+        # Places the text above the top-left corner
         ax.legend(loc='upper right')
         
     # 2. Create Animation Object
-    anim = FuncAnimation(fig, update, frames=indices,)
+    anim = FuncAnimation(fig, update, frames=indices)
     
     # 3. Save Animation
     if folder is not None:
@@ -100,6 +104,7 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
         # PillowWriter works purely in Python (no external FFmpeg.exe needed)
         writer = PillowWriter(fps=target_fps)
         
+        # Save the animation
         anim.save(video_filename, writer=writer)
         print(f"Animation saved successfully.")
 

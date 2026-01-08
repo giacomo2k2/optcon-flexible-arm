@@ -7,23 +7,22 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2026
 #########################################################################################
 
 #######################################
 # Imports
 #######################################
 
-# Python libraries
+# Standard libraries
 import numpy as np
 
-# Model
+#Custom libraries
+# - Model
 from model import DoublePendulumFlexible
-
-# Costs
+# - Costs
 import costs as cst
-
-# Plots
+# - Plots
 import plots as plots
 
 #######################################
@@ -33,7 +32,7 @@ import plots as plots
 def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, armijo_maxiters: int, c: float, beta: float, 
                            ss_k: np.ndarray, KK_k: np.ndarray, xx_ref: np.ndarray, uu_ref: np.ndarray, x0: np.ndarray, 
                            xx: np.ndarray, uu: np.ndarray, JJ: float, descent_arm: float, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
-                           kk: int, plot: bool = False, folder: str = None, save_armijo: bool = False, save_armijo_iteration: int = 10) -> tuple[float, float]:
+                           kk: int, plot: bool = False, folder: str = None, save_armijo: bool = False, save_armijo_iters: int = 10) -> tuple[float, float]:
     """
     Select the stepsize using the Armijo rule for the Newton method.
 
@@ -50,7 +49,7 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
     beta : float
         Stepsize reduction factor.
     ss_k : np.ndarray
-        Sigma gain from affine LQR.
+        Feedforward update from affine LQR.
     KK_k : np.ndarray
         Feedback gain matrix.
     xx_ref : np.ndarray
@@ -111,34 +110,44 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
     ######################################
     # Armijo Loop
     ######################################
+
     for ii in range(armijo_maxiters):
-        xx_temp = np.zeros((ns, TT  ))
+        xx_temp = np.zeros((ns, TT))
         uu_temp = np.zeros((ni, TT))
         xx_temp[:, 0] = x0
         JJ_temp = 0
 
-        # Forward integration (Closed-loop)
+        ################################## 
+        # 1. Forward integration (Closed-loop)
+        ##################################
+
         for tt in range(TT - 1):
-            deltax = xx_temp[:, tt] - xx[:, tt]
-            uu_temp[:, tt] = uu[:, tt] + stepsize * ss_k[:, tt] +  KK_k[:, :, tt] @ deltax
-            xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])
+            deltax = xx_temp[:, tt] - xx[:, tt]                                                 # Deviation from current trajectory: FB term
+            uu_temp[:, tt] = uu[:, tt] + stepsize * ss_k[:, tt] +  KK_k[:, :, tt] @ deltax      # New temporary u computation
+            xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])          # Rollout on the X
         
-        # Compute total cost
-        JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT)
+        ##################################
+        # 2. Compute total cost
+        ##################################
+
+        JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT)               # Compute nonlinear cost function
         
-        uu_temp[:, -1] = uu_temp[:, -2]
+        uu_temp[:, -1] = uu_temp[:, -2]                                                         # For plotting purpose
 
-        stepsizes.append(stepsize)      # Save the stepsize
-        costs_armijo.append(JJ_temp)    # Save the cost associated to the stepsize
+        stepsizes.append(stepsize)                                                              # Save the stepsize
+        costs_armijo.append(JJ_temp)                                                            # Save the cost associated to the stepsize
 
-        # Armijo condition
-        if JJ_temp > JJ + c*stepsize*descent_arm:
-            stepsize = beta*stepsize
+        ##################################
+        # 3. Armijo condition
+        ##################################
+
+        if JJ_temp > JJ + c*stepsize*descent_arm:                                               # Comparison between true cost and Armijo condition
+            stepsize = beta*stepsize                                                            # Reduce stepsize    
         else:
-            break
+            break                                                                               # Exit loop if condition satisfied                                               
 
-        if ii == armijo_maxiters -1:
-            stepsize = 0
+        if ii == armijo_maxiters -1:                                                            # Max iterations reached
+            stepsize = 0                                                                        # No stepsize found: avoids making foolish updates
             print("WARNING: no stepsize was found with armijo rule!")
 
     
@@ -146,8 +155,8 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
     # Gradient Check
     ############################
 
-    gradient_error = 0.0    # Initial gradient error
-    step = 1e-6             # Discretization step for incremental ratio
+    gradient_error = 0.0                                                                        # Initial gradient error
+    step = 1e-6                                                                                 # Discretization step for incremental ratio
 
     # Initialize data arrays
     xx_step = np.zeros((ns,TT))
@@ -166,18 +175,18 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
     cost_step = cst.total_cost(xx_step, uu_step, xx_ref, uu_ref, QQt, RRt, QQT)
 
     # Numeric vs analytic gradient check
-    slope_numeric = (cost_step - JJ)/step
-    slope_analytic = descent_arm
+    slope_numeric = (cost_step - JJ)/step                                                       # Numeric slope: (new_cost-old_cost)/step
+    slope_analytic = descent_arm                                                                # Analytical slope: gradJ * deltau 
 
     # Compute gradient error
-    gradient_error = slope_numeric - slope_analytic
+    gradient_error = slope_numeric - slope_analytic                                             # Difference between the two
     
     ############################
     # Descent Plots
     ############################
 
     if plot or (folder is not None and save_armijo):
-        steps = np.linspace(0,stepsize_0,int(20))
+        steps = np.linspace(0,stepsize_0,int(20))                                               # Used to calculate the plots for every stepsize
         costs = np.zeros(len(steps))
 
         for ii in range(len(steps)):
@@ -191,14 +200,14 @@ def select_stepsize_newton(model: DoublePendulumFlexible, stepsize_0: float, arm
 
             for tt in range(TT - 1):
                 delta_x = xx_temp[:, tt] - xx[:, tt]
-                uu_temp[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt] 
+                uu_temp[:, tt] = uu[:, tt] + KK_k[:, :, tt] @ delta_x + step * ss_k[:, tt]      # Here the cost is computed for the steps
                 xx_temp[:, tt+1] = model.discrete_dynamics(xx_temp[:, tt], uu_temp[:, tt])
             uu_step[:, -1] = uu_step[:, -2]
             JJ_temp = cst.total_cost(xx_temp, uu_temp, xx_ref, uu_ref, QQt, RRt, QQT) 
             costs[ii] = JJ_temp
 
-        if folder is not None and save_armijo:
-            save = kk % save_armijo_iteration == 0
+        if folder is not None and save_armijo:                                                  # Saves once every save_armijo_iters
+            save = kk % save_armijo_iters == 0
         else:
             save = False
 

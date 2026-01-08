@@ -7,14 +7,14 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2026
 #########################################################################################
 
 #######################################
 # Imports
 #######################################
 
-# Python libraries
+# Standard libraries
 import numpy as np
 
 #######################################
@@ -71,7 +71,7 @@ def stagecost(x: np.ndarray, u:np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray,
     # Second Derivatives
     lxx = QQt
     luu = RRt
-    lux = np.zeros((u.shape[0], x.shape[0]))  # Cross term is zero
+    lux = np.zeros((u.shape[0], x.shape[0]))
 
     return ll.squeeze(), lx, lu, lxx, luu, lux
 
@@ -93,9 +93,9 @@ def termcost(xT: np.ndarray, xT_ref: np.ndarray, QT: np.ndarray) -> tuple[float,
     llT : float
         Terminal cost.
     lTx : np.ndarray
-        Gradient of terminal cost w.r.t. terminal state (4,1).
+        Gradient of terminal cost w.r.t. terminal state (ns,1).
     lTxx : np.ndarray
-        Hessian of terminal cost w.r.t. terminal state (4,4).
+        Hessian of terminal cost w.r.t. terminal state (ns,ns).
     """
     # Terminal cost
     llT = 0.5 * (xT - xT_ref).T @ QT @ (xT - xT_ref)
@@ -116,35 +116,40 @@ def total_cost(xx: np.ndarray, uu: np.ndarray, xx_ref: np.ndarray, uu_ref: np.nd
     Parameters
     ----------
     xx : np.ndarray
-        State trajectory (ns, T).
+        State trajectory (ns,T).
     uu : np.ndarray
-        Input trajectory (ni, T).
+        Input trajectory (ni,T).
     xx_ref : np.ndarray
-        Reference state trajectory (ns, T).
+        Reference state trajectory (ns,T).
     uu_ref : np.ndarray
-        Reference input trajectory (ni, T).
+        Reference input trajectory (ni,T).
     QQt : np.ndarray
-        State cost matrix (ns, ns).
+        State cost matrix (ns,ns).
     RRt : np.ndarray
-        Input cost matrix (ni, ni).
+        Input cost matrix (ni,ni).
     QT : np.ndarray
-        Terminal state cost matrix (ns, ns).
-    tf : float
-        Final relative time for the trajectory segment.
+        Terminal state cost matrix (ns,ns).
 
     Returns
     -------
     total_ll : float
         Total cost over the trajectory.
     """
+    # Initialize total cost
     total_ll = 0.0
+
+    # Extract trajectory length
     TT = xx.shape[1]
 
+    # Stage costs
     for t in range(TT-1):
         ll, _, _, _, _, _ = stagecost(xx[:, t], uu[:, t], xx_ref[:, t], uu_ref[:, t], QQt, RRt)
         total_ll += ll
+    
+    # Terminal cost
     llT, _, _ = termcost(xx[:, -1], xx_ref[:, -1], QT)
     
+    # Total cost
     total_ll += llT
 
     return total_ll

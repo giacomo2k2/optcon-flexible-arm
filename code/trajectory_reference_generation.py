@@ -7,22 +7,28 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2025
 #########################################################################################
 
 #######################################
 # Imports
 #######################################
-import numpy as np
-from scipy.interpolate import CubicSpline # This was imported for the cubic_spline method, but not used in the current code version
-from model import DoublePendulumFlexible, PARAM_SET_2
 
-# Model Initialization
-model = DoublePendulumFlexible(**PARAM_SET_2)
+# Standard Libraries
+import numpy as np
+
+# Custom Libraries
+from model import DoublePendulumFlexible, PARAM_SET_2
+import plots
+
 
 #######################################
 # Configurations
 #######################################
+
+# Model Initialization
+model = DoublePendulumFlexible(**PARAM_SET_2)
+
 
 configurations = {
     'D-D': model.find_equilibrium(fix_type='q1', value_fixed=0.0, up=False), 
@@ -51,103 +57,66 @@ tasks = {
     'swing_up': { 
         'start': configurations['D-D'],
         'end': configurations['U-U'],
-        'time': 2.0,
+        'time': 10.0,
+        'time_ext': 2.0,
+        'desc': 'Swing up from Down-Down to Up-Up'
     },
     'topside_pump': { 
         'start': configurations['U-D'],
         'end': configurations['U-U'],
-        'time': 2.0,
+        'time': 6.0,
+        'time_ext': 2.0,
+        'desc': 'Topside pump from Up-Down to Up-Up'
     },
-    #'overhead_wipe': {
-    #    'start': configurations['LU-U'],
-    #    'end': configurations['RU-U'],
-    #    'time': 2.0,
-    #},
-    #'diagonal_swing': { 
-    #    'start': configurations['LD-D'],
-    #    'end': configurations['RU-U'],
-    #    'time': 2.0,
-    #},
+    'diagonal_swing': { 
+       'start': configurations['LD-D'],
+       'end': configurations['RU-U'],
+       'time': 6.0,
+       'time_ext': 2.0,
+        'desc': 'Diagonal swing from Left-Down to Right-Up'
+    },
     'elbow_up': { 
         'start': configurations['D-D'],
         'end': configurations['R-U'],
-        'time': 2.0,
+        'time': 10.0,
+        'time_ext': 2.0,
+        'desc': 'Elbow up from Down-Down to Right-Up'
     },
-    #'top_to_elbow_up': { 
-    #    'start': configurations['U-U'],
-    #    'end': configurations['R-U'],
-    #    'time': 2.0,
-    #},
+    'top_to_elbow_up': { 
+        'start': configurations['U-U'],
+        'end': configurations['R-U'],
+        'time': 8.0,
+        'time_ext': 2.0,
+        'desc': 'Top to Elbow up from Up-Up to Right-Up'
+    },
     'low_diagonal_hold': {
         'start': configurations['D-D'],
         'end': configurations['RD-D'],
-        'time':2.0,
+        'time':6.0,
+        'time_ext':2.0,
+        'desc': 'Low diagonal hold from Down-Down to Right-Diagonal Down'
     },
-    'lateral_swing': {
-        'start': configurations['L-U'],
-        'end': configurations['R-U'],
-        'time': 2.0,
-    },
-    #'half_swing':{ 
-    #    'start': configurations['D-D'],
-    #    'end': configurations['U-D'],
-    #    'time': 4.0,
-    #},
-    'inverted_hand_off': { 
+    'half_swing_up': { 
         'start': configurations['D-U'],
         'end': configurations['U-D'],
-        'time': 6.0,
+        'time': 10.0,
+        'time_ext': 4.0,
+        'desc': 'Half swing up from Down-Up to Up-Down'
     },
-    'the_dive': {
+    'swing_down': {
         'start': configurations['U-U'],
         'end': configurations['D-D'],
-        'time': 4.0,
+        'time': 10.0,
+        'time_ext': 4.0,
+        'desc': 'Swing down from Up-Up to Down-Down'
     },
-    #'half_dive': { 
-    #    'start': configurations['U-U'],
-    #    'end': configurations['U-D'],
-    #    'time': 4.0,
-    #},
-    #'top_to_elbow_down': { 
-    #    'start': configurations['U-U'],
-    #    'end': configurations['R-D'],
-    #    'time': 4.0,
-    #},
-    #'custom1': { 
-    #    'start': configurations['LD-U'],
-    #    'end': configurations['RU-U'],
-    #    'time': 2.0,
-    #},
-    #'custom2': { 
-    #    'start': configurations['RU-U'],
-    #    'end': configurations['LD-U'],
-    #    'time': 2.0,
-    #},
-    #'custom3': { 
-    #    'start': configurations['RU-D'],
-    #    'end': configurations['LD-U'],
-    #    'time': 2.0,
-    #},
-    #'custom4': { 
-    #    'start': configurations['RU-U'],
-    #    'end': configurations['D-U'],
-    #    'time': 2.0,
-    #},
-    'custom5': { 
+    'complex_maneuver': { 
         'start': configurations['R-D'],
         'end': configurations['D-U'],
-        'time': 2.0,
+        'time': 10.0,
+        'time_ext': 2.0,
+        'desc': 'Complex maneuver from Right-Down to Down-Up'
     },
-    #'custom6': { 
-    #    'start': configurations['R-D'],
-    #    'end': configurations['L-U'],
-    #    'time': 2.0,
-    #},
-    #'custom7': { 
-    #    'start': configurations['R-D'],
-    #    'end': configurations['R-U'],
-    #    'time': 4.0,
-    #},
 }
 
 
@@ -155,49 +124,34 @@ tasks = {
 # Functions
 #######################################
 
-def trajectory_generator(
+def trajectory_interpolation(
     start: np.ndarray,
     end: np.ndarray,
-    T0: int = 0,
-    Tend: float = 1.0,
-    ti: float = 0.3,
-    tf: float = 0.7,
-    dt: float = 0.01,
+    T0: int,
+    Tend: float,
+    ti: float,
+    tf: float,
+    dt: float,
     method: str = 'stepwise',
     input_type:str = 'state'
  ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Generates a trajectory for a Double Pendulum system based on specified setpoints and method.
+    Generate a reference trajectory between start and end states/inputs using specified interpolation method.
+    Parameters:
+        start: Starting state/input vector.
+        end: Ending state/input vector.
+        T0: Initial time.
+        Tend: End time.
+        ti: Start time for transition phase (relative to Tend).
+        tf: End time for transition phase (relative to Tend).
+        dt: Time step for trajectory generation.
+        method: Interpolation method ('stepwise', 'poly3', 'poly5', 'poly7').
+        input_type: Type of input ('state' or 'input').
+    Returns:
+        t: Time vector 
+        traj: Generated trajectory array.
+    """    
 
-    Parameters
-    ----------
-    start : np.ndarray
-        Starting state of the system.
-    end : np.ndarray
-        Ending state of the system.
-    T0 : int, optional
-        Initial time (default is 0).
-    Tend : float, optional
-        End time (default is 1.0).
-    ti : float, optional
-        Start time for trajectory segment (default is 0.3).
-    tf : float, optional
-        End time for trajectory segment (default is 0.7).
-    dt : float, optional
-        Time step for the trajectory (default is 0.01).
-    method : str, optional
-        Method for trajectory generation ('stepwise', 'poly3', 'poly5', 'poly7', 'cubic_spline') (default is 'stepwise').
-    input_type : str, optional
-        Type of input provided ('state' or 'position') (default is 'state').
-
-    Returns
-    -------
-    t : np.ndarray
-        Array of time points.
-    traj : np.ndarray
-        Generated trajectory (shape: [4, N]).
-    """
-    
     # Initialization
     t = np.arange(T0, Tend, dt)
     TT = len(t)
@@ -205,9 +159,11 @@ def trajectory_generator(
 
     traj = np.zeros((NN, TT))  # Shape (N, T)
     
-    # Time boundaries (absolute)
+    # Absolute times for ti and tf
     ti_abs = ti * Tend
     tf_abs = tf * Tend
+
+    # Duration of transition phase
     DT = tf_abs - ti_abs
     
     # Time masks for the three phases
@@ -222,9 +178,9 @@ def trajectory_generator(
     if input_type == 'state':
         ndof = NN // 2
         pos_start = start[0:ndof]
-        vel_start = start[ndof:]*DT # scale velocities by DT
+        vel_start = start[ndof:]*DT 
         pos_end = end[0:ndof]
-        vel_end = end[ndof:]*DT # scale velocities by DT
+        vel_end = end[ndof:]*DT
     else:
         ndof = NN
         pos_start = start
@@ -301,7 +257,6 @@ def trajectory_generator(
         if input_type == 'state':
             dq_traj = np.zeros((ndof, len(tau)))
             for i in range(ndof):
-                # polyder computes analytical derivative of coefficients
                 der_coeffs = np.polyder(coeffs_rev[:, i])
                 dq_traj[i, :] = np.polyval(der_coeffs, tau) / DT
 
@@ -310,3 +265,63 @@ def trajectory_generator(
         raise ValueError(f"Method '{method}' not recognized.")
 
     return t, traj
+
+
+def reference_trajectory_generator(model: DoublePendulumFlexible, task, reference_params: dict, debug_params: dict,  folder:'str'=None,) -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple, tuple]:
+    """
+    Generate reference trajectory for a specified task using the given model and parameters.
+    Parameters:
+        - model: The flexible double pendulum model.
+        - task: The task identifier for which to generate the trajectory.
+        - reference_params: Parameters for trajectory generation (ti, tf, method).
+        - debug_params: Debugging parameters (plot_flag).
+        - folder: Folder path to save plots. Defaults to None.
+    Returns:
+        - time: Time vector for the reference trajectory.
+        - xx_ref: Reference state trajectory.
+        - uu_ref: Reference input trajectory.
+        - eq_pair1: Starting equilibrium state and input.
+        - eq_pair2: Ending equilibrium state and input.
+    """
+
+    #######################################
+    # Unpack parameters
+    #######################################
+    
+    # debug parameters 
+    plot_flag = debug_params['plot_flag']
+
+    # reference parameters
+    ti = reference_params['ti']                         # Start time for trajectory segment (relative)
+    tf = reference_params['tf']                         # End time for trajectory segment (relative)
+    method = reference_params['method']                 # Interpolation method
+    dt = model.dt                                       # Time step
+    Tend = selected_equilibrium['time']
+
+    #######################################
+    # Equilibrium manifold and selected equilibria
+    #######################################
+
+    data_dict = model.compute_equilibrium_manifold()
+    selected_equilibrium = tasks[task]
+    eq_pair1, eq_pair2 = selected_equilibrium['start'], selected_equilibrium['end']
+    x_eq1, u_eq1 = eq_pair1
+    x_eq2, u_eq2 = eq_pair2
+
+    plots.equilibrium_manifold(data_dict, eq_pair1, eq_pair2, plot_flag=plot_flag, folder=folder)
+    model.draw_pendulums(eq_pair1, eq_pair2, title=task, plot_flag=plot_flag, folder=folder)
+
+    ######################################
+    # Reference curve
+    ######################################
+
+    # Generate reference trajectory for states and inputs
+    time, xx_ref = trajectory_interpolation(start = x_eq1, end = x_eq2, T0=0.0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='state')
+    time, uu_ref = trajectory_interpolation(start = u_eq1, end = u_eq2, T0=0.0, Tend=Tend, ti=ti, tf=tf, dt=dt, method=method, input_type='input')
+    
+    # Plot pendulums envelope along reference trajectory
+    model.draw_pendulum_envelope(eq_pair1, eq_pair2, xx_ref, title=task, plot_flag=plot_flag, folder=folder)
+
+    plots.show_traj(time, xx_ref, uu_ref, eq_pair1, eq_pair2, "Reference " + method, plot_flag=plot_flag, folder=folder)
+
+    return time, xx_ref, uu_ref, eq_pair1, eq_pair2

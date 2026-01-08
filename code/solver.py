@@ -7,80 +7,37 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2025
 #########################################################################################
 
 #######################################
 # Imports
 #######################################
 
-# Python libraries
+# Standard libraries
 import numpy as np
-import sympy as sp # This was used to check anaylitcal jacobian correctness with sympy.jacobian()
 import casadi as ca
 
-# Model
+# Custom Libraries
 from model import DoublePendulumFlexible
 
 #######################################
 # Functions
 #######################################
 
-def solver(model: DoublePendulumFlexible, x0:np.ndarray, steps:int, u: float = 0.0) -> np.ndarray:
+
+def solver(model: DoublePendulumFlexible, x:np.ndarray, u: np.ndarray) -> np.ndarray:
     """
-    Solves the system dynamics for a given number of steps.
-
-    Parameters
-    ----------
-    model : DoublePendulumFlexible
-        Dynamic model with a 'dynamics' method.
-    x0 : np.ndarray
-        Initial state vector.
-    dt : float
-        Time step for the simulation.
-    steps : int
-        Number of time steps to simulate.
-    u : float, optional
-        Control input (default is 0.0).
-
-    Returns
-    -------
-    x_traj : np.ndarray
-        States trajectory over the simulation time.
+    Computes the next state using the specified discretization method.
+    Parameters:
+        - model: DoublePendulumFlexible 
+        - x: state vector at current time step
+        - u: input vector at current time step
+    Returns:
+        - new_states: state vector at next time step
     """
-    # Initialize trajectory array
-    x_traj = np.zeros((x0.shape[0], steps))
-
-    # Initial states
-    x_traj[:,0] = x0
-
-    # Solve the system dynamics
-    for i in range(1, steps):
-        if isinstance(u, np.ndarray):
-            x_traj[:,i] = solver_step(model, x_traj[:,i-1], u[:, i-1].item()) # Assuming u is 2D array with shape (ni, steps)
-        else:
-            x_traj[:,i] = solver_step(model, x_traj[:,i-1], u) # u is scalar
-
-    return x_traj
-
-def solver_step(model: DoublePendulumFlexible, x:np.ndarray, u: float = 0.0) -> np.ndarray:
-    """
-    Solves one time step of the system dynamics.
-
-    Parameters
-    ----------
-    model : DoublePendulumFlexible
-        Dynamic model with a 'dynamics' method.
-    x : np.ndarray
-        State vector.
-    u : float, optional
-        Control input (default is 0.0).
-
-    Returns
-    -------
-    x_new : np.ndarray
-        New state vector after one time step.
-    """
+    
+    # Compute the next state based on the chosen discretization method
     if model.discr_method == 'rk4':
         k1 = model.dynamics(x, u)
         k2 = model.dynamics(x + model.dt * k1 / 2, u)
@@ -94,29 +51,16 @@ def solver_step(model: DoublePendulumFlexible, x:np.ndarray, u: float = 0.0) -> 
         raise ValueError("Choose a valid method: 'fe' or 'rk4'.")
     return new_states
 
-def jacobian_analytic(x_val: np.ndarray, u_val, model: DoublePendulumFlexible) -> tuple[np.ndarray, np.ndarray]:
+def jacobian_discrete_analytic(model: DoublePendulumFlexible, x: np.ndarray, u: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    Compute the discrete-time Jacobian matrices A, B.
-
-    Parameters
-    ----------
-    A_sym : sympy.Matrix
-        Symbolic continuous-time state Jacobian matrix.
-    B_sym : sympy.Matrix
-        Symbolic continuous-time input Jacobian matrix.
-    x_val : np.ndarray
-        State vector at which to evaluate the Jacobians.
-    u_val : float or np.ndarray
-        Input value at which to evaluate the Jacobians.
-    model : object
-        System model.
-
-    Returns
-    -------
-    Ad : np.ndarray
-        Discrete-time state Jacobian matrix.
-    Bd : np.ndarray
-        Discrete-time input Jacobian matrix.
+    Computes the discrete-time Jacobians of the system dynamics using the specified discretization method.
+    Parameters:
+        - model : DoublePendulumFlexible
+        - x: state vector at current time step
+        - u: input vector at current time step
+    Returns:
+        - Ad: Discrete-time state Jacobian.
+        - Bd: Discrete-time input Jacobian.
     """
    
     # Unpack model discretization parameters
@@ -124,32 +68,32 @@ def jacobian_analytic(x_val: np.ndarray, u_val, model: DoublePendulumFlexible) -
     method = model.discr_method
 
     # Continuous-time Jacobians
-    Ac, Bc = model.jacobian(x_val, u_val)  
-    u_scalar = u_val[0] if hasattr(u_val, "__len__") else u_val         
-    
+    Ac, Bc = model.jacobian(x, u)  
+
     # State dimension
     ns = Ac.shape[0]
     
     # Discrete-time Jacobians
     if method == 'fe':
-        Ad = np.eye(ns) + model.dt * Ac           # Discrete-time A
-        Bd = model.dt * Bc                        # Discrete-time B
+        Ad = np.eye(ns) + dt * Ac                 
+        Bd = model.dt * Bc                        
+    
     elif method == 'rk4':
-        k1 = model.dynamics(x_val, u_scalar)
-        k2 = model.dynamics(x_val + 0.5 * model.dt * k1, u_scalar)
-        k3 = model.dynamics(x_val + 0.5 * model.dt * k2, u_scalar)
-        k4 = model.dynamics(x_val + model.dt * k3, u_scalar)
+        k1 = model.dynamics(x, u)
+        k2 = model.dynamics(x + 0.5 * dt * k1, u)
+        k3 = model.dynamics(x + 0.5 * dt * k2, u)
+        k4 = model.dynamics(x + model.dt * k3, u)
         
-        A1, B1 = model.jacobian(x_val, u_scalar)
+        A1, B1 = model.jacobian(x, u)
 
-        x2 = x_val + 0.5 * model.dt * k1
-        A2, B2 = model.jacobian(x2, u_scalar)
+        x2 = x + 0.5 * model.dt * k1
+        A2, B2 = model.jacobian(x2, u)
 
-        x3 = x_val + 0.5 * model.dt * k2
-        A3, B3 = model.jacobian(x3, u_scalar)
+        x3 = x + 0.5 * model.dt * k2
+        A3, B3 = model.jacobian(x3, u)
 
-        x4 = x_val + model.dt * k3
-        A4, B4 = model.jacobian(x4, u_scalar)
+        x4 = x + model.dt * k3
+        A4, B4 = model.jacobian(x4, u)
 
         dk1_dx = A1
         dk2_dx = A2 @ (np.eye(ns) + 0.5 * model.dt * dk1_dx)    
@@ -172,42 +116,23 @@ def jacobian_analytic(x_val: np.ndarray, u_val, model: DoublePendulumFlexible) -
 
 def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray,
                         SSt: np.ndarray, PPtp: np.ndarray, pptp: np.ndarray, qt: np.ndarray, rt: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Single time-step affine LQR backward pass computation.
-    
-    Computes the Riccati recursion for a single time step, given the next time-step values.
-    
-    Parameters
-    ----------
-    At : np.ndarray, (ns x ns)
-        State dynamics matrix at time t.
-    Bt : np.ndarray, (ns x ni)
-        Input dynamics matrix at time t.
-    QQt : np.ndarray, (ns x ns)
-        State cost matrix at time t.
-    RRt : np.ndarray, (ni x ni)
-        Input cost matrix at time t.
-    SSt : np.ndarray, (ni x ns)
-        Cross term cost matrix at time t.
-    PPtp : np.ndarray, (ns x ns)
-        Riccati matrix at time t+1.
-    pptp : np.ndarray, (ns,)
-        Affine term of value function at time t+1.
-    qt : np.ndarray, (ns, 1)
-        State affine cost term at time t.
-    rt : np.ndarray, (ni, 1)
-        Input affine cost term at time t.
-    
-    Returns
-    -------
-    Kt : np.ndarray, (ni x ns)
-        State feedback gain matrix at time t.
-    st : np.ndarray, (ni,)
-        Affine control term at time t.
-    PPt : np.ndarray, (ns x ns)
-        Riccati matrix at time t.
-    ppt : np.ndarray, (ns,)
-        Affine term of value function at time t.
+    """ 
+    Computes the Riccati recursion for a single time step of an affine LTV system, given the next time-step value.
+    Parameters:
+        - At : State dynamics matrix at time t.
+        - Bt : Input dynamics matrix at time t.
+        - QQt : State cost matrix at time t.
+        - RRt : Input cost matrix at time t.
+        - SSt : State-input cross term cost matrix at time t.
+        - PPtp : Riccati matrix at time t+1.
+        - pptp : Affine term at time t+1.
+        - qt : State cost vector at time t.
+        - rt : Input cost vector at time t.
+    Returns:
+        - Kt : State feedback gain matrix at time t.
+        - st : Affine term at time t.
+        - PPt : Riccati matrix at time t.
+        - ppt : Affine term at time t.  
     """
 
     # Ensure pptp is column vector
@@ -233,28 +158,19 @@ def ltv_affine_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np
 
 def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, PPtp: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    Computes the Riccati recursion for a single time step, given the next time-step value.
-
-    Parameters
-    ----------
-    At : np.ndarray, (ns x ns)
-        State dynamics matrix at time t.
-    Bt : np.ndarray, (ns x ni)
-        Input dynamics matrix at time t.
-    QQt : np.ndarray, (ns x ns)
-        State cost matrix at time t.
-    RRt : np.ndarray, (ni x ni)
-        Input cost matrix at time t.
-    PPtp : np.ndarray, (ns x ns)
-        Riccati matrix at time t+1.
-
-    Returns
-    -------
-    Kt : np.ndarray, (ni x ns)
-        State feedback gain matrix at time t.
-    PPt : np.ndarray, (ns x ns)
-        Riccati matrix at time t.
+    Computes the Riccati recursion for a single time step of a linear time-varying system, given the next time-step value.
+    Parameters:
+        - At : State dynamics matrix at time t.
+        - Bt : Input dynamics matrix at time t.
+        - QQt : State cost matrix at time t.
+        - RRt : Input cost matrix at time t.
+        - PPtp : Riccati matrix at time t+1.
+    Returns:
+        - Kt : State feedback gain matrix at time t.
+        - PPt : Riccati matrix at time t.
     """
+
+
     # Inverse term
     MMt_inv = np.linalg.inv(RRt + Bt.T @ PPtp @ Bt)  
 
@@ -268,37 +184,23 @@ def ltv_LQR_step(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarra
 
 def ltv_LQR(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQT: np.ndarray,
                         x0: np.ndarray, xx_star: np.ndarray, uu_star: np.ndarray, model: DoublePendulumFlexible) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Linear time-varying LQR solver.
     
-    Parameters
-    ----------
-    At : np.ndarray, (ns x ns x TT)
-        Sequence of state dynamics matrices.
-    Bt : np.ndarray, (ns x ni x TT)
-        Sequence of input dynamics matrices.
-    QQt : np.ndarray, (ns x ns)
-        State cost matrix.
-    RRt : np.ndarray, (ni x ni)
-        Input cost matrix.
-    QQT : np.ndarray, (ns x ns)
-        Terminal state cost matrix.
-    x0 : np.ndarray, (ns,)
-        Initial state vector.
-    xx_star : np.ndarray, (ns x TT)
-        Optimal state trajectory to track.
-    uu_star : np.ndarray, (ni x TT)
-        Optimal input trajectory to track.
-    model : DoublePendulumFlexible
-        System model.
-
-    Returns
-    -------
-    xx_lqr : np.ndarray, (ns x TT)
-        LQR state trajectory.
-    uu_lqr : np.ndarray, (ni x TT)
-        LQR input trajectory.
     """
+    Solves the finite-horizon LTV LQR problem and computes the optimal state and input trajectories.
+    Parameters:
+        - At : State dynamics matrices over the horizon (ns x ns x T).
+        - Bt : Input dynamics matrices over the horizon (ns x ni x T).
+        - QQt : State cost matrix.  
+        - RRt : Input cost matrix.
+        - QQT : Terminal state cost matrix.
+        - x0 : Initial state vector.
+        - xx_star : Reference state trajectory over the horizon (ns x T).
+        - uu_star : Reference input trajectory over the horizon (ni x T).
+    Returns:
+        - xx_lqr : Optimal state trajectory (ns x T).
+        - uu_lqr : Optimal input trajectory (ni x T).
+    """
+
     # Unpack dimensions
     ns = model.ns
     ni = model.ni
@@ -332,34 +234,24 @@ def ltv_mpc(At: np.ndarray, Bt: np.ndarray, QQt: np.ndarray, RRt: np.ndarray, QQ
             xxt: np.ndarray, x_ref: np.ndarray, u_ref: np.ndarray, umax: float = 1000, umin: float = -1000,
             T_pred: int = 50, ipopt_opts: dict = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    CasAdi solver for constrained LTV MPC problem.
-
-    Parameters
-    ----------
-    At : np.ndarray, (ns x ns x T_pred)
-        Sequence of state dynamics matrices over the prediction horizon.
-    Bt : np.ndarray, (ns x ni x T_pred)
-        Sequence of input dynamics matrices over the prediction horizon.
-    QQt : np.ndarray, (ns x ns)
-        State cost matrix.
-    RRt : np.ndarray, (ni x ni)
-        Input cost matrix.
-    QQT : np.ndarray, (ns x ns)
-        Terminal state cost matrix.
-    xxt : np.ndarray, (ns,)
-        Current state vector.
-    x_ref : np.ndarray, (ns x T_pred)
-        Reference state trajectory over the prediction horizon.
-    u_ref : np.ndarray, (ni x T_pred)
-        Reference input trajectory over the prediction horizon.
-    umax : float, optional
-        Maximum input constraint (default is 1000).
-    umin : float, optional
-        Minimum input constraint (default is -1000).
-    T_pred : int, optional
-        Prediction horizon length (default is 50).
-    ipopt_opts : dict, optional
-        IPOPT solver options (default is None).
+    Solves the LTV MPC optimization problem using CasAdi.
+    Parameters:
+        - At : State dynamics matrices over the prediction horizon (ns x ns x T_pred).
+        - Bt : Input dynamics matrices over the prediction horizon (ns x ni x T_pred).
+        - QQt : State cost matrix.  
+        - RRt : Input cost matrix.
+        - QQT : Terminal state cost matrix.
+        - xxt : Current state vector.
+        - x_ref : Reference state trajectory over the prediction horizon (ns x T_pred).
+        - u_ref : Reference input trajectory over the prediction horizon (ni x T_pred).
+        - umax : Maximum allowable input.
+        - umin : Minimum allowable input.
+        - T_pred : Prediction horizon length.
+        - ipopt_opts : Options for the IPOPT solver.
+    Returns:
+        - u_opt : Optimal input at the current time step.
+        - x_opt : Optimal state trajectory over the prediction horizon.
+        - u_traj : Optimal input trajectory over the prediction horizon.    
     """
     # Unpack dimensions
     ns = Bt.shape[0] 
