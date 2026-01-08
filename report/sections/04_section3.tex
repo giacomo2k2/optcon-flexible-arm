@@ -41,6 +41,7 @@ Given the non-convex nature of the optimization landscape, the solver requires a
     \end{subfigure}
 \end{figure}
 
+Furthermore, we applied a \textbf{Poly 5 with Null Velocity reference} exclusively to the second link to avoid over-constraining its dynamics. Since the first link already tracks well, this approach optimizes energy extraction during downward maneuvers by minimizing dissipation.
 
 \subsubsection{Task Definitions}
 We defined a set of standard maneuvers of varying complexity to evaluate the generation algorithms, ranging from simple transitions to complex swings.

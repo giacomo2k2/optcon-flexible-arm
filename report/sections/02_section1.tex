@@ -75,7 +75,7 @@ Therefore, we implemented an \textbf{analytical Jacobian} computation in \texttt
       \item $B = \frac{\partial f(x, u)}{\partial u} = \nabla_2 f(x, u)^\top \in \mathbb{R}^{n_s \times n_i}$: Input Jacobian;
 \end{itemize}
 
-The Jacobians were derived manually and implemented using optimized NumPy operations (and Numba JIT compilation for speed). This approach ensures that the linearization required for the Backward Pass in Newton's method is both precise and computationally efficient.
+The Jacobians were derived manually. This approach ensures that the linearization required for the Backward Pass in Newton's method is both precise and computationally efficient.
 The detailed derivation is reported in Appendix \ref{app:analytic_jacobian_derivation}.
 
 \newpage

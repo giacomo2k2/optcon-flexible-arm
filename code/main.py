@@ -29,11 +29,11 @@ from plots import print_header
 
 
 
-GENERATOR = "Newton-Extended"            # Newton | Newton-Extended
-TRACKER = "MPC"                 # LQR | MPC
+GENERATOR = "Newton"            # Newton | Newton-Extended
+TRACKER = "LQR"                 # LQR | MPC
 GENERATION_ONLY = False
 # choose task from {'swing_up', 'elbow_up', 'swing_down', 'complex_maneuver', 'topside_pump', 'diagonal_swing', 'top_to_elbow_up', 'low_diagonal_hold', 'half_swing_up'}
-TASKS = {'swing_down'}   
+TASKS = ['swing_up', 'elbow_up', 'swing_down', 'complex_maneuver']
 
 if __name__ == "__main__":
 
@@ -41,12 +41,12 @@ if __name__ == "__main__":
     # General parameters
     #######################################
 
-    save_flag = False            # Save flag
-    plot_flag = True           # Plot flag
+    save_flag = True            # Save flag
+    plot_flag = False           # Plot flag
     debug_flag = True           # Debug print flag
     plot_armijo = False         # Plot Armijo flag
-    save_armijo = False         # Plot Armijo flag
-    save_armijo_iters = 10      # Save Armijo every n iterations
+    save_armijo = True         # Plot Armijo flag
+    save_armijo_iters = 5      # Save Armijo every n iterations
 
     # definition of the model
     discr_method = "fe"                # fe | rk4  
@@ -173,6 +173,8 @@ if __name__ == "__main__":
         # Generate reference trajectory
         time, xx_ref, uu_ref, eq_pair1, eq_pair2 = traj.reference_trajectory_generator(model=model, task=task, reference_params=reference_params, debug_params=debug_params, folder=folder_generation, generator=GENERATOR)
 
+        print(f"Reference trajectory for task '{task}' successfully generated.\n")
+        
         # Pack reference trajectory parameters
         reference_trajectory_params = {'time': time, 'xx_ref': xx_ref, 'uu_ref': uu_ref, 'eq_pair1': eq_pair1, 'eq_pair2': eq_pair2}
 
