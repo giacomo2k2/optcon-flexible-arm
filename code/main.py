@@ -29,11 +29,11 @@ from plots import print_header
 
 
 
-GENERATOR = "Newton"            # Newton | Newton-Extended
+GENERATOR = "Newton-Extended"            # Newton | Newton-Extended
 TRACKER = "MPC"                 # LQR | MPC
 GENERATION_ONLY = False
 # choose task from {'swing_up', 'elbow_up', 'swing_down', 'complex_maneuver', 'topside_pump', 'diagonal_swing', 'top_to_elbow_up', 'low_diagonal_hold', 'half_swing_up'}
-TASKS = {'swing_up', 'swing_down', 'elbow_up', 'complex_maneuver'}   
+TASKS = {'swing_down'}   
 
 if __name__ == "__main__":
 

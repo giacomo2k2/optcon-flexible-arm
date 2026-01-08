@@ -173,9 +173,6 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     xx_mpc = np.zeros((ns,TT,runs))     # State seq.
     uu_mpc = np.zeros((ni,TT,runs))     # Input seq.
 
-
-    ltv_mpc_solver = solver.LTV_MPC(ns, ni, T_pred, umax=u_max, umin=u_min, QQt=QQt, RRt=RRt, QQT=QQT, ipopt_opts=dict_ioptions)
-
     for rr in range(runs):
         
         epsilon_scaled = epsilon * perturbation_scale * rr
