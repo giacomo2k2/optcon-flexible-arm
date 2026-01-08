@@ -132,3 +132,4 @@ This project implements optimal control strategies for a Flexible Double Pendulu
     5. Visualization (Assumed)
 
         plots.py & animation.py:  These files handle the graphical output. They generate 2D plots of states/inputs, convergence graphs, and animations of the robotic link moving.
+        

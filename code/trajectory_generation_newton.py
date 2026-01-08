@@ -7,7 +7,7 @@
 #
 # Authors:      Francesco Cenni, Giulio Mazzaroppi, Giacomo Pezzolati
 # Affiliation:  Alma Mater Studiorum – Università di Bologna
-# Date:         December 2025
+# Date:         January 2026
 #########################################################################################
 
 #######################################
@@ -381,7 +381,7 @@ def generate_optimal_trajectory(model: DoublePendulumFlexible, optimal_gen_param
     plots.gradient_error(gradient_error, max_iters, plot_flag=plot_flag, folder=folder)
 
     # Animation of the optimal trajectory
-    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, folder=folder)
+    anim.animate_comparison(model, xx_star, xx_ref, (x_eq1, u_eq1), (x_eq2, u_eq2), dt = dt, plot_flag=plot_flag, folder=folder)
 
     # Close all plots if opened
     plt.close('all')

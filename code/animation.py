@@ -31,44 +31,38 @@ plt.rcParams['font.family'] = 'serif'
 #######################################
 
 def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_traj2: np.ndarray,
-                       eq_pair1: tuple, eq_pair2: tuple, dt: float, folder=None) -> None:
+                       eq_pair1: tuple, eq_pair2: tuple, dt: float, plot_flag:bool = False, folder=None) -> None:
     """
-    Animates the model and saves as a GIF at 30 FPS if a folder is provided.
-    Uses PillowWriter to avoid 'FFmpeg not found' errors on Windows.
+    creates an animation comparing two trajectories of the double pendulum model.
+    Parameters:
+        - model: DoublePendulumFlexible
+        - x_traj1: First trajectory to compare (shape: state_dim x time_steps).
+        - x_traj2: Second trajectory to compare (shape: state_dim x time_steps).
+        - eq_pair1: Tuple containing the equilibrium point and label for the first trajectory.
+        - eq_pair2: Tuple containing the equilibrium point and label for the second trajectory.
+        - dt: Time step between states in the trajectories.
+        - plot_flag: If True, display the animation after creation.
+        - folder: If provided, the folder path where to save the animation as a GIF.
 
-    Parameters
-    ----------
-    model : DoublePendulumFlexible
-        The model to animate.
-    x_traj1 : np.ndarray
-        First trajectory to compare (e.g., actual).
-    x_traj2 : np.ndarray
-        Second trajectory to compare (e.g., reference).
-    eq_pair1 : tuple
-        Initial equilibrium points.
-    eq_pair2 : tuple
-        Final equilibrium points.
-    dt : float
-        Time step between trajectory points.
-    plot_flag : bool, optional
-        Whether to save the animation, by default True.
-    folder : str, optional
-        Folder to save the animation, by default None.
+    Returns:
+        None            
     """
     
-    # 1. Calculate Stride for 30 FPS
-    # This ensures we don't save every single simulation step, only what's needed for video
+    # --- SPEED CONTROLS ---
     target_fps = 30
-    video_dt = 1 / target_fps
-    skip_steps = max(1, int(video_dt / dt))
+    speed_factor = 1.0  
     
-    # Create indices for the frames we want to render: must be integer
+    # Calculate Stride
+    video_dt = 1 / target_fps
+    
+    skip_steps = max(1, int((video_dt / dt) * speed_factor))
+    
+    # Create indices for the frames we want to render
     indices = np.arange(0, x_traj1.shape[1], skip_steps)
 
     fig, ax = plt.subplots()
     
     def update(frame_idx):
-
         # Clear axis for new frame drawing
         ax.clear()
         
@@ -81,7 +75,6 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
         
         # Add timestamp
         time_sec = frame_idx * dt
-        # Axes text for time
         ax.text(
             0.02, 0.95,
             f"t = {time_sec:.2f} s", 
@@ -89,23 +82,31 @@ def animate_comparison(model: DoublePendulumFlexible, x_traj1: np.ndarray, x_tra
             fontsize=12,
             verticalalignment='top'
         )                
-        # Places the text above the top-left corner
         ax.legend(loc='upper right')
+
+        
+        # If this is the last frame in our list, close the plot
+        if frame_idx == indices[-1] and plot_flag:
+            plt.close(fig)
         
     # 2. Create Animation Object
-    anim = FuncAnimation(fig, update, frames=indices)
+    interval_ms = 1000 / target_fps
+    anim = FuncAnimation(fig, update, frames=indices, interval=interval_ms, repeat=False)
     
     # 3. Save Animation
     if folder is not None:
-        # Changed extension to .gif and writer to PillowWriter
         video_filename = f"{folder}/comparison_animation.gif"
         print(f"\nSaving animation to {video_filename} at {target_fps} FPS...")
         
-        # PillowWriter works purely in Python (no external FFmpeg.exe needed)
+        # Use PillowWriter for GIF
         writer = PillowWriter(fps=target_fps)
-        
-        # Save the animation
         anim.save(video_filename, writer=writer)
         print(f"Animation saved successfully.")
+        
+        # Close figure after saving to prevent it from popping up if plot_flag is False
+        plt.close(fig)
 
-    plt.close(fig)
+    # Only show if requested (and if we haven't already closed it after saving)
+    if plot_flag and plt.fignum_exists(fig.number):
+        plt.show()
+        plt.close(fig)

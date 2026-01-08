@@ -41,12 +41,12 @@ if __name__ == "__main__":
     # General parameters
     #######################################
 
-    save_flag = True            # Save flag
-    plot_flag = False           # Plot flag
+    save_flag = False           # Save flag
+    plot_flag = True            # Plot flag
     debug_flag = True           # Debug print flag
     plot_armijo = False         # Plot Armijo flag
-    save_armijo = True         # Plot Armijo flag
-    save_armijo_iters = 5      # Save Armijo every n iterations
+    save_armijo = False         # Plot Armijo flag
+    save_armijo_iters = 5       # Save Armijo every n iterations
 
     # definition of the model
     discr_method = "fe"                # fe | rk4  
