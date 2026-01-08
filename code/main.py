@@ -154,12 +154,26 @@ if __name__ == "__main__":
         # Generate reference trajectory
         ######################################
 
+        # Print header
+        print("\n" + "="*80)
+        print(f"[Trajectory Reference] - {method.capitalize()}".center(80))
+        print("="*80)
+
+        # Generate reference trajectory
         time, xx_ref, uu_ref, eq_pair1, eq_pair2 = traj.reference_trajectory_generator(model, task, reference_params, folder_generation, debug_params)
+
+        # Pack reference trajectory parameters
         reference_trajectory_params = {'time': time, 'xx_ref': xx_ref, 'uu_ref': uu_ref, 'eq_pair1': eq_pair1, 'eq_pair2': eq_pair2}
 
         ######################################
         # Generate optimal trajectory
         ######################################
+
+        # Print header
+        print("\n" + "="*80)
+        print(f"[Trajectory Reference] - {method.capitalize()}".center(80))
+        print("="*80)
+        
         if GENERATOR == "Newton-Extended":
             xx_star, uu_star, time = generate_optimal_trajectory_extended(
                 model = model, armijo_params=armijo_params, optimal_gen_params=optimal_gen_params, reference_trajectory_params=reference_trajectory_params, debug_params=debug_params, folder=folder_generation)
@@ -193,13 +207,3 @@ if __name__ == "__main__":
         print(f"Completed task '{task}'.\n")
     
     print("All tasks completed.")
-
-
-
-
-# frasco: LQR
-# mazza: plots, MPC
-
- 
-
-

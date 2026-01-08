@@ -124,33 +124,21 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     T_pred = tracking_params['T_pred']
     QQt = tracking_params['QQt']
     RRt = tracking_params['RRt']
-    u_max = np.max(np.abs(uu_star))
-    u_min = -u_max
-
+    u_max = np.max(np.abs(uu_star))                                                             # Input constraints: we do not exceed the optimal input limits 
+    u_min = -u_max                                                                              # Symmetric limits: electric motor settings              
 
     # Debug parameters
     plot_flag = debug_params['plot_flag']
     debug_print = debug_params['debug_print']
 
-
-    #######################################
-    # Algorithm parameters
-    #######################################
-
     dict_ioptions = {
-        "print_time": True,                 # Show computation time
-        "ipopt.print_level": 1,             # Level of detail (0 to 12)
-        "ipopt.sb": "no",                   # Remove Ipopt banner at start
-        "ipopt.derivative_test": "first-order", # Utility to check if gradients are correct
+        "print_time": True,                                                                     # Show computation time
+        "ipopt.print_level": 1,                                                                 # Level of detail (0 to 12)
+        "ipopt.sb": "no",                                                                       # Remove Ipopt banner at start
+        "ipopt.derivative_test": "first-order",                                                 # Utility to check if gradients are correct
     }
 
-    
     #######################################
-    # Optimal trajectory
-    #######################################
-
-
-    
 
     if plot_flag:
         plots.show_traj(time, xx_star, uu_star, eq_pair1, eq_pair2, title="Optimal trajectory")
@@ -169,18 +157,13 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     # 1. Linearize system along optimal trajectory
     #######################################
 
-
-    # Linearization along optimal trajectory
-
     for tt in range(TT):
         At[:, :, tt], Bt[:, :, tt] = model.discrete_jacobian(xx_star[:,tt], uu_star[:,tt])
 
 
     #######################################
-    # 2. Setup problem over finite horizon
+    # 2. Calculate terminal cost matrix
     #######################################
-
-
 
     # Terminal matrices
     A_final, B_final = At[:, :, -1], Bt[:, :, -1]
@@ -188,7 +171,7 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
     QQT = ctrl.dare(A_final, B_final, QQt, RRt)[0]  # Terminal cost weight matrix
 
     #######################################
-    # 3. Track the optimal trajcetory with controllers
+    # 3. Apply disturbance to initial state
     #######################################
 
     # Initial state
@@ -196,11 +179,6 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
         epsilon = np.random.uniform(-0.1, 0.1, size=(4,))  # initial state perturbation
     else:
         epsilon = np.zeros(4)
-
-
-    #######################################
-    # Model Predictive Control
-    #######################################
 
     xx_mpc = np.zeros((ns,TT,runs))     # State seq.
     uu_mpc = np.zeros((ni,TT,runs))     # Input seq.
@@ -211,6 +189,10 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
 
         x0[:,rr] = xx_star[:,0] + epsilon_scaled # initial state
         xx_mpc[:,0, rr] = x0[:, rr]
+
+    #################################################
+    # 4. Solve the Model Predictive Control algorithm
+    #################################################
 
         for tt in range(TT - 1):
             x_curr = xx_mpc[:, tt, rr] # Measure initial condition
@@ -229,13 +211,13 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
                 padding_len = T_pred - available_steps
                 
                 # Took the slices of available data
-                At_slice = At[:, :, tt:]
-                Bt_slice = Bt[:, :, tt:]
-                x_ref_slice = xx_star[:, tt:]
-                u_ref_slice = uu_star[:, tt:]
+                At_slice = At[:, :, tt:]                                                            # Slices of matrices from current time to end
+                Bt_slice = Bt[:, :, tt:]                                                            # Slices of matrices from current time to end
+                x_ref_slice = xx_star[:, tt:]                                                       # State reference slice                               
+                u_ref_slice = uu_star[:, tt:]                                                       # Input reference slice        
                 
-                # Pad the last available data
-                At_pad = np.repeat(At[:, :, -1:], padding_len, axis=2)
+                # Pad the last available data if not enough steps
+                At_pad = np.repeat(At[:, :, -1:], padding_len, axis=2)                                      
                 Bt_pad = np.repeat(Bt[:, :, -1:], padding_len, axis=2)
                 x_ref_pad = np.repeat(xx_star[:, -1:], padding_len, axis=1)
                 u_ref_pad = np.repeat(uu_star[:, -1:], padding_len, axis=1)
@@ -252,13 +234,18 @@ def trajectory_tracking_MPC(model:DoublePendulumFlexible, optimal_trajectory_par
                 umax=u_max, umin=u_min, T_pred=T_pred, ipopt_opts=dict_ioptions
             )
             
+        
+    ################################################
+    # 5. Store results from MPC and update + rollout
+    ################################################
+    
             if res[0] is not None:
-                du0 = res[0] # Questa è la deviazione ottima calcolata
+                du0 = res[0] # we take only the first control deviation
                 
-                # CONTROLLO REALE = Riferimento + Deviazione MPC
+                # new control input
                 uu_mpc[:, tt, rr] = uu_star[:, tt] + du0
                 
-                # Evoluzione sistema
+                # new rollout
                 xx_mpc[:, tt+1, rr] = model.discrete_dynamics(xx_mpc[:, tt, rr], uu_mpc[:, tt, rr])
             else:
                 print(f"MPC failed at step {tt} at run {rr}")

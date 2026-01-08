@@ -510,6 +510,7 @@ def trajectory_comparison_mid(
         ax.plot(time, data_total[idx, :, max_iters-1], color=c_final, linewidth=2.0, 
                 label='Final Optimal')
         
+        # 4. Plot Equilibrium Lines
         for i, eq_pair in enumerate([eq_pair1, eq_pair2]):
             x_eq, u_eq = eq_pair
             val = u_eq[0] if key == "input" else x_eq[idx]
@@ -568,9 +569,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
     folder : str, optional
         Folder to save the plots. Default is None.
     """
-
     # Unpack equilibrium pairs
-    # Assuming structure is x_eq = [q1, q2], u_eq = scalar
     x_eq1, u_eq1 = eq_pair1
     x_eq2, u_eq2 = eq_pair2
 
@@ -594,6 +593,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
     q2_all = data_combined[:, 1]
     u_all  = data_combined[:, 2]
 
+    # 2D Plots
     if plot_2d:
         fig2d, axs = plt.subplots(1, 3, figsize=(18, 5))
         fig2d.suptitle('Equilibrium Manifold Analysis', fontsize=18, fontweight='bold')
@@ -654,7 +654,7 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
         if folder is not None:
             fig2d.savefig(f"{folder}/equilibrium_manifold_2d.png", dpi=300, bbox_inches='tight')
         
-
+    # 3D Plot
     if plot_3d:
         fig3d = plt.figure(figsize=(10, 8))
         ax = fig3d.add_subplot(111, projection='3d')
@@ -686,11 +686,11 @@ def equilibrium_manifold(manifold_data: dict, eq_pair1: tuple, eq_pair2: tuple, 
         # save figure
         if folder is not None:
             fig3d.savefig(f"{folder}/equilibrium_manifold_3d.png", dpi=300, bbox_inches='tight')
-        
+
+    # Show plots if requested 
     if (plot_2d or plot_3d) and plot_flag:
         plt.show()
         
-
 def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm: float, c: float, stepsizes: list, costs_armijo: list, kk: int, plot: bool = True, save: bool = False, folder: str = None) -> None:
     """
     Plots the Armijo descent direction and the costs associated with different stepsizes.
@@ -715,36 +715,39 @@ def armijo_descent(steps: np.ndarray, costs: np.ndarray, JJ: float, descent_arm:
         Current iteration index.
     plot_flag : bool, optional
         Whether to display the plot. Default is True.
+    save : bool, optional
+        Whether to save the plot. Default is False.
     folder : str, optional
         Folder to save the plot. Default is None.
     """
+    # Setup figure
     plt.figure("Armijo Stepsize Selection")
-    
     plt.clf()
 
+    # Plotting the Armijo conditions
     plt.plot(steps, costs, color=colors['green'], label='$J(\\mathbf{u}^k - \\gamma \\cdot d^k)$')
     plt.plot(steps, JJ + descent_arm*steps, color=colors['red'], label='$J(\\mathbf{u}^k) - \\gamma \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
     plt.plot(steps, JJ + c*descent_arm*steps, color=colors['green'], linestyle='dashed', label='$J(\\mathbf{u}^k) - \\gamma \\cdot c \\cdot \\nabla J(\\mathbf{u}^k)^{\\top} \\cdot d^k$')
 
     plt.scatter(stepsizes, costs_armijo, marker='*') # plot the tested stepsize
     
-    
+    # Plot settings
     plt.grid()
     plt.xlabel('stepsize ($\\gamma$)')
     plt.title(f'Armijo stepsize selection - Iteration {kk}')
     plt.legend()
 
+    # Show the plot
     if plot:
         plt.draw()
         plt.pause(0.001) #when saving it is not needed  
     
+    # Save the plot
     if folder is not None and save:
         if not os.path.exists(f"{folder}/armijo"):
             os.makedirs(f"{folder}/armijo")
 
         plt.savefig(f"{folder}/armijo/armijo_iteration_{kk}.png", dpi=300, bbox_inches='tight')
-    
-    
     
 def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool = True, folder: str = None) -> None:
     """
@@ -756,11 +759,14 @@ def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None,
         Array containing the descent direction norms.
     iters : int
         Number of iterations to plot.
+    phase_iters : list, optional
+        List of iteration indices where phase changes occur. Default is None.
     plot_flag : bool, optional
         Whether to display the plot. Default is True.
     folder : str, optional
         Folder to save the plot. Default is None.
     """
+    # Setup figure
     plt.figure('Descent direction', figsize=(10, 6))
     plt.plot(np.arange(iters), descent[:iters], linewidth=2, color=colors['blue'])
     plt.xlabel('Iteration $k$', fontsize=14)
@@ -769,9 +775,9 @@ def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None,
     plt.yscale('log')
     plt.grid(alpha=0.4)
 
-
     max_val = np.max(descent[:iters])
-    # plot phases changes if provided
+
+    # Plot phases changes if provided
     if phase_iters is not None:
         for phase_iter in phase_iters:
             plt.axvline(x=phase_iter, color='grey', linestyle='--', alpha=0.7)
@@ -779,9 +785,11 @@ def descent_direction(descent: np.ndarray, iters: int, phase_iters: list = None,
                  f'Phase {phase_iters.index(phase_iter)}', 
                  rotation=90, color='grey', alpha=0.7)
     
-    
+    # Show plot if requested
     if plot_flag:
         plt.show(block = False)
+
+    # Save plot if folder is provided
     if folder is not None:
         plt.savefig(f"{folder}/descent_direction.png", dpi=300, bbox_inches='tight')
 
@@ -793,15 +801,16 @@ def cost(JJ: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool =
     ----------
     JJ : np.ndarray
         Array containing the cost values.
-    max_iters : int
-        Maximum number of iterations to plot.
+    iters : int
+        Number of iterations to plot.
+    phase_iters : list, optional
+        List of iteration indices where phase changes occur. Default is None.
     plot_flag : bool, optional
         Whether to display the plot. Default is True.
     folder : str, optional
         Folder to save the plot. Default is None.
     """
-
-    
+    # Setup figure
     plt.figure('Cost', figsize=(10, 6))
     plt.plot(np.arange(iters-1), JJ[:iters-1], linewidth=2, color=colors['orange'])
     plt.xlabel('Iteration $k$', fontsize=14)
@@ -810,9 +819,7 @@ def cost(JJ: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool =
     plt.yscale('log')
     plt.grid(alpha=0.4)
 
-    
-
-    # plot phases changes if provided
+    # Plot phases changes if provided
     max_val = np.max(JJ[:iters-1])
     if phase_iters is not None:
         for phase_iter in phase_iters:
@@ -821,9 +828,11 @@ def cost(JJ: np.ndarray, iters: int, phase_iters: list = None, plot_flag: bool =
                  f'Phase {phase_iters.index(phase_iter)}', 
                  rotation=90, color='grey', alpha=0.7)
     
+    # Show plot if requested
     if plot_flag:
         plt.show(block=False)
 
+    # Save plot if folder is provided
     if folder is not None:
         plt.savefig(f"{folder}/cost_function.png", dpi=300, bbox_inches='tight')
 
@@ -865,6 +874,7 @@ def draw_pendulum_configuration(ax: plt.Axes, p1: np.ndarray, p2: np.ndarray, pc
     label : str
         Label for the pendulum configuration.
     """
+    # Determine link color and alpha based on label
     if 'equilibrium' in label.lower():
         link_color = colors['grey']
         alpha = 0.2
@@ -874,6 +884,8 @@ def draw_pendulum_configuration(ax: plt.Axes, p1: np.ndarray, p2: np.ndarray, pc
     elif 'current' in label.lower() or 'optimal' in label.lower():
         link_color = colors['blue']
         alpha = 1.0
+    
+    # ==== Draw links and joints ====
     ax.plot([0, p1[0]], [0, p1[1]], color=link_color, lw=3, alpha=alpha, label=label) # Link 1
     ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=link_color, lw=3, alpha=alpha) # Link 2
     ax.scatter([0.0], [0.0], color=colors['black'], s=20, zorder=5, alpha=alpha) # Joint 1
@@ -896,6 +908,7 @@ def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, 
     folder : str, optional
         Folder to save the plot. Default is None.
     """
+    # Setup figure
     plt.figure('Gradient Error', figsize=(10, 6))
     plt.plot(np.arange(iters), grad_errors[:iters], linewidth=2, color=colors['purple'])
     plt.xlabel('Iteration $k$', fontsize=14)
@@ -903,8 +916,10 @@ def gradient_error(grad_errors: np.ndarray, iters: int, plot_flag: bool = True, 
     plt.title('Gradient Error over Iterations', fontsize=16)
     plt.grid(alpha=0.4)
     
+    # Show plot if requested
     if plot_flag:
         plt.show()
 
+    # Save plot if folder is provided
     if folder is not None:
         plt.savefig(f"{folder}/gradient_error.png", dpi=300, bbox_inches='tight')

@@ -20,6 +20,7 @@ import scipy as sp
 import matplotlib.pyplot as plt 
 import signal
 import os
+import control as ctrl
 
 # Custom libraries
 # - Model
@@ -33,8 +34,6 @@ import solver as solver
 import animation as anim
 # - Plots
 import plots as plots
-# - Control
-import control as ctrl
 # - Model
 from model import DoublePendulumFlexible
 
