@@ -35,7 +35,7 @@ Given the non-convex nature of the optimization landscape, the solver requires a
     % Second Subfigure
     \begin{subfigure}[b]{0.8\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{figs/branch4/traj_gen_newton/elbow_up/reference_trajectory.png}
+        \includegraphics[width=\linewidth]{figs/code/traj_gen_newton/elbow_up/reference_trajectory.png}
         \caption{Poly 5 Reference}
         \label{fig:ref_poly5}
     \end{subfigure}
@@ -49,28 +49,28 @@ We defined a set of standard maneuvers of varying complexity to evaluate the gen
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/elbow_up/double_pendulum_envelope.png}
+    \includegraphics[width=0.75\linewidth]{figs/code/traj_gen_newton/elbow_up/double_pendulum_envelope.png}
     \caption{Elbow Up}
     \label{fig:task_elbowup}
 \end{figure}
     
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/swing_up/double_pendulum_envelope.png}
+    \includegraphics[width=0.75\linewidth]{figs/code/traj_gen_newton/swing_up/double_pendulum_envelope.png}
     \caption{Swing Up}
     \label{fig:task_swingup}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/swing_down/double_pendulum_envelope.png}
+    \includegraphics[width=0.75\linewidth]{figs/code/traj_gen_newton/swing_down/double_pendulum_envelope.png}
     \caption{Swing Down}
     \label{fig:task_swingdown}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\linewidth]{figs/branch4/traj_gen_newton/complex_maneuver/double_pendulum_envelope.png}
+    \includegraphics[width=0.75\linewidth]{figs/code/traj_gen_newton/complex_maneuver/double_pendulum_envelope.png}
     \caption{Complex Maneuver}
     \label{fig:task_complex}
     \caption{Visualization of the defined control tasks and their target equilibria.}
@@ -95,21 +95,21 @@ Conversely, the \textbf{Polynomial (Poly 5)} reference offers a $C^2$-continuous
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{figs/branch4/traj_gen_newton/swing_up/trajectory_comparison_mid.png}
+    \includegraphics[width=0.7\linewidth]{figs/code/traj_gen_newton/swing_up/trajectory_comparison_mid.png}
     \caption{Optimization results: Poly 5 reference applied to the Swing Up task.}
     \label{fig:newton_poly_swing_up}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{figs/branch4/traj_gen_newton/elbow_up/trajectory_comparison_mid.png}
+    \includegraphics[width=0.7\linewidth]{figs/code/traj_gen_newton/elbow_up/trajectory_comparison_mid.png}
     \caption{Optimization results: Poly 5 reference applied to the Elbow Up task.}
     \label{fig:newton_poly_elbow_up}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{figs/branch4/traj_gen_newton/swing_down/trajectory_comparison_mid.png}
+    \includegraphics[width=0.7\linewidth]{figs/code/traj_gen_newton/swing_down/trajectory_comparison_mid.png}
     \caption{Optimization results: Poly 5 reference applied to the Swing Down task.}
     \label{fig:newton_poly_swing_down}
 \end{figure}
@@ -153,7 +153,7 @@ The issue of local minima is illustrated in Figure \ref{fig:optimal_trajectory_s
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{figs/branch4/traj_gen_newton/custom5/trajectory_comparison_mid.png}
+    \includegraphics[width=0.8\linewidth]{figs/code/traj_gen_newton/complex_maneuver/trajectory_comparison_mid.png}
     \caption{Illustration of the "Local Minimum Trap" where the solver converges to a suboptimal trajectory rather than the target equilibrium.}
     \label{fig:optimal_trajectory_suboptimal}
 \end{figure}
@@ -162,14 +162,14 @@ Crucially, standard convergence metrics can be misleading in this scenario. Figu
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{figs/branch4/traj_gen_newton/custom5/cost_function.png}
+    \includegraphics[width=0.8\linewidth]{figs/code/traj_gen_newton/complex_maneuver/cost_function.png}
     \caption{Cost function evolution during failure. The cost converges to a steady value, concealing the failure to reach the target.}
     \label{fig:cost_function_complex}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{figs/branch4/traj_gen_newton/custom5/descent_direction.png}
+    \includegraphics[width=0.8\linewidth]{figs/code/traj_gen_newton/complex_maneuver/descent_direction.png}
     \caption{Descent direction norm. The algorithm mathematically converges (norm $\to 0$), but to an incorrect solution.}
     \label{fig:descent_complex}
 \end{figure}
@@ -200,7 +200,7 @@ The efficacy of the Dynamic Horizon Extension is visually demonstrated in the ev
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/trajectory_comparison_mid_extended.png}
+    \includegraphics[width=1.0\linewidth]{figs/code/traj_gen_newton_extended/complex_maneuver/trajectory_comparison_mid_extended.png}
     \caption{Evolution of the trajectory during the Dynamic Horizon Extension process. The system incrementally "learns" the complex maneuver.}
     \label{fig:horizon_extension}
 \end{figure}
@@ -209,14 +209,14 @@ Figure \ref{fig:horizon_extension} illustrates the iterative learning process fo
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/cost_function.png}
+    \includegraphics[width=0.8\linewidth]{figs/code/traj_gen_newton_extended/complex_maneuver/cost_function.png}
     \caption{Step-wise evolution of the cost function. Each "step" corresponds to a horizon extension.}
     \label{fig:horizon_extension_cost}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{figs/branch5/traj_gen_newton/complex_maneuver/descent_direction.png}
+    \includegraphics[width=0.8\linewidth]{figs/code/traj_gen_newton_extended/complex_maneuver/descent_direction.png}
     \caption{Norm of the descent direction. Spikes indicate the start of a new extension phase, followed by rapid convergence.}
     \label{fig:horizon_extension_descent}
 \end{figure}
@@ -231,21 +231,21 @@ The efficacy of the Dynamic Horizon Extension algorithm is further evidenced by 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{figs/branch5/traj_gen_newton/swing_up/trajectory_comparison_mid_extended.png}
+    \includegraphics[width=0.7\linewidth]{figs/code/traj_gen_newton_extended/swing_up/trajectory_comparison_mid_extended.png}
     \caption{Optimization results: Poly 5 reference applied to the Swing Up task.}
     \label{fig:newton_extended_swing_up}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{figs/branch5/traj_gen_newton/elbow_up/trajectory_comparison_mid_extended.png}
+    \includegraphics[width=0.7\linewidth]{figs/code/traj_gen_newton_extended/elbow_up/trajectory_comparison_mid_extended.png}
     \caption{Optimization results: Poly 5 reference applied to the Elbow Up task.}
     \label{fig:newton_extended_elbow_up}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{figs/branch5/traj_gen_newton/swing_down/trajectory_comparison_mid_extended.png}
+    \includegraphics[width=0.7\linewidth]{figs/code/traj_gen_newton_extended/swing_down/trajectory_comparison_mid_extended.png}
     \caption{Optimization results: Poly 5 reference applied to the Swing Down task.}
     \label{fig:newton_extended_swing_down}
 \end{figure}
