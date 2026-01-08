@@ -296,7 +296,7 @@ def generate_optimal_trajectory_extended(model: DoublePendulumFlexible, optimal_
                 log_str = (f"Iter: {kk} | "
                     f"Cost: {JJ[kk]:.6e} | "
                     f"Stepsize: {stepsize:.3e} | "
-                    f"Descent: {descent_arm[kk]:.6e}")
+                    f"Descent: {descent[kk]:.6e}")
                 print(f"\r{log_str}".ljust(120), end="", flush=True)
             else:
                 dots = "." * (kk % 4)

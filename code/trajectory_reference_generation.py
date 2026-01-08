@@ -122,7 +122,7 @@ def init_trajectories(model: DoublePendulumFlexible):
             'start': configurations['U-U'],
             'end': configurations['D-D'],
             'time': 10.0,
-            'time_ext': 4.0,
+            'time_ext': 10.0,
             'desc': 'Swing down from Up-Up to Down-Down'
         },
         'complex_maneuver': { 
