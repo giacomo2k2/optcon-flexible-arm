@@ -1,1 +1,18 @@
-.venv
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# LaTeX build files
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
