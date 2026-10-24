@@ -20,6 +20,21 @@ Tasks include `swing_up`, `elbow_up`, `swing_down`, `complex_maneuver`, `topside
 
 The full write-up is in [`report/report_group_10.pdf`](report/report_group_10.pdf).
 
+<table>
+  <tr>
+    <td align="center" width="40%"><img src="report/figs/misc/DoublePendulumModel.png" width="260" alt="Flexible double pendulum model"><br><sub>Model: actuated first joint (τ), passive second joint with nonlinear stiffness k(θ₂)</sub></td>
+    <td align="center" width="60%"><img src="report/figs/code/traj_gen_newton_extended/complex_maneuver/equilibrium_manifold_3d.png" width="420" alt="3D equilibrium surface"><br><sub>Equilibrium manifold: torque needed to hold each configuration</sub></td>
+  </tr>
+</table>
+
+## Results
+
+| Newton-Extended: complex maneuver | LQR tracking: swing-up |
+|:---:|:---:|
+| <img src="report/figs/code/traj_gen_newton_extended/complex_maneuver/comparison_animation.gif" width="380"> | <img src="report/figs/code/traj_track_LQR/swing_up/comparison_animation.gif" width="380"> |
+| <img src="report/figs/code/traj_gen_newton_extended/complex_maneuver/cost_function.png" width="380"> | <img src="report/figs/code/traj_track_LQR/swing_up/tracking_error_analysis.png" width="380"> |
+| Cost over Newton iterations (each dashed line is a horizon extension) | Tracking error under perturbed initial conditions |
+
 ## Running
 
 ```bash
